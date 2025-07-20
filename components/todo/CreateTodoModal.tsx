@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Select from '@radix-ui/react-select'
-import { X, ChevronDown, Sparkles, Calendar } from 'lucide-react'
+import { X, ChevronDown, Sparkles, Calendar, Link } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useTodoStore } from '@/store/todoStore'
 import { Urgency } from '@/types'
@@ -22,6 +22,9 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
   const [deadline, setDeadline] = useState<string>('')
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSlackUrl, setIsSlackUrl] = useState(false)
+  const [slackData, setSlackData] = useState<{ text: string; url: string } | null>(null)
+  const [isLoadingSlack, setIsLoadingSlack] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,8 +32,9 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
 
     setIsSubmitting(true)
     try {
+      const finalBody = slackData ? slackData.text : body.trim()
       await createTodo({
-        body: body.trim(),
+        body: finalBody,
         title: title.trim() || undefined,
         urgency,
         deadline: deadline || getDeadlineFromUrgency(urgency),
@@ -41,6 +45,8 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
       setTitle('')
       setUrgency('today')
       setDeadline('')
+      setSlackData(null)
+      setIsSlackUrl(false)
       onClose()
     } finally {
       setIsSubmitting(false)
@@ -48,14 +54,15 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
   }
 
   const generateTitle = async () => {
-    if (!body.trim()) return
+    const content = slackData ? slackData.text : body.trim()
+    if (!content) return
 
     setIsGeneratingTitle(true)
     try {
       const response = await fetch('/api/generate-title', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: body }),
+        body: JSON.stringify({ content }),
       })
       
       if (response.ok) {
@@ -66,6 +73,44 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
       console.error('Failed to generate title:', error)
     } finally {
       setIsGeneratingTitle(false)
+    }
+  }
+
+  const isSlackUrlFormat = (text: string) => {
+    return /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/[A-Z0-9]+\/p[0-9]+/.test(text)
+  }
+
+  const handleBodyChange = (value: string) => {
+    setBody(value)
+    const isSlack = isSlackUrlFormat(value.trim())
+    setIsSlackUrl(isSlack)
+    
+    if (!isSlack && slackData) {
+      setSlackData(null)
+    }
+  }
+
+  const fetchSlackMessage = async () => {
+    if (!isSlackUrl || !body.trim()) return
+
+    setIsLoadingSlack(true)
+    try {
+      const response = await fetch('/api/slack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slackUrl: body.trim() }),
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setSlackData({ text: data.text, url: data.url })
+      } else {
+        console.error('Failed to fetch Slack message')
+      }
+    } catch (error) {
+      console.error('Failed to fetch Slack message:', error)
+    } finally {
+      setIsLoadingSlack(false)
     }
   }
 
@@ -90,14 +135,39 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 本文 <span className="text-red-500">*</span>
               </label>
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={4}
-                placeholder="タスクの内容を入力してください..."
-                required
-              />
+              <div className="space-y-2">
+                <textarea
+                  value={body}
+                  onChange={(e) => handleBodyChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={4}
+                  placeholder="タスクの内容またはSlackURLを入力してください..."
+                  required
+                />
+                {isSlackUrl && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center text-sm text-blue-600">
+                      <Link className="w-4 h-4 mr-1" />
+                      SlackURLが検出されました
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={fetchSlackMessage}
+                      disabled={isLoadingSlack}
+                    >
+                      {isLoadingSlack ? '取得中...' : 'メッセージ取得'}
+                    </Button>
+                  </div>
+                )}
+                {slackData && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="text-sm text-blue-700 font-medium mb-1">Slackメッセージ:</div>
+                    <div className="text-sm text-gray-700">{slackData.text}</div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -116,7 +186,7 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
                   type="button"
                   variant="secondary"
                   onClick={generateTitle}
-                  disabled={!body.trim() || isGeneratingTitle}
+                  disabled={(!body.trim() && !slackData) || isGeneratingTitle}
                 >
                   <Sparkles className="w-4 h-4 mr-1" />
                   生成
@@ -183,7 +253,7 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
               <Button
                 type="submit"
                 variant="primary"
-                disabled={!body.trim() || isSubmitting}
+                disabled={(!body.trim() && !slackData) || isSubmitting}
                 className="flex-1"
               >
                 作成

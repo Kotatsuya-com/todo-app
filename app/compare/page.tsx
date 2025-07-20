@@ -6,20 +6,22 @@ import { Todo, ComparisonPair } from '@/types'
 import { Button } from '@/components/ui/Button'
 import { ArrowLeft, ArrowRight, SkipForward, CheckCircle } from 'lucide-react'
 import { TodoCard } from '@/components/todo/TodoCard'
-import { redirect } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 export default function ComparePage() {
   const { user, todos, createComparison, fetchTodos } = useTodoStore()
   const [currentPair, setCurrentPair] = useState<ComparisonPair | null>(null)
   const [comparisonCount, setComparisonCount] = useState(0)
   const [remainingPairs, setRemainingPairs] = useState<ComparisonPair[]>([])
+  const router = useRouter()
 
   useEffect(() => {
     if (!user) {
-      redirect('/')
+      router.push('/')
+      return
     }
     fetchTodos()
-  }, [user, fetchTodos])
+  }, [user, fetchTodos, router])
 
   useEffect(() => {
     // アクティブなTODOのみを対象に比較ペアを生成
@@ -68,7 +70,7 @@ export default function ComparePage() {
   }
 
   const handleFinish = () => {
-    redirect('/')
+    router.push('/')
   }
 
   if (!user) {

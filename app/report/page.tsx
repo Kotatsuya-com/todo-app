@@ -8,7 +8,7 @@ import { Calendar, BarChart3, PieChart } from 'lucide-react'
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { PieChart as RechartsPC, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
-import { redirect } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 type TimeRange = 'day' | 'week' | 'month'
 
@@ -27,12 +27,14 @@ export default function ReportPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('week')
   const [completionData, setCompletionData] = useState<CompletionData[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     if (!user) {
-      redirect('/')
+      router.push('/')
+      return
     }
-  }, [user])
+  }, [user, router])
 
   useEffect(() => {
     if (user) {

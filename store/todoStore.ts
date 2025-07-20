@@ -64,9 +64,9 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       
       if (!user) throw new Error('User not authenticated')
 
-      // 緊急度に基づいて期限を自動設定
+      // 緊急度を期限日に変換（urgencyフィールドは保存しない）
       let deadline = todo.deadline
-      if (!deadline && todo.urgency !== 'later') {
+      if (!deadline && todo.urgency) {
         const now = new Date()
         switch (todo.urgency) {
           case 'now':
@@ -77,13 +77,20 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
             now.setDate(now.getDate() + 1)
             deadline = format(now, 'yyyy-MM-dd')
             break
+          case 'later':
+            // 期限なし（null）
+            deadline = null
+            break
         }
       }
+
+      // urgencyフィールドを除外してデータベースに保存
+      const { urgency, ...todoWithoutUrgency } = todo
 
       const { data, error } = await supabase
         .from('todos')
         .insert({
-          ...todo,
+          ...todoWithoutUrgency,
           user_id: user.id,
           deadline,
           status: 'open'
@@ -159,8 +166,10 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
 
       if (updateError) throw updateError
 
-      // 四象限を判定
-      const isUrgent = todo.urgency === 'now' || todo.urgency === 'today'
+      // 四象限を判定（期限ベース）
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const isUrgent = todo.deadline ? new Date(todo.deadline) <= today : false
       const isImportant = todo.importance_score > 0.5
       const quadrant = 
         isUrgent && isImportant ? 'urgent_important' :

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "mkdir -p logs && next dev 2>&1 | tee logs/dev.log",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -15,7 +15,6 @@
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toggle": "^1.0.3",
-    "@supabase/auth-helpers-nextjs": "^0.8.7",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.39.7",
     "clsx": "^2.1.0",
