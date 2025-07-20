@@ -132,6 +132,19 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     try {
       const supabase = createClient()
       
+      // 関連するcomparisonsを削除
+      await supabase
+        .from('comparisons')
+        .delete()
+        .or(`winner_id.eq.${id},loser_id.eq.${id}`)
+      
+      // 関連するcompletion_logを削除
+      await supabase
+        .from('completion_log')
+        .delete()
+        .eq('todo_id', id)
+      
+      // todoを削除
       const { error } = await supabase
         .from('todos')
         .delete()

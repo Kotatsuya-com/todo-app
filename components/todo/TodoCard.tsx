@@ -16,6 +16,19 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
   const { completeTodo, deleteTodo, updateTodo } = useTodoStore()
   const [isDeleting, setIsDeleting] = useState(false)
   const overdue = isOverdue(todo.deadline)
+  
+  // 表示用のタイトル/内容を決定
+  const getDisplayContent = () => {
+    if (todo.title && todo.title.trim()) {
+      return todo.title
+    }
+    // 見出しがない場合は本文の最初の20文字 + ...
+    const plainText = todo.body.replace(/<[^>]*>/g, '').trim()
+    if (plainText.length <= 20) {
+      return plainText
+    }
+    return plainText.substring(0, 20) + '...'
+  }
 
   const handleComplete = async () => {
     await completeTodo(todo.id)
@@ -24,7 +37,12 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
   const handleDelete = async () => {
     if (window.confirm('このタスクを削除してもよろしいですか？')) {
       setIsDeleting(true)
-      await deleteTodo(todo.id)
+      try {
+        await deleteTodo(todo.id)
+      } catch (error) {
+        console.error('Failed to delete todo:', error)
+        setIsDeleting(false)
+      }
     }
   }
 
@@ -49,20 +67,18 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
   }
 
   return (
-    <div className={`
-      bg-white rounded-lg shadow-soft p-4 transition-all duration-200
-      ${todo.status === 'done' ? 'opacity-60' : ''}
-      ${overdue ? 'border-2 border-red-300' : 'border border-gray-200'}
-      ${isDeleting ? 'scale-95 opacity-50' : 'hover:shadow-md'}
-    `}>
-      {todo.title && (
-        <h3 className="font-semibold text-gray-900 mb-2">{todo.title}</h3>
-      )}
-      
-      <div 
-        className="text-gray-600 mb-3 prose prose-sm max-w-none"
-        dangerouslySetInnerHTML={{ __html: linkifyText(todo.body) }}
-      />
+    <div 
+      className={`
+        bg-white rounded-lg shadow-soft p-4 transition-all duration-200 cursor-pointer
+        ${todo.status === 'done' ? 'opacity-60' : ''}
+        ${overdue ? 'border-2 border-red-300' : 'border border-gray-200'}
+        ${isDeleting ? 'scale-95 opacity-50' : 'hover:shadow-md'}
+      `}
+      onClick={onEdit}
+    >
+      <h3 className="font-semibold text-gray-900 mb-3 break-words break-all">
+        {getDisplayContent()}
+      </h3>
 
       <div className="flex items-center gap-2 mb-3">
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${urgencyColors[todo.urgency]}`}>
@@ -78,7 +94,7 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
         {todo.status === 'open' && (
           <>
             {overdue ? (
@@ -111,15 +127,6 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
                   <Check className="w-3 h-3" />
                   完了
                 </Button>
-                {onEdit && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={onEdit}
-                  >
-                    <Edit2 className="w-3 h-3" />
-                  </Button>
-                )}
                 <Button
                   size="sm"
                   variant="ghost"

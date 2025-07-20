@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 import { TodoCard } from '@/components/todo/TodoCard'
+import { EditTodoModal } from '@/components/todo/EditTodoModal'
 import { Button } from '@/components/ui/Button'
 import { Grid3x3, List, Filter } from 'lucide-react'
 import { getQuadrant, isOverdue } from '@/lib/utils'
@@ -13,6 +14,8 @@ export default function DashboardPage() {
   const { user, todos, loading, fetchTodos } = useTodoStore()
   const [viewMode, setViewMode] = useState<'matrix' | 'list'>('matrix')
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
+  const [editTodo, setEditTodo] = useState<Todo | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -98,7 +101,14 @@ export default function DashboardPage() {
               </h3>
               <div className="space-y-3">
                 {todos.map(todo => (
-                  <TodoCard key={todo.id} todo={todo} />
+                  <TodoCard 
+                    key={todo.id} 
+                    todo={todo} 
+                    onEdit={() => {
+                      setEditTodo(todo)
+                      setIsEditModalOpen(true)
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -119,10 +129,26 @@ export default function DashboardPage() {
               return 0
             })
             .map(todo => (
-              <TodoCard key={todo.id} todo={todo} />
+              <TodoCard 
+                key={todo.id} 
+                todo={todo} 
+                onEdit={() => {
+                  setEditTodo(todo)
+                  setIsEditModalOpen(true)
+                }}
+              />
             ))}
         </div>
       )}
+      
+      <EditTodoModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false)
+          setEditTodo(null)
+        }}
+        todo={editTodo}
+      />
     </div>
   )
 }

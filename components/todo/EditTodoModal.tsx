@@ -1,20 +1,58 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { useTodoStore } from '@/store/todoStore'
+import { Todo, Urgency } from '@/types'
 import { getDeadlineFromUrgency } from '@/lib/utils'
 import { TodoForm } from './TodoForm'
 
-interface CreateTodoModalProps {
+interface EditTodoModalProps {
   isOpen: boolean
   onClose: () => void
+  todo: Todo | null
 }
 
-export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
-  const { createTodo } = useTodoStore()
+export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
+  const { updateTodo } = useTodoStore()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [initialValues, setInitialValues] = useState({
+    title: '',
+    body: '',
+    urgency: 'today' as Urgency,
+    deadline: ''
+  })
+
+  // todoが変更されたときに初期値を設定
+  useEffect(() => {
+    if (todo && isOpen) {
+      setInitialValues({
+        title: todo.title || '',
+        body: todo.body || '',
+        deadline: todo.deadline || '',
+        urgency: (() => {
+          // deadline から urgency を推定
+          if (todo.deadline) {
+            const today = new Date().toISOString().split('T')[0]
+            const tomorrow = new Date()
+            tomorrow.setDate(tomorrow.getDate() + 1)
+            const tomorrowStr = tomorrow.toISOString().split('T')[0]
+            
+            if (todo.deadline === today) {
+              return 'today'
+            } else if (todo.deadline === tomorrowStr) {
+              return 'tomorrow'
+            } else {
+              return 'later'
+            }
+          } else {
+            return 'later'
+          }
+        })()
+      })
+    }
+  }, [todo, isOpen])
 
   const handleSubmit = async (data: {
     title: string
@@ -23,6 +61,8 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
     deadline: string
     slackData: { text: string; url: string } | null
   }) => {
+    if (!todo) return
+
     setIsSubmitting(true)
     try {
       let finalBody = data.body
@@ -34,13 +74,12 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
           finalBody = data.slackData.text
         }
       }
-      await createTodo({
+      await updateTodo(todo.id, {
         body: finalBody,
         title: data.title || undefined,
-        urgency: data.urgency as any,
         deadline: data.deadline || getDeadlineFromUrgency(data.urgency as any),
       })
-      
+
       onClose()
     } finally {
       setIsSubmitting(false)
@@ -51,6 +90,8 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
     onClose()
   }
 
+  if (!todo) return null
+
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleClose}>
       <Dialog.Portal>
@@ -58,7 +99,7 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
         <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg w-full max-w-md p-6 z-50 max-h-[90vh] overflow-y-auto">
           <div className="flex items-center justify-between mb-6">
             <Dialog.Title className="text-lg font-semibold text-gray-900">
-              新規タスク作成
+              タスクを編集
             </Dialog.Title>
             <Dialog.Close className="text-gray-400 hover:text-gray-600">
               <X className="w-5 h-5" />
@@ -66,9 +107,14 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
           </div>
 
           <TodoForm
+            key={`${todo.id}-${isOpen}`} // todoが変更されたときにフォームをリセット
+            initialTitle={initialValues.title}
+            initialBody={initialValues.body}
+            initialUrgency={initialValues.urgency}
+            initialDeadline={initialValues.deadline}
             onSubmit={handleSubmit}
             onCancel={handleClose}
-            submitLabel="作成"
+            submitLabel="保存"
             isSubmitting={isSubmitting}
           />
         </Dialog.Content>
