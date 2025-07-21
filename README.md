@@ -51,6 +51,15 @@ cp .env.local.example .env.local
 
 `.env.local`を編集：
 
+**⚠️ 重要**: Slack Event API機能を使用する場合、Service Role Keyの設定が必須です。
+
+```bash
+# 1. ローカルSupabaseのキーを取得
+npm run db:status
+
+# 2. 表示された anon key と service_role key を下記に設定
+```
+
 ```env
 # ローカルSupabase（デフォルト設定）
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
@@ -65,7 +74,13 @@ SLACK_BOT_TOKEN=your-slack-bot-token
 SLACK_SIGNING_SECRET=your-slack-signing-secret
 
 # ngrok（Slack Webhook開発用、オプション）
-NGROK_AUTHTOKEN=your-ngrok-authtoken-here
+# 注意: 認証トークンは `ngrok config add-authtoken` での設定を推奨
+# NGROK_AUTHTOKEN=your-ngrok-authtoken-here
+
+# ローカル開発用Supabase Service Role Key（重要）
+# 以下のコマンドで取得: npm run db:status
+# service_role key の値をコピーして設定してください
+SUPABASE_SERVICE_ROLE_KEY=your-local-supabase-service-role-key
 ```
 
 ### ステップ3: アプリケーションの起動
@@ -79,6 +94,11 @@ npm run dev
 - ローカルSupabaseの起動
 - データベースマイグレーションの実行
 - Next.js開発サーバーの起動
+
+**📧 ローカル環境でのメール認証について**
+- ローカル開発環境では、メール認証がスキップされます（`supabase/config.toml`で設定済み）
+- 新規アカウント作成時に確認メールなしで即座にサインインできます
+- メール送信のテストは `http://localhost:54324` (Inbucket) で確認可能
 
 ### ステップ4: Slack Webhook開発（オプション）
 
@@ -95,17 +115,24 @@ brew install ngrok/ngrok/ngrok
 1. [ngrok公式サイト](https://ngrok.com/download)からダウンロード
 2. ダウンロードしたファイルを解凍し、PATHの通った場所に配置
 
-#### ngrok認証設定（推奨）
+#### ngrok認証設定（必須）
 
+**推奨方法: ngrok config（永続設定）**
 ```bash
 # ngrokアカウント作成後、認証トークンを設定
 ngrok config add-authtoken YOUR_AUTHTOKEN
 ```
 
-または`.env.local`に設定：
+**代替方法: 環境変数（一時設定）**
 ```env
+# .env.localに設定（注意: config設定が優先される）
 NGROK_AUTHTOKEN=your-ngrok-authtoken-here
 ```
+
+**⚠️ 重要**: 
+- `ngrok config add-authtoken`での設定が最も確実です
+- 環境変数のみの設定では認証エラーが発生する場合があります
+- 既に`ngrok config`で設定済みの場合、環境変数は無視される場合があります
 
 #### Webhook開発環境の起動
 

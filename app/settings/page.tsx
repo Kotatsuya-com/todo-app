@@ -53,7 +53,7 @@ export default function SettingsPage() {
         .upsert({
           id: user.id,
           slack_user_id: slackUserId.trim() || null,
-          display_name: user.email,
+          display_name: user.display_name,
         })
 
       if (error) {

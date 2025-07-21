@@ -187,6 +187,8 @@ CREATE TRIGGER on_auth_user_created
 - **Testing Message Retrieval**: Use real Slack URLs in development
 - **Testing Webhooks**: Use `npm run dev:webhook` with ngrok
 - **Event Testing**: Create test Slack workspace for safe emoji reaction testing
+- **Debugging**: Check server logs for detailed reaction processing information
+- **User Setup**: Ensure Slack User ID is configured in app settings for reaction automation
 
 ### Production Deployment
 

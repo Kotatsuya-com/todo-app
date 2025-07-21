@@ -65,7 +65,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       if (!user) throw new Error('User not authenticated')
 
       // 緊急度を期限日に変換（urgencyフィールドは保存しない）
-      let deadline = todo.deadline
+      let deadline: string | undefined = todo.deadline
       if (!deadline && todo.urgency) {
         const now = new Date()
         switch (todo.urgency) {
@@ -78,8 +78,8 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
             deadline = format(now, 'yyyy-MM-dd')
             break
           case 'later':
-            // 期限なし（null）
-            deadline = null
+            // 期限なし（undefined）
+            deadline = undefined
             break
         }
       }
@@ -285,13 +285,13 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     })
 
     // スコアを正規化（0-1の範囲に）
-    const minScore = Math.min(...scores.values())
-    const maxScore = Math.max(...scores.values())
+    const minScore = Math.min(...Array.from(scores.values()))
+    const maxScore = Math.max(...Array.from(scores.values()))
     const range = maxScore - minScore || 1
 
     // データベースを更新
     const supabase = createClient()
-    for (const [todoId, score] of scores.entries()) {
+    for (const [todoId, score] of Array.from(scores.entries())) {
       const normalizedScore = (score - minScore) / range
       await supabase
         .from('todos')
