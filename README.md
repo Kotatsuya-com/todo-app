@@ -82,7 +82,32 @@ npm run dev
 
 ### ステップ4: Slack Webhook開発（オプション）
 
-Slackリアクション機能の開発をする場合：
+Slackリアクション機能の開発をする場合、まずngrokをインストールしてください：
+
+#### ngrokのインストール
+
+**方法1: Homebrew（macOS）**
+```bash
+brew install ngrok/ngrok/ngrok
+```
+
+**方法2: 公式サイトからダウンロード**
+1. [ngrok公式サイト](https://ngrok.com/download)からダウンロード
+2. ダウンロードしたファイルを解凍し、PATHの通った場所に配置
+
+#### ngrok認証設定（推奨）
+
+```bash
+# ngrokアカウント作成後、認証トークンを設定
+ngrok config add-authtoken YOUR_AUTHTOKEN
+```
+
+または`.env.local`に設定：
+```env
+NGROK_AUTHTOKEN=your-ngrok-authtoken-here
+```
+
+#### Webhook開発環境の起動
 
 ```bash
 # ngrokを使ったWebhook開発環境
@@ -90,6 +115,21 @@ npm run dev:webhook
 ```
 
 起動後に表示されるWebhook URLをSlack App設定に登録してください。
+
+#### ngrok不要での開発
+
+Slackリアクション機能を使わない場合、通常のローカル開発環境で十分です：
+
+```bash
+# ngrok不要の通常開発
+npm run dev
+```
+
+この場合、以下の機能は使用できません：
+- Slackリアクション自動タスク化
+- Slack Event API
+
+その他の機能（Slack URL取得、タスク作成、AI見出し生成等）は正常に動作します。
 
 ---
 
@@ -901,9 +941,73 @@ npm install
 ```
 
 ### ngrok関連
+
+#### 接続エラー（ECONNREFUSED 127.0.0.1:4040）
+```bash
+# エラー例
+❌ Failed to start development environment: connect ECONNREFUSED 127.0.0.1:4040
+```
+
+**原因と解決方法：**
+
+1. **ngrok未インストール**
+```bash
+# macOSの場合
+brew install ngrok/ngrok/ngrok
+
+# インストール確認
+which ngrok
+```
+
+2. **ngrokプロセスが既に起動中**
+```bash
+# プロセス確認
+ps aux | grep ngrok
+
+# プロセス終了
+pkill ngrok
+```
+
+3. **ポート競合**
+```bash
+# ポート4040が使用中の場合
+lsof -i :4040
+# 競合プロセスを終了してから再実行
+```
+
+4. **認証トークンが未設定**
+```bash
+# 認証トークンを設定
+ngrok config add-authtoken YOUR_AUTHTOKEN
+```
+
+5. **ngrok Node.jsライブラリの問題**
+
+`npm run dev:webhook`が動作しない場合の代替案：
+
+```bash
+# 方法1: 手動でngrokを起動（推奨）
+# ターミナル1: 通常の開発環境
+npm run dev
+
+# ターミナル2: 別ターミナルでngrokを手動起動
+ngrok http 3000
+```
+
+この方法では、ngrokが提供するPublic URLを手動でSlack App設定に登録する必要があります。
+
+```bash
+# 方法2: ngrokパッケージの再インストール
+npm uninstall ngrok
+npm install ngrok@latest
+npm run dev:webhook
+```
+
+#### その他のngrok問題
 - **ngrok認証エラー**: `NGROK_AUTHTOKEN`を`.env.local`に設定
 - **トンネル接続失敗**: Docker Desktopが起動しているか確認
 - **URL変更頻度**: 有料プランで固定サブドメインを使用可能
+- **セッション制限**: 無料プランは同時接続数に制限あり
 
 ### Slack Webhook
 - **Challenge失敗**: URLが正しく設定されているか確認
