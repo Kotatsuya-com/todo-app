@@ -12,6 +12,7 @@ Next.js + Supabase + OpenAI APIを使用したTODO管理アプリケーション
 - [ ] npmまたはyarnが使用可能
 - [ ] Supabaseアカウントを持っている
 - [ ] OpenAIアカウントとAPIキーを持っている
+- [ ] Docker Desktop（ローカル開発用）
 - [ ] Slack Bot Token（Slack連携機能を使用する場合、オプション）
 - [ ] Vercelアカウント（デプロイ用）
 
@@ -26,6 +27,10 @@ cd todo-app
 npm install
 # または
 yarn install
+
+# 3. 環境変数を設定
+cp .env.local.example .env.local
+# .env.localを編集してOpenAI API Keyを設定
 ```
 
 ### ステップ2: Supabaseプロジェクトの作成（10分）
@@ -37,6 +42,20 @@ yarn install
 
 #### データベースセットアップ
 
+**方法1: マイグレーション（推奨）**
+
+1. プロジェクトをリンク：
+```bash
+npx supabase link --project-ref YOUR_PROJECT_REF
+```
+
+2. マイグレーションを実行：
+```bash
+npm run db:migrate
+```
+
+**方法2: 手動セットアップ**
+
 1. 左メニューの「SQL Editor」をクリック
 2. 以下のSQLを実行：
 
@@ -47,6 +66,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY REFERENCES auth.users(id),
   display_name TEXT,
   avatar_url TEXT,
+  slack_user_id TEXT UNIQUE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -128,6 +148,8 @@ CREATE TRIGGER on_auth_user_created
 
 3. Authenticationを有効化し、Email/Passwordプロバイダーを設定
 
+> **注意**: マイグレーション方式を使用する場合、手動SQLは不要です。ファイル `supabase/migrations/20250721085254_initial_schema.sql` に同じ内容が含まれています。
+
 ### ステップ3: 環境変数の設定（3分）
 
 1. `.env.local.example`を`.env.local`にコピー：
@@ -180,13 +202,37 @@ Slack連携機能を使用する場合のみ設定：
 
 ### ステップ4: アプリケーションの起動（1分）
 
+#### ローカル開発（推奨）
 ```bash
+# Docker Desktopを起動してから実行
 npm run dev
-# または
-yarn dev
+```
+
+#### 本番環境接続で開発
+```bash
+# .env.production.localの設定をコピー
+cp .env.production.local .env.local
+npm run dev:quick
 ```
 
 ブラウザで http://localhost:3000 を開きます。
+
+## 🔄 環境の切り替え
+
+### 開発環境 → 本番環境
+```bash
+# 本番環境の設定に切り替え
+cp .env.production.local .env.local
+npm run dev:quick
+```
+
+### 本番環境 → 開発環境
+```bash
+# ローカル環境の設定に戻す
+cp .env.local.example .env.local
+# .env.localでOpenAI API Keyを設定
+npm run dev
+```
 
 ### ステップ5: 初回利用（3分）
 
@@ -377,6 +423,7 @@ todo-app/
 
 #### 🆕 新機能
 - **Slack連携機能**: SlackメッセージのURLからタスクを自動作成
+- **Slackリアクション自動タスク化**: 特定の絵文字でリアクションするとタスクが自動作成
   - チャンネル・DM・スレッド内メッセージに対応
   - メッセージ内容の自動取得とプレビュー表示
   - 適切なBot Token設定で安全にアクセス
@@ -445,9 +492,202 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+## 📝 Slackリアクション自動タスク化
+
+### 概要
+特定の絵文字でSlackメッセージにリアクションすると、そのメッセージが自動的にタスクとして追加される機能です。
+
+### 設定手順
+
+#### 1. Slack App設定
+1. [Slack API](https://api.slack.com/apps)でアプリを作成
+2. **Bot Token Scopes**で以下の権限を追加：
+   - `reactions:read` - リアクション情報の取得
+   - `channels:history` - チャンネルメッセージの取得
+   - `groups:history` - プライベートチャンネルメッセージの取得
+   - `im:history` - DMメッセージの取得
+3. **Event Subscriptions**を有効化
+4. **Request URL**を設定：`https://your-domain.com/api/slack/events`
+5. **Subscribe to bot events**で `reaction_added` を追加
+
+#### 2. 環境変数設定
+```env
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_SIGNING_SECRET=your-signing-secret
+```
+
+#### 3. アプリ内設定
+1. アプリの「設定」ページでSlack User IDを設定
+2. Slack User IDの確認方法：
+   - Slackで自分のプロフィールを開く
+   - 「その他」→「メンバーIDをコピー」
+
+### 対応絵文字と緊急度
+
+| 絵文字 | 名前 | 緊急度 | 期限 |
+|--------|------|--------|------|
+| 📝 | `:memo:` | 今日中 | 今日 |
+| 📋 | `:clipboard:` | 今日中 | 今日 |
+| ✏️ | `:pencil:` | 明日 | 明日 |
+| 🗒️ | `:spiral_note_pad:` | それより後 | なし |
+| 📄 | `:page_with_curl:` | それより後 | なし |
+
+### 動作フロー
+1. ユーザーがSlackメッセージに対象絵文字でリアクション
+2. アプリがEvent APIでイベントを受信
+3. メッセージ内容とURLを自動取得
+4. 絵文字に応じた緊急度でタスクを作成
+5. ダッシュボードに自動表示
+
+### トラブルシューティング
+- **リアクションが反応しない**: Slack User IDが正しく設定されているか確認
+- **メッセージが取得できない**: Bot Tokenに適切な権限があるか確認
+- **イベントが届かない**: Webhook URLが正しく設定されているか確認
+
+## 🔧 ローカル開発でのSlack Webhook設定
+
+### ngrokセットアップ
+
+#### 1. ngrokアカウント作成（推奨）
+```bash
+# 1. https://ngrok.com でアカウント作成
+# 2. 認証トークンを取得
+# 3. .env.localに追加
+NGROK_AUTHTOKEN=your-ngrok-authtoken-here
+```
+
+#### 2. Webhook開発環境の起動
+```bash
+npm run dev:webhook
+```
+
+起動すると以下のような出力が表示されます：
+```
+✅ Development environment ready!
+📍 Local URL: http://localhost:3000
+🌐 Public URL: https://abc123.ngrok.io
+🔗 Slack Webhook URL: https://abc123.ngrok.io/api/slack/events
+```
+
+#### 3. Slack App設定の更新
+
+1. [Slack API](https://api.slack.com/apps)でアプリを選択
+2. **Event Subscriptions**に移動
+3. **Request URL**に表示されたWebhook URLを設定：
+   ```
+   https://abc123.ngrok.io/api/slack/events
+   ```
+4. **Subscribe to bot events**で`reaction_added`が追加されているか確認
+5. **Save Changes**をクリック
+
+#### 4. 開発・テストフロー
+
+1. `npm run dev:webhook`で開発環境を起動
+2. Slack App設定でWebhook URLを更新
+3. Slackでメッセージに📝絵文字でリアクション
+4. 自動的にタスクが作成される
+
+#### 5. 注意事項
+
+- **ngrokのURL変更**: `npm run dev:webhook`を再起動するたびにURLが変わります
+- **Slack設定更新**: 新しいURLが表示されたらSlack App設定を更新してください
+- **認証トークン**: ngrokアカウントなしでも使用可能ですが、セッション制限があります
+
+### トラブルシューティング
+
+#### ngrok関連
+- **ngrok認証エラー**: `NGROK_AUTHTOKEN`を`.env.local`に設定
+- **トンネル接続失敗**: Docker Desktopが起動しているか確認
+- **URL変更頻度**: 有料プランで固定サブドメインを使用可能
+
+#### Slack Webhook
+- **Challenge失敗**: URLが正しく設定されているか確認
+- **イベント未受信**: Bot権限とEvent Subscriptionの設定を確認
+- **リアクション無効**: User IDとBotトークンが正しく設定されているか確認
+
+## 🛠️ データベース管理（Supabase CLI）
+
+### npm scriptsによる簡単操作
+
+```bash
+# データベース操作
+npm run db:start      # ローカルSupabaseを起動
+npm run db:stop       # ローカルSupabaseを停止
+npm run db:status     # ローカルSupabaseの状態確認
+npm run db:studio     # Supabase Studioを開く
+
+# マイグレーション
+npm run migrate:new [name]  # 新しいマイグレーションファイルを作成
+npm run db:migrate          # リモートDBにマイグレーションを適用
+npm run db:reset            # ローカルDBをリセット
+
+# スキーマ管理
+npm run db:pull       # リモートDBからスキーマを取得
+npm run db:diff       # ローカルとリモートの差分を確認
+npm run types:generate # TypeScript型定義を生成
+```
+
+### マイグレーション作業フロー
+
+#### 1. 新しいマイグレーション作成
+```bash
+npm run migrate:new add_new_column
+```
+
+#### 2. SQLファイルを編集
+`supabase/migrations/` にある新しいファイルを編集
+
+#### 3. ローカルでテスト
+```bash
+npm run db:reset  # ローカルDBをリセットしてマイグレーション実行
+```
+
+#### 4. リモートに適用
+```bash
+npm run db:migrate
+```
+
+#### 5. 型定義更新
+```bash
+npm run types:generate
+```
+
+### 開発環境セットアップ
+
+#### ローカル開発（基本）
+```bash
+# Docker Desktopを起動してから実行
+npm run dev
+```
+
+#### ローカル開発 + Webhook（Slack連携テスト）
+```bash
+# ngrokを使ったWebhook開発環境
+npm run dev:webhook
+```
+
+#### ローカル開発（手動設定）
+```bash
+# 1. ローカルSupabaseを起動
+npm run db:start
+
+# 2. 開発サーバーを起動
+npm run dev:start
+```
+
+#### ローカルSupabaseなしで開発（非推奨）
+```bash
+# 1. 本番環境の設定をコピー
+cp .env.production.local .env.local
+
+# 2. 開発サーバーを起動
+npm run dev:quick
+```
+
 ### サポート
 
 問題が解決しない場合は、以下を確認してください：
 - Node.jsのバージョン: `node --version`
 - npmのバージョン: `npm --version`
 - `.env.local`の設定内容（APIキーは隠して）
+- Supabaseプロジェクトの状態: `npm run db:status`

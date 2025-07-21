@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, X, Plus, ClipboardList, BarChart3, Scale } from 'lucide-react'
+import { Menu, X, Plus, ClipboardList, BarChart3, Scale, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useTodoStore } from '@/store/todoStore'
 
@@ -20,6 +20,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
     { name: 'ダッシュボード', href: '/', icon: ClipboardList },
     { name: '優先度比較', href: '/compare', icon: Scale },
     { name: 'レポート', href: '/report', icon: BarChart3 },
+    { name: '設定', href: '/settings', icon: Settings },
   ]
 
   const handleCreateTask = () => {
