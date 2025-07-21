@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Plus, ClipboardList, BarChart3, Scale } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CreateTodoModal } from '@/components/todo/CreateTodoModal'
+import { MobileMenu } from './MobileMenu'
 import { useState } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 
@@ -27,8 +28,9 @@ export function Navigation() {
             <div className="flex items-center space-x-8">
               <h1 className="text-xl font-bold text-gray-900">TODO管理</h1>
               
+              {/* デスクトップナビゲーション */}
               {user && (
-                <div className="flex space-x-1">
+                <div className="hidden md:flex space-x-1">
                   {tabs.map((tab) => {
                     const Icon = tab.icon
                     const isActive = pathname === tab.href
@@ -55,15 +57,21 @@ export function Navigation() {
               )}
             </div>
 
-            {user && (
-              <Button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center space-x-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span>新規タスク</span>
-              </Button>
-            )}
+            <div className="flex items-center space-x-2">
+              {/* デスクトップ新規タスクボタン */}
+              {user && (
+                <Button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="hidden md:flex items-center space-x-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>新規タスク</span>
+                </Button>
+              )}
+
+              {/* モバイルメニュー */}
+              <MobileMenu onCreateTask={() => setIsCreateModalOpen(true)} />
+            </div>
           </div>
         </div>
       </nav>
