@@ -47,3 +47,10 @@ logs/
 
 # ngrok
 .ngrok-url
+
+# Security
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
