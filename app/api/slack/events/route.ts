@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateTaskTitle } from '@/lib/openai-title'
+import { getSlackMessage } from '@/lib/slack-message'
 
 interface SlackReactionEvent {
   type: 'reaction_added'
@@ -140,139 +141,6 @@ async function processReactionTaskCreation(event: SlackReactionEvent) {
   }
 }
 
-async function getSlackMessage(channel: string, ts: string) {
-  try {
-    const slackToken = process.env.SLACK_BOT_TOKEN
-    if (!slackToken) {
-      throw new Error('SLACK_BOT_TOKEN is not configured')
-    }
-
-    console.log('Attempting to fetch message:', { channel, ts })
-
-    // 最初にチャンネルのメッセージ履歴から検索
-    let message = await tryGetChannelMessage(slackToken, channel, ts)
-    
-    if (message) {
-      console.log('Found message in channel history:', { 
-        channel, 
-        ts, 
-        text: message.text?.substring(0, 100) + '...',
-        hasText: !!message.text 
-      })
-      return message
-    }
-
-    console.log('Message not found in channel history, checking for thread messages...')
-
-    // チャンネル履歴で見つからない場合、スレッド内メッセージを検索
-    message = await tryGetThreadMessage(slackToken, channel, ts)
-    
-    if (message) {
-      console.log('Found message in thread:', { 
-        channel, 
-        ts, 
-        text: message.text?.substring(0, 100) + '...',
-        hasText: !!message.text 
-      })
-      return message
-    }
-
-    console.warn('No message found in channel or threads for:', { channel, ts })
-    return null
-
-  } catch (error) {
-    console.error('Error fetching Slack message:', error)
-    throw error
-  }
-}
-
-async function tryGetChannelMessage(slackToken: string, channel: string, ts: string) {
-  try {
-    const queryParams = new URLSearchParams({
-      channel,
-      latest: ts,
-      oldest: ts,
-      inclusive: 'true',
-      limit: '1'
-    })
-
-    const response = await fetch(`https://slack.com/api/conversations.history?${queryParams}`, {
-      headers: {
-        'Authorization': `Bearer ${slackToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    const data = await response.json()
-    
-    if (!data.ok) {
-      console.error('Slack API error in conversations.history:', data.error)
-      return null
-    }
-
-    return data.messages?.[0] || null
-  } catch (error) {
-    console.error('Error in tryGetChannelMessage:', error)
-    return null
-  }
-}
-
-async function tryGetThreadMessage(slackToken: string, channel: string, ts: string) {
-  try {
-    // まず、チャンネル内の全てのメッセージを取得して、スレッドがあるメッセージを探す
-    const channelResponse = await fetch(`https://slack.com/api/conversations.history?channel=${channel}&limit=100`, {
-      headers: {
-        'Authorization': `Bearer ${slackToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    const channelData = await channelResponse.json()
-    
-    if (!channelData.ok) {
-      console.error('Slack API error in channel scan:', channelData.error)
-      return null
-    }
-
-    // スレッドを持つメッセージを探す
-    const threadsParents = channelData.messages?.filter((msg: any) => msg.reply_count > 0) || []
-    
-    console.log(`Found ${threadsParents.length} messages with threads`)
-
-    // 各スレッドを検索
-    for (const parent of threadsParents) {
-      const queryParams = new URLSearchParams({
-        channel,
-        ts: parent.ts,
-        limit: '200',
-        inclusive: 'true'
-      })
-
-      const threadResponse = await fetch(`https://slack.com/api/conversations.replies?${queryParams}`, {
-        headers: {
-          'Authorization': `Bearer ${slackToken}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const threadData = await threadResponse.json()
-      
-      if (threadData.ok && threadData.messages) {
-        // 指定されたタイムスタンプのメッセージを探す
-        const targetMessage = threadData.messages.find((msg: any) => msg.ts === ts)
-        if (targetMessage) {
-          console.log('Found target message in thread with parent ts:', parent.ts)
-          return targetMessage
-        }
-      }
-    }
-
-    return null
-  } catch (error) {
-    console.error('Error in tryGetThreadMessage:', error)
-    return null
-  }
-}
 
 async function getUserIdFromSlackUserId(slackUserId: string) {
   try {
