@@ -27,21 +27,21 @@ export default function ComparePage() {
     // アクティブなTODOのみを対象に比較ペアを生成
     const activeTodos = todos.filter(todo => todo.status === 'open')
     const pairs: ComparisonPair[] = []
-    
+
     // すべての組み合わせを生成（重複なし）
     for (let i = 0; i < activeTodos.length; i++) {
       for (let j = i + 1; j < activeTodos.length; j++) {
         pairs.push({
           left: activeTodos[i],
-          right: activeTodos[j],
+          right: activeTodos[j]
         })
       }
     }
-    
+
     // ランダムに並べ替え
     const shuffled = pairs.sort(() => Math.random() - 0.5)
     setRemainingPairs(shuffled)
-    
+
     if (shuffled.length > 0) {
       setCurrentPair(shuffled[0])
     }
@@ -50,11 +50,11 @@ export default function ComparePage() {
   const handleChoice = async (winner: Todo, loser: Todo) => {
     await createComparison(winner.id, loser.id)
     setComparisonCount(prev => prev + 1)
-    
+
     // 次のペアに進む
     const newRemainingPairs = remainingPairs.slice(1)
     setRemainingPairs(newRemainingPairs)
-    
+
     if (newRemainingPairs.length > 0) {
       setCurrentPair(newRemainingPairs[0])
     } else {

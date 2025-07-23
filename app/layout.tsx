@@ -8,11 +8,11 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'TODO管理アプリ',
-  description: 'Slack連携TODO管理アプリケーション',
+  description: 'Slack連携TODO管理アプリケーション'
 }
 
 export default function RootLayout({
-  children,
+  children
 }: {
   children: React.ReactNode
 }) {

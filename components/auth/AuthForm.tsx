@@ -25,16 +25,16 @@ export function AuthForm() {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,
-          password,
+          password
         })
-        if (error) throw error
+        if (error) {throw error}
         setSuccess('確認メールを送信しました。メールをご確認ください。')
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
-          password,
+          password
         })
-        if (error) throw error
+        if (error) {throw error}
       }
     } catch (error: any) {
       setError(error.message)

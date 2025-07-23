@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
-import { Calendar, BarChart3, PieChart } from 'lucide-react'
+import { Calendar, PieChart } from 'lucide-react'
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from 'date-fns'
 import { ja } from 'date-fns/locale'
-import { PieChart as RechartsPC, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import { PieChart as RechartsPC, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { useRouter } from 'next/navigation'
 
 type TimeRange = 'day' | 'week' | 'month'
@@ -40,17 +40,17 @@ export default function ReportPage() {
     if (user) {
       fetchCompletionData()
     }
-  }, [user, timeRange])
+  }, [user, timeRange, fetchCompletionData])
 
-  const fetchCompletionData = async () => {
+  const fetchCompletionData = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
-    
+
     // 期間の設定
     const now = new Date()
     let startDate: Date
     let endDate = new Date()
-    
+
     switch (timeRange) {
       case 'day':
         startDate = new Date(now.setHours(0, 0, 0, 0))
@@ -80,7 +80,7 @@ export default function ReportPage() {
         .lte('completed_at', endDate.toISOString())
         .order('completed_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {throw error}
 
       // データを四象限ごとに集計
       const aggregated = data?.reduce((acc: any, item: any) => {
@@ -108,7 +108,7 @@ export default function ReportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [timeRange])
 
   if (!user) {
     return null
@@ -118,14 +118,14 @@ export default function ReportPage() {
     urgent_important: '緊急×重要',
     not_urgent_important: '重要×緊急でない',
     urgent_not_important: '緊急×重要でない',
-    not_urgent_not_important: '緊急でない×重要でない',
+    not_urgent_not_important: '緊急でない×重要でない'
   }
 
   const quadrantColors: Record<string, string> = {
     urgent_important: '#ef4444',
     not_urgent_important: '#3b82f6',
     urgent_not_important: '#eab308',
-    not_urgent_not_important: '#6b7280',
+    not_urgent_not_important: '#6b7280'
   }
 
   const pieData = completionData.map(item => ({
@@ -140,7 +140,7 @@ export default function ReportPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">完了レポート</h2>
-        
+
         <div className="flex gap-2">
           {(['day', 'week', 'month'] as TimeRange[]).map((range) => (
             <Button
@@ -206,8 +206,8 @@ export default function ReportPage() {
                 {completionData.map((item) => (
                   <div key={item.quadrant} className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
+                      <div
+                        className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: quadrantColors[item.quadrant] }}
                       />
                       <span className="text-sm text-gray-600">
@@ -224,7 +224,7 @@ export default function ReportPage() {
           <div className="bg-white rounded-lg shadow-soft p-6">
             <h3 className="text-lg font-semibold mb-4">完了したタスク一覧</h3>
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {completionData.flatMap(data => 
+              {completionData.flatMap(data =>
                 data.todos.map((todo, index) => (
                   <div key={`${data.quadrant}-${index}`} className="border-b pb-3 last:border-0">
                     <div className="flex items-start justify-between">
@@ -235,9 +235,9 @@ export default function ReportPage() {
                         <p className="text-sm text-gray-600 mt-1">{todo.body}</p>
                       </div>
                       <div className="text-right ml-4">
-                        <div 
+                        <div
                           className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                          style={{ 
+                          style={{
                             backgroundColor: `${quadrantColors[data.quadrant]}20`,
                             color: quadrantColors[data.quadrant]
                           }}

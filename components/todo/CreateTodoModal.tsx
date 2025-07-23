@@ -38,9 +38,9 @@ export function CreateTodoModal({ isOpen, onClose }: CreateTodoModalProps) {
         body: finalBody,
         title: data.title || undefined,
         urgency: data.urgency as any,
-        deadline: data.deadline || getDeadlineFromUrgency(data.urgency as any),
+        deadline: data.deadline || getDeadlineFromUrgency(data.urgency as any)
       })
-      
+
       onClose()
     } finally {
       setIsSubmitting(false)

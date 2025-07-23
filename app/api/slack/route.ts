@@ -4,7 +4,7 @@ import { getSlackMessageFromUrl, parseSlackUrl } from '@/lib/slack-message'
 export async function POST(request: NextRequest) {
   try {
     const { slackUrl } = await request.json()
-    
+
     if (!slackUrl || typeof slackUrl !== 'string') {
       return NextResponse.json(
         { error: 'SlackURLが必要です' },
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     // Slack API用のトークンを環境変数から取得
     const slackToken = process.env.SLACK_BOT_TOKEN
-    
+
     if (!slackToken) {
       return NextResponse.json(
         { error: 'Slack APIトークンが設定されていません' },
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // 共通関数を使用してメッセージを取得
     const messageResult = await getSlackMessageFromUrl(slackUrl)
-    
+
     if (!messageResult) {
       return NextResponse.json(
         { error: 'メッセージが見つかりませんでした' },

@@ -28,7 +28,7 @@ export default function DashboardPage() {
   }
 
   const activeTodos = todos.filter(todo => todo.status === 'open')
-  const displayTodos = showOverdueOnly 
+  const displayTodos = showOverdueOnly
     ? activeTodos.filter(todo => isOverdue(todo.deadline))
     : activeTodos
 
@@ -36,21 +36,21 @@ export default function DashboardPage() {
     urgent_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'urgent_important'),
     not_urgent_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'not_urgent_important'),
     urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'urgent_not_important'),
-    not_urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'not_urgent_not_important'),
+    not_urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'not_urgent_not_important')
   }
 
   const quadrantInfo = {
     urgent_important: { title: '緊急×重要', color: 'bg-red-50 border-red-200' },
     not_urgent_important: { title: '重要×緊急でない', color: 'bg-blue-50 border-blue-200' },
     urgent_not_important: { title: '緊急×重要でない', color: 'bg-yellow-50 border-yellow-200' },
-    not_urgent_not_important: { title: '緊急でない×重要でない', color: 'bg-gray-50 border-gray-200' },
+    not_urgent_not_important: { title: '緊急でない×重要でない', color: 'bg-gray-50 border-gray-200' }
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">タスク一覧</h2>
-        
+
         <div className="flex items-center gap-3">
           <Button
             variant={showOverdueOnly ? 'primary' : 'secondary'}
@@ -61,7 +61,7 @@ export default function DashboardPage() {
             <Filter className="w-4 h-4" />
             期限切れのみ
           </Button>
-          
+
           <div className="flex bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setViewMode('matrix')}
@@ -101,9 +101,9 @@ export default function DashboardPage() {
               </h3>
               <div className="space-y-3">
                 {todos.map(todo => (
-                  <TodoCard 
-                    key={todo.id} 
-                    todo={todo} 
+                  <TodoCard
+                    key={todo.id}
+                    todo={todo}
                     onEdit={() => {
                       setEditTodo(todo)
                       setIsEditModalOpen(true)
@@ -129,9 +129,9 @@ export default function DashboardPage() {
               return 0
             })
             .map(todo => (
-              <TodoCard 
-                key={todo.id} 
-                todo={todo} 
+              <TodoCard
+                key={todo.id}
+                todo={todo}
                 onEdit={() => {
                   setEditTodo(todo)
                   setIsEditModalOpen(true)
@@ -140,7 +140,7 @@ export default function DashboardPage() {
             ))}
         </div>
       )}
-      
+
       <EditTodoModal
         isOpen={isEditModalOpen}
         onClose={() => {

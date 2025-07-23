@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
@@ -16,9 +16,9 @@ export default function SettingsPage() {
     if (user) {
       fetchUserSettings()
     }
-  }, [user])
+  }, [user, fetchUserSettings])
 
-  const fetchUserSettings = async () => {
+  const fetchUserSettings = useCallback(async () => {
     try {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -37,23 +37,23 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Error fetching user settings:', error)
     }
-  }
+  }, [user?.id])
 
   const handleSaveSettings = async () => {
-    if (!user) return
+    if (!user) {return}
 
     setIsLoading(true)
     setMessage('')
 
     try {
       const supabase = createClient()
-      
+
       const { error } = await supabase
         .from('users')
         .upsert({
           id: user.id,
           slack_user_id: slackUserId.trim() || null,
-          display_name: user.display_name,
+          display_name: user.display_name
         })
 
       if (error) {
@@ -75,11 +75,11 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">設定</h1>
-      
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Slack連携</h2>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -2,8 +2,8 @@
 
 import { Todo } from '@/types'
 import { Button } from '@/components/ui/Button'
-import { Check, Edit2, Trash2, Calendar, AlertCircle } from 'lucide-react'
-import { formatDeadline, isOverdue, linkifyText } from '@/lib/utils'
+import { Check, Trash2, Calendar, AlertCircle } from 'lucide-react'
+import { formatDeadline, isOverdue } from '@/lib/utils'
 import { useTodoStore } from '@/store/todoStore'
 import { useState } from 'react'
 
@@ -16,7 +16,7 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
   const { completeTodo, deleteTodo, updateTodo } = useTodoStore()
   const [isDeleting, setIsDeleting] = useState(false)
   const overdue = isOverdue(todo.deadline)
-  
+
   // 表示用のタイトル/内容を決定
   const getDisplayContent = () => {
     if (todo.title && todo.title.trim()) {
@@ -56,18 +56,18 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
     now: 'bg-red-100 text-red-800',
     today: 'bg-orange-100 text-orange-800',
     tomorrow: 'bg-yellow-100 text-yellow-800',
-    later: 'bg-gray-100 text-gray-800',
+    later: 'bg-gray-100 text-gray-800'
   }
 
   const urgencyLabels = {
     now: '今すぐ',
     today: '今日中',
     tomorrow: '明日',
-    later: 'それより後',
+    later: 'それより後'
   }
 
   return (
-    <div 
+    <div
       className={`
         bg-white rounded-lg shadow-soft p-4 transition-all duration-200 cursor-pointer
         ${todo.status === 'done' ? 'opacity-60' : ''}
@@ -84,7 +84,7 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${urgencyColors[todo.urgency]}`}>
           {urgencyLabels[todo.urgency]}
         </span>
-        
+
         {todo.deadline && (
           <span className={`inline-flex items-center gap-1 text-sm ${overdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
             <Calendar className="w-3 h-3" />

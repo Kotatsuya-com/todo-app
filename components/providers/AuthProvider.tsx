@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: session.user.id,
           display_name: session.user.email?.split('@')[0],
           avatar_url: session.user.user_metadata?.avatar_url,
-          created_at: session.user.created_at,
+          created_at: session.user.created_at
         })
         fetchTodos()
       }
@@ -25,14 +25,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 認証状態の変更を監視
     const {
-      data: { subscription },
+      data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser({
           id: session.user.id,
           display_name: session.user.email?.split('@')[0],
           avatar_url: session.user.user_metadata?.avatar_url,
-          created_at: session.user.created_at,
+          created_at: session.user.created_at
         })
         fetchTodos()
       } else {

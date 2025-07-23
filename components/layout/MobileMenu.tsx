@@ -20,7 +20,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
     { name: 'ダッシュボード', href: '/', icon: ClipboardList },
     { name: '優先度比較', href: '/compare', icon: Scale },
     { name: 'レポート', href: '/report', icon: BarChart3 },
-    { name: '設定', href: '/settings', icon: Settings },
+    { name: '設定', href: '/settings', icon: Settings }
   ]
 
   const handleCreateTask = () => {
@@ -32,7 +32,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
     setIsOpen(false)
   }
 
-  if (!user) return null
+  if (!user) {return null}
 
   return (
     <>
@@ -46,7 +46,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
 
       {/* オーバーレイ */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden"
           onClick={() => setIsOpen(false)}
         />
@@ -83,7 +83,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = pathname === tab.href
-            
+
             return (
               <Link
                 key={tab.href}
@@ -92,10 +92,10 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
                 className={`
                   flex items-center space-x-3 px-4 py-3 rounded-lg text-base font-medium
                   transition-colors duration-200 w-full
-                  ${isActive 
-                    ? 'bg-blue-50 text-blue-600' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }
+                  ${isActive
+                ? 'bg-blue-50 text-blue-600'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }
                 `}
               >
                 <Icon className="w-5 h-5" />

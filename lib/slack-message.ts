@@ -18,7 +18,7 @@ export interface SlackMessageResult {
 export function parseSlackUrl(slackUrl: string): { channel: string; timestamp: string; threadTs?: string } | null {
   const slackUrlPattern = /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p([0-9]+)(?:\?thread_ts=([0-9.]+))?/
   const match = slackUrl.match(slackUrlPattern)
-  
+
   if (!match) {
     return null
   }
@@ -54,12 +54,12 @@ async function tryGetChannelMessage(slackToken: string, channel: string, ts: str
     const response = await fetch(`https://slack.com/api/conversations.history?${queryParams}`, {
       headers: {
         'Authorization': `Bearer ${slackToken}`,
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json'
+      }
     })
 
     const data = await response.json()
-    
+
     if (!data.ok) {
       console.error('Slack API error in conversations.history:', data.error)
       return null
@@ -81,12 +81,12 @@ async function tryGetThreadMessage(slackToken: string, channel: string, ts: stri
     const channelResponse = await fetch(`https://slack.com/api/conversations.history?channel=${channel}&limit=100`, {
       headers: {
         'Authorization': `Bearer ${slackToken}`,
-        'Content-Type': 'application/json',
-      },
+        'Content-Type': 'application/json'
+      }
     })
 
     const channelData = await channelResponse.json()
-    
+
     if (!channelData.ok) {
       console.error('Slack API error in channel scan:', channelData.error)
       return null
@@ -94,7 +94,7 @@ async function tryGetThreadMessage(slackToken: string, channel: string, ts: stri
 
     // スレッドを持つメッセージを探す
     const threadsParents = channelData.messages?.filter((msg: any) => msg.reply_count > 0) || []
-    
+
     console.log(`Found ${threadsParents.length} messages with threads`)
 
     // 各スレッドを検索
@@ -109,12 +109,12 @@ async function tryGetThreadMessage(slackToken: string, channel: string, ts: stri
       const threadResponse = await fetch(`https://slack.com/api/conversations.replies?${queryParams}`, {
         headers: {
           'Authorization': `Bearer ${slackToken}`,
-          'Content-Type': 'application/json',
-        },
+          'Content-Type': 'application/json'
+        }
       })
 
       const threadData = await threadResponse.json()
-      
+
       if (threadData.ok && threadData.messages) {
         const targetMessage = threadData.messages.find((msg: SlackMessage) => msg.ts === ts)
         if (targetMessage) {
@@ -142,12 +142,12 @@ async function tryGetThreadReplies(slackToken: string, channel: string, threadTs
       limit: '200',
       inclusive: 'true'
     })
-    
+
     const response = await fetch(`https://slack.com/api/conversations.replies?${queryParams}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${slackToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       }
     })
 
@@ -187,13 +187,13 @@ export async function getSlackMessage(channel: string, ts: string): Promise<Slac
 
     // 最初にチャンネルのメッセージ履歴から検索
     let message = await tryGetChannelMessage(slackToken, channel, ts)
-    
+
     if (message) {
-      console.log('Found message in channel history:', { 
-        channel, 
-        ts, 
+      console.log('Found message in channel history:', {
+        channel,
+        ts,
         text: message.text?.substring(0, 100) + '...',
-        hasText: !!message.text 
+        hasText: !!message.text
       })
       return message
     }
@@ -202,13 +202,13 @@ export async function getSlackMessage(channel: string, ts: string): Promise<Slac
 
     // チャンネル履歴で見つからない場合、スレッド内メッセージを検索
     message = await tryGetThreadMessage(slackToken, channel, ts)
-    
+
     if (message) {
-      console.log('Found message in thread:', { 
-        channel, 
-        ts, 
+      console.log('Found message in thread:', {
+        channel,
+        ts,
         text: message.text?.substring(0, 100) + '...',
-        hasText: !!message.text 
+        hasText: !!message.text
       })
       return message
     }

@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 })
 
 /**
@@ -28,7 +28,7 @@ export async function generateTaskTitle(content: string): Promise<string> {
         }
       ],
       temperature: 0.7,
-      max_tokens: 50,
+      max_tokens: 50
     })
 
     const title = completion.choices[0]?.message?.content?.trim() || 'タスク'

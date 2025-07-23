@@ -38,7 +38,7 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
             const tomorrow = new Date()
             tomorrow.setDate(tomorrow.getDate() + 1)
             const tomorrowStr = tomorrow.toISOString().split('T')[0]
-            
+
             if (todo.deadline === today) {
               return 'today'
             } else if (todo.deadline === tomorrowStr) {
@@ -61,7 +61,7 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
     deadline: string
     slackData: { text: string; url: string } | null
   }) => {
-    if (!todo) return
+    if (!todo) {return}
 
     setIsSubmitting(true)
     try {
@@ -77,7 +77,7 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
       await updateTodo(todo.id, {
         body: finalBody,
         title: data.title || undefined,
-        deadline: data.deadline || getDeadlineFromUrgency(data.urgency as any),
+        deadline: data.deadline || getDeadlineFromUrgency(data.urgency as any)
       })
 
       onClose()
@@ -90,7 +90,7 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
     onClose()
   }
 
-  if (!todo) return null
+  if (!todo) {return null}
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleClose}>

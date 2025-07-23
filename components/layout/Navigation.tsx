@@ -18,7 +18,7 @@ export function Navigation() {
     { name: 'ダッシュボード', href: '/', icon: ClipboardList },
     { name: '優先度比較', href: '/compare', icon: Scale },
     { name: 'レポート', href: '/report', icon: BarChart3 },
-    { name: '設定', href: '/settings', icon: Settings },
+    { name: '設定', href: '/settings', icon: Settings }
   ]
 
   return (
@@ -28,14 +28,14 @@ export function Navigation() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
               <h1 className="text-xl font-bold text-gray-900">TODO管理</h1>
-              
+
               {/* デスクトップナビゲーション */}
               {user && (
                 <div className="hidden md:flex space-x-1">
                   {tabs.map((tab) => {
                     const Icon = tab.icon
                     const isActive = pathname === tab.href
-                    
+
                     return (
                       <Link
                         key={tab.href}
@@ -43,10 +43,10 @@ export function Navigation() {
                         className={`
                           flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium
                           transition-colors duration-200
-                          ${isActive 
-                            ? 'bg-blue-50 text-blue-600' 
-                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                          }
+                          ${isActive
+                        ? 'bg-blue-50 text-blue-600'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }
                         `}
                       >
                         <Icon className="w-4 h-4" />

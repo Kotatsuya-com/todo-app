@@ -11,7 +11,7 @@ interface TodoFormProps {
   initialBody?: string
   initialUrgency?: Urgency
   initialDeadline?: string
-  onSubmit: (data: {
+  onSubmit: (_data: {
     title: string
     body: string
     urgency: Urgency
@@ -65,16 +65,16 @@ export function TodoForm({
 
   const generateTitle = async () => {
     const content = slackData ? slackData.text : body.trim()
-    if (!content) return
+    if (!content) {return}
 
     setIsGeneratingTitle(true)
     try {
       const response = await fetch('/api/generate-title', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content })
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setTitle(data.title)
@@ -94,23 +94,23 @@ export function TodoForm({
     setBody(value)
     const isSlack = isSlackUrlFormat(value.trim())
     setIsSlackUrl(isSlack)
-    
+
     if (!isSlack && slackData) {
       setSlackData(null)
     }
   }
 
   const fetchSlackMessage = async () => {
-    if (!isSlackUrl || !body.trim()) return
+    if (!isSlackUrl || !body.trim()) {return}
 
     setIsLoadingSlack(true)
     try {
       const response = await fetch('/api/slack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slackUrl: body.trim() }),
+        body: JSON.stringify({ slackUrl: body.trim() })
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setSlackData({ text: data.text, url: data.url })
