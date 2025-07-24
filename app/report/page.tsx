@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
-import { Calendar, PieChart } from 'lucide-react'
+import { Calendar, PieChart, RotateCcw } from 'lucide-react'
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { PieChart as RechartsPC, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
@@ -16,6 +16,7 @@ interface CompletionData {
   quadrant: string
   count: number
   todos: {
+    id: string
     title?: string
     body: string
     completed_at: string
@@ -23,7 +24,7 @@ interface CompletionData {
 }
 
 export default function ReportPage() {
-  const { user } = useTodoStore()
+  const { user, reopenTodo } = useTodoStore()
   const [timeRange, setTimeRange] = useState<TimeRange>('week')
   const [completionData, setCompletionData] = useState<CompletionData[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,12 +36,6 @@ export default function ReportPage() {
       return
     }
   }, [user, router])
-
-  useEffect(() => {
-    if (user) {
-      fetchCompletionData()
-    }
-  }, [user, timeRange, fetchCompletionData])
 
   const fetchCompletionData = useCallback(async () => {
     setLoading(true)
@@ -72,6 +67,7 @@ export default function ReportPage() {
           quadrant,
           completed_at,
           todos (
+            id,
             title,
             body
           )
@@ -94,6 +90,7 @@ export default function ReportPage() {
         }
         acc[quadrant].count++
         acc[quadrant].todos.push({
+          id: item.todos.id,
           title: item.todos.title,
           body: item.todos.body,
           completed_at: item.completed_at
@@ -109,6 +106,12 @@ export default function ReportPage() {
       setLoading(false)
     }
   }, [timeRange])
+
+  useEffect(() => {
+    if (user) {
+      fetchCompletionData()
+    }
+  }, [user, timeRange, fetchCompletionData])
 
   if (!user) {
     return null
@@ -234,19 +237,30 @@ export default function ReportPage() {
                         </h4>
                         <p className="text-sm text-gray-600 mt-1">{todo.body}</p>
                       </div>
-                      <div className="text-right ml-4">
-                        <div
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                          style={{
-                            backgroundColor: `${quadrantColors[data.quadrant]}20`,
-                            color: quadrantColors[data.quadrant]
-                          }}
-                        >
-                          {quadrantLabels[data.quadrant]}
+                      <div className="flex items-center gap-3 ml-4">
+                        <div className="text-right">
+                          <div
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                            style={{
+                              backgroundColor: `${quadrantColors[data.quadrant]}20`,
+                              color: quadrantColors[data.quadrant]
+                            }}
+                          >
+                            {quadrantLabels[data.quadrant]}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {format(new Date(todo.completed_at), 'MM/dd HH:mm', { locale: ja })}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {format(new Date(todo.completed_at), 'MM/dd HH:mm', { locale: ja })}
-                        </p>
+                        <Button
+                          onClick={() => reopenTodo(todo.id)}
+                          variant="secondary"
+                          size="sm"
+                          className="flex items-center gap-1 text-xs"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          未完了に戻す
+                        </Button>
                       </div>
                     </div>
                   </div>

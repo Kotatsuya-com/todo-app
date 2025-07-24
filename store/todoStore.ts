@@ -17,6 +17,7 @@ interface TodoStore {
   updateTodo: (id: string, updates: Partial<Todo>) => Promise<void>
   deleteTodo: (id: string) => Promise<void>
   completeTodo: (id: string) => Promise<void>
+  reopenTodo: (id: string) => Promise<void>
   fetchComparisons: () => Promise<void>
   createComparison: (winnerId: string, loserId: string) => Promise<void>
   updateImportanceScores: () => Promise<void>
@@ -205,6 +206,44 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
         todos: state.todos.map(todo => 
           todo.id === id 
             ? { ...todo, status: 'done' as const, completed_at: new Date().toISOString() }
+            : todo
+        ),
+        loading: false
+      }))
+    } catch (error: any) {
+      set({ error: error.message, loading: false })
+    }
+  },
+
+  reopenTodo: async (id) => {
+    set({ loading: true, error: null })
+    try {
+      const supabase = createClient()
+
+      // TODOを未完了状態に戻す
+      const { error: updateError } = await supabase
+        .from('todos')
+        .update({
+          status: 'open',
+          completed_at: null
+        })
+        .eq('id', id)
+
+      if (updateError) throw updateError
+
+      // 関連するcompletion_logエントリを削除
+      const { error: deleteError } = await supabase
+        .from('completion_log')
+        .delete()
+        .eq('todo_id', id)
+
+      if (deleteError) throw deleteError
+
+      // ローカル状態を更新
+      set(state => ({
+        todos: state.todos.map(todo => 
+          todo.id === id 
+            ? { ...todo, status: 'open' as const, completed_at: undefined }
             : todo
         ),
         loading: false

@@ -54,3 +54,6 @@ logs/
 *.crt
 *.p12
 *.pfx
+
+# Claude Code
+.claude/

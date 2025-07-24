@@ -12,12 +12,6 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  useEffect(() => {
-    if (user) {
-      fetchUserSettings()
-    }
-  }, [user, fetchUserSettings])
-
   const fetchUserSettings = useCallback(async () => {
     try {
       const supabase = createClient()
@@ -38,6 +32,12 @@ export default function SettingsPage() {
       console.error('Error fetching user settings:', error)
     }
   }, [user?.id])
+
+  useEffect(() => {
+    if (user) {
+      fetchUserSettings()
+    }
+  }, [user, fetchUserSettings])
 
   const handleSaveSettings = async () => {
     if (!user) {return}
