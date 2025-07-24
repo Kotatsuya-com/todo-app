@@ -112,12 +112,31 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       // urgencyフィールドを除外してデータベースに保存
       const { urgency, ...todoWithoutUrgency } = todo
 
+      // 初期重要度スコアを期限に基づいて設定
+      let initialImportanceScore = todoWithoutUrgency.importance_score || 0.5
+      if (initialImportanceScore === 0.5) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const isOverdue = deadline ? new Date(deadline) < today : false
+        const isToday = deadline ? new Date(deadline).getTime() === today.getTime() : false
+        
+        if (isOverdue) {
+          initialImportanceScore = 0.7 // 期限切れは高めの重要度
+        } else if (isToday) {
+          initialImportanceScore = 0.6 // 今日期限は中程度の重要度
+        } else {
+          // ランダムに0.3-0.7の範囲で初期化（中央値を避ける）
+          initialImportanceScore = 0.3 + Math.random() * 0.4
+        }
+      }
+
       const { data, error } = await supabase
         .from('todos')
         .insert({
           ...todoWithoutUrgency,
           user_id: user.id,
           deadline,
+          importance_score: initialImportanceScore,
           status: 'open'
         })
         .select()
@@ -329,9 +348,35 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const comparisons = get().comparisons
     const K = 32 // K-factor
 
-    // 各TODOのスコアを初期化
+    console.log('🔍 [DEBUG] updateImportanceScores - 開始')
+    console.log('🔍 [DEBUG] Todos count:', todos.length)
+    console.log('🔍 [DEBUG] Comparisons count:', comparisons.length)
+
+    // 各TODOのスコアを初期化（緊急度に基づいて差別化）
     const scores = new Map<string, number>()
-    todos.forEach(todo => scores.set(todo.id, todo.importance_score || 0.5))
+    todos.forEach(todo => {
+      let initialScore = todo.importance_score
+      
+      // 初期スコアが設定されていない場合、緊急度と期限で初期化
+      if (initialScore === 0.5 || !initialScore) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const isOverdue = todo.deadline ? new Date(todo.deadline) < today : false
+        const isToday = todo.deadline ? new Date(todo.deadline).getTime() === today.getTime() : false
+        
+        if (isOverdue) {
+          initialScore = 0.7 // 期限切れは高めの重要度
+        } else if (isToday) {
+          initialScore = 0.6 // 今日期限は中程度の重要度
+        } else {
+          // ランダムに0.3-0.7の範囲で初期化（中央値を避ける）
+          initialScore = 0.3 + Math.random() * 0.4
+        }
+      }
+      
+      scores.set(todo.id, initialScore)
+      console.log(`🔍 [DEBUG] Todo "${todo.title}" - Initial score: ${initialScore} (deadline: ${todo.deadline})`)
+    })
 
     // 比較結果に基づいてスコアを更新
     comparisons.forEach(comp => {
@@ -352,10 +397,15 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const maxScore = Math.max(...Array.from(scores.values()))
     const range = maxScore - minScore || 1
 
+    console.log('🔍 [DEBUG] 正規化前 - minScore:', minScore, 'maxScore:', maxScore, 'range:', range)
+    console.log('🔍 [DEBUG] 正規化前の全スコア:', Array.from(scores.entries()))
+
     // データベースを更新
     const supabase = createClient()
     for (const [todoId, score] of Array.from(scores.entries())) {
       const normalizedScore = (score - minScore) / range
+      const todo = todos.find(t => t.id === todoId)
+      console.log(`🔍 [DEBUG] Todo "${todo?.title}" - Raw score: ${score}, Normalized: ${normalizedScore}`)
       await supabase
         .from('todos')
         .update({ importance_score: normalizedScore })

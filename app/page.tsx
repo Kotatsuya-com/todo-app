@@ -32,12 +32,24 @@ export default function DashboardPage() {
     ? activeTodos.filter(todo => isOverdue(todo.deadline))
     : activeTodos
 
+  // デバッグ: タスクのスコアと四象限をログ出力
+  console.log('🔍 [DEBUG] Dashboard - displayTodos:')
+  displayTodos.forEach(todo => {
+    const quadrant = getQuadrant(todo.deadline, todo.importance_score)
+    console.log(`🔍 [DEBUG] Todo "${todo.title}": score=${todo.importance_score}, deadline=${todo.deadline}, quadrant=${quadrant}`)
+  })
+
   const quadrants = {
-    urgent_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'urgent_important'),
-    not_urgent_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'not_urgent_important'),
-    urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'urgent_not_important'),
-    not_urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.urgency, todo.importance_score) === 'not_urgent_not_important')
+    urgent_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'urgent_important'),
+    not_urgent_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'not_urgent_important'),
+    urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'urgent_not_important'),
+    not_urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'not_urgent_not_important')
   }
+
+  console.log('🔍 [DEBUG] Quadrant counts:')
+  Object.entries(quadrants).forEach(([key, todos]) => {
+    console.log(`🔍 [DEBUG] ${key}: ${todos.length} todos`)
+  })
 
   const quadrantInfo = {
     urgent_important: { title: '緊急×重要', color: 'bg-red-50 border-red-200' },

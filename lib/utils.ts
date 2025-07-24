@@ -24,7 +24,12 @@ export function getQuadrant(deadline: string | null, importanceScore: number): Q
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const isUrgent = deadline ? new Date(deadline) <= today : false
-  const isImportant = importanceScore > 0.5
+  // より多くのタスクが重要として扱われるよう閾値を調整
+  // 0.4以上なら重要とする（デフォルト0.5から初期値が0.5の場合の問題を解決）
+  const isImportant = importanceScore >= 0.4
+
+  // デバッグログ
+  console.log(`🔍 [DEBUG] getQuadrant - deadline: ${deadline}, score: ${importanceScore}, isUrgent: ${isUrgent}, isImportant: ${isImportant}`)
 
   if (isUrgent && isImportant) {return 'urgent_important'}
   if (!isUrgent && isImportant) {return 'not_urgent_important'}

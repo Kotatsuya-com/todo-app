@@ -24,28 +24,88 @@ export default function ComparePage() {
   }, [user, fetchTodos, router])
 
   useEffect(() => {
-    // アクティブなTODOのみを対象に比較ペアを生成
+    // アクティブなTODOのみを対象に効率的な比較ペアを生成
     const activeTodos = todos.filter(todo => todo.status === 'open')
-    const pairs: ComparisonPair[] = []
 
-    // すべての組み合わせを生成（重複なし）
-    for (let i = 0; i < activeTodos.length; i++) {
-      for (let j = i + 1; j < activeTodos.length; j++) {
+    if (activeTodos.length <= 1) {
+      setRemainingPairs([])
+      setCurrentPair(null)
+      return
+    }
+
+    // 効率的比較アルゴリズム: アダプティブ・トーナメント方式
+    const pairs = generateEfficiComparisonPairs(activeTodos)
+    setRemainingPairs(pairs)
+
+    if (pairs.length > 0) {
+      setCurrentPair(pairs[0])
+    }
+  }, [todos])
+
+  // 効率的な比較ペア生成アルゴリズム
+  const generateEfficiComparisonPairs = (todos: Todo[]): ComparisonPair[] => {
+    const pairs: ComparisonPair[] = []
+    const n = todos.length
+
+    console.log(`🎯 [COMPARE] Generating efficient pairs for ${n} todos`)
+
+    // 1. タスクが少ない場合（≤5）: 全ペア比較
+    if (n <= 5) {
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          pairs.push({ left: todos[i], right: todos[j] })
+        }
+      }
+      console.log(`🎯 [COMPARE] Small set: ${pairs.length} total pairs`)
+      return pairs.sort(() => Math.random() - 0.5)
+    }
+
+    // 2. タスクが多い場合（>5）: 階層的トーナメント + 重要度ベース選択
+
+    // Phase 1: 重要度スコアでソートして上位候補を特定
+    const sortedByImportance = [...todos].sort((a, b) => b.importance_score - a.importance_score)
+    const topCandidates = sortedByImportance.slice(0, Math.min(8, Math.ceil(n * 0.4)))
+    const remainingTodos = sortedByImportance.slice(topCandidates.length)
+
+    console.log(`🎯 [COMPARE] Top candidates: ${topCandidates.length}, Remaining: ${remainingTodos.length}`)
+
+    // Phase 2: 上位候補内での精密比較（全ペア）
+    for (let i = 0; i < topCandidates.length; i++) {
+      for (let j = i + 1; j < topCandidates.length; j++) {
+        pairs.push({ left: topCandidates[i], right: topCandidates[j] })
+      }
+    }
+
+    // Phase 3: 各上位候補 vs ランダムな下位タスク（2-3個ずつ）
+    const samplesPerCandidate = Math.min(3, Math.max(1, Math.floor(remainingTodos.length / topCandidates.length)))
+    topCandidates.forEach(candidate => {
+      const shuffledRemaining = [...remainingTodos].sort(() => Math.random() - 0.5)
+      const samples = shuffledRemaining.slice(0, samplesPerCandidate)
+
+      samples.forEach(sample => {
+        pairs.push({ left: candidate, right: sample })
+      })
+    })
+
+    // Phase 4: 下位タスク間のサンプリング比較
+    if (remainingTodos.length > 1) {
+      const maxRemainingPairs = Math.min(5, Math.floor(remainingTodos.length / 2))
+      const shuffledRemaining = [...remainingTodos].sort(() => Math.random() - 0.5)
+
+      for (let i = 0; i < maxRemainingPairs && i * 2 + 1 < shuffledRemaining.length; i++) {
         pairs.push({
-          left: activeTodos[i],
-          right: activeTodos[j]
+          left: shuffledRemaining[i * 2],
+          right: shuffledRemaining[i * 2 + 1]
         })
       }
     }
 
-    // ランダムに並べ替え
-    const shuffled = pairs.sort(() => Math.random() - 0.5)
-    setRemainingPairs(shuffled)
+    console.log(`🎯 [COMPARE] Efficient algorithm: ${pairs.length} pairs (vs ${n * (n-1) / 2} full pairs)`)
+    console.log(`🎯 [COMPARE] Efficiency gain: ${Math.round((1 - pairs.length / (n * (n-1) / 2)) * 100)}%`)
 
-    if (shuffled.length > 0) {
-      setCurrentPair(shuffled[0])
-    }
-  }, [todos])
+    // 最終的にランダムシャッフル
+    return pairs.sort(() => Math.random() - 0.5)
+  }
 
   const handleChoice = async (winner: Todo, loser: Todo) => {
     await createComparison(winner.id, loser.id)
