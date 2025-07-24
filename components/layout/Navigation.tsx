@@ -2,10 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Plus, ClipboardList, BarChart3, Scale, Settings } from 'lucide-react'
+import { Plus, ClipboardList, BarChart3, Scale } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { CreateTodoModal } from '@/components/todo/CreateTodoModal'
 import { MobileMenu } from './MobileMenu'
+import { UserMenu } from './UserMenu'
 import { useState } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 
@@ -17,8 +18,7 @@ export function Navigation() {
   const tabs = [
     { name: 'ダッシュボード', href: '/', icon: ClipboardList },
     { name: '優先度比較', href: '/compare', icon: Scale },
-    { name: 'レポート', href: '/report', icon: BarChart3 },
-    { name: '設定', href: '/settings', icon: Settings }
+    { name: 'レポート', href: '/report', icon: BarChart3 }
   ]
 
   return (
@@ -58,20 +58,30 @@ export function Navigation() {
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              {/* デスクトップ新規タスクボタン */}
-              {user && (
-                <Button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="hidden md:flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>新規タスク</span>
-                </Button>
-              )}
+            <div className="flex items-center space-x-3">
+              {user ? (
+                <>
+                  {/* デスクトップ新規タスクボタン */}
+                  <Button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="hidden md:flex items-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>新規タスク</span>
+                  </Button>
 
-              {/* モバイルメニュー */}
-              <MobileMenu onCreateTask={() => setIsCreateModalOpen(true)} />
+                  {/* ユーザーメニュー（デスクトップ） */}
+                  <div className="hidden md:block">
+                    <UserMenu />
+                  </div>
+
+                  {/* モバイルメニュー */}
+                  <MobileMenu onCreateTask={() => setIsCreateModalOpen(true)} />
+                </>
+              ) : (
+                /* 未認証時はモバイルメニューを表示しない */
+                <div></div>
+              )}
             </div>
           </div>
         </div>

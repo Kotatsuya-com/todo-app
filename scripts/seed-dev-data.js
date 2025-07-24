@@ -175,12 +175,15 @@ BEGIN
     DELETE FROM comparisons WHERE user_id = test_user_id;
     DELETE FROM todos WHERE user_id = test_user_id;
     
-    -- Update user profile with test data
+    -- Clear any existing slack_user_id that might conflict
+    UPDATE users SET slack_user_id = NULL WHERE slack_user_id = 'U' || SUBSTRING(test_user_id::text, 1, 9) AND id != test_user_id;
+    
+    -- Update user profile with test data (use unique slack_user_id per user)
     INSERT INTO users (id, display_name, slack_user_id, created_at) 
-    VALUES (test_user_id, 'テストユーザー', 'U1234567890', NOW() - INTERVAL '30 days')
+    VALUES (test_user_id, 'テストユーザー', 'U' || SUBSTRING(test_user_id::text, 1, 9), NOW() - INTERVAL '30 days')
     ON CONFLICT (id) DO UPDATE SET
         display_name = 'テストユーザー',
-        slack_user_id = 'U1234567890';
+        slack_user_id = 'U' || SUBSTRING(test_user_id::text, 1, 9);
     
     -- Insert todos with various states
     INSERT INTO todos (id, user_id, title, body, deadline, importance_score, status, created_at, completed_at) VALUES

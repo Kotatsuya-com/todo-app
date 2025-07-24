@@ -12,6 +12,7 @@ interface TodoStore {
   
   // Actions
   setUser: (user: User | null) => void
+  signOut: () => Promise<void>
   fetchTodos: () => Promise<void>
   createTodo: (todo: Partial<Todo>) => Promise<void>
   updateTodo: (id: string, updates: Partial<Todo>) => Promise<void>
@@ -31,6 +32,30 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
   error: null,
 
   setUser: (user) => set({ user }),
+
+  signOut: async () => {
+    set({ loading: true, error: null })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        throw error
+      }
+      
+      // ローカル状態をクリア
+      set({
+        user: null,
+        todos: [],
+        comparisons: [],
+        loading: false,
+        error: null
+      })
+    } catch (error: any) {
+      set({ error: error.message, loading: false })
+      throw error
+    }
+  },
 
   fetchTodos: async () => {
     set({ loading: true, error: null })

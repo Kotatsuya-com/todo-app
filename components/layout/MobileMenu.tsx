@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Menu, X, Plus, ClipboardList, BarChart3, Scale, Settings } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { Menu, X, Plus, ClipboardList, BarChart3, Scale, Settings, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useTodoStore } from '@/store/todoStore'
 
@@ -13,8 +13,10 @@ interface MobileMenuProps {
 
 export function MobileMenu({ onCreateTask }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const pathname = usePathname()
-  const { user } = useTodoStore()
+  const router = useRouter()
+  const { user, signOut } = useTodoStore()
 
   const tabs = [
     { name: 'ダッシュボード', href: '/', icon: ClipboardList },
@@ -32,7 +34,26 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
     setIsOpen(false)
   }
 
-  if (!user) {return null}
+  const handleSignOut = async () => {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+    setIsOpen(false)
+    try {
+      await signOut()
+      router.push('/')
+    } catch (error) {
+      console.error('ログアウトエラー:', error)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
+  if (!user) {
+    return null
+  }
 
   return (
     <>
@@ -70,6 +91,12 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
 
         {/* メニュー項目 */}
         <div className="p-4 space-y-2">
+          {/* ユーザー情報 */}
+          <div className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 mb-4 border-b border-gray-100">
+            <User className="w-4 h-4" />
+            <span>{user.display_name || 'ユーザー'}</span>
+          </div>
+
           {/* 新規タスク作成ボタン */}
           <Button
             onClick={handleCreateTask}
@@ -103,6 +130,19 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
               </Link>
             )
           })}
+
+          {/* ログアウトボタン */}
+          <div className="pt-4 border-t border-gray-100">
+            <Button
+              onClick={handleSignOut}
+              disabled={isLoggingOut}
+              variant="secondary"
+              className="w-full flex items-center justify-center space-x-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>{isLoggingOut ? 'ログアウト中...' : 'ログアウト'}</span>
+            </Button>
+          </div>
         </div>
       </div>
     </>
