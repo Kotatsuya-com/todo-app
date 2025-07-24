@@ -20,7 +20,7 @@ export function getDeadlineFromUrgency(urgency: Urgency): string | undefined {
   }
 }
 
-export function getQuadrant(deadline: string | null, importanceScore: number): Quadrant {
+export function getQuadrant(deadline: string | null | undefined, importanceScore: number): Quadrant {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const isUrgent = deadline ? new Date(deadline) <= today : false
