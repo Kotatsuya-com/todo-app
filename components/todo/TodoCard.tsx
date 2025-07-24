@@ -97,45 +97,32 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
         {todo.status === 'open' && (
           <>
-            {overdue ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleExtendDeadline}
-                  className="flex-1"
-                >
-                  期限延長
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={handleDelete}
-                  className="flex-1"
-                >
-                  削除
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleComplete}
-                  className="flex items-center gap-1"
-                >
-                  <Check className="w-3 h-3" />
-                  完了
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleDelete}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleComplete}
+              className="flex items-center gap-1"
+            >
+              <Check className="w-3 h-3" />
+              完了
+            </Button>
+            {overdue && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleExtendDeadline}
+                className="flex items-center gap-1"
+              >
+                期限延長
+              </Button>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleDelete}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
           </>
         )}
       </div>
