@@ -10,7 +10,6 @@ export function getDeadlineFromUrgency(urgency: Urgency): string | undefined {
   const now = new Date()
 
   switch (urgency) {
-    case 'now':
     case 'today':
       return now.toISOString().split('T')[0]
     case 'tomorrow':

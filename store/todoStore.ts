@@ -95,7 +95,6 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       if (!deadline && todo.urgency) {
         const now = new Date()
         switch (todo.urgency) {
-          case 'now':
           case 'today':
             deadline = format(now, 'yyyy-MM-dd')
             break
