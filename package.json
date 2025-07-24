@@ -25,7 +25,8 @@
     "db:studio": "npx supabase studio",
     "migrate:new": "npx supabase migration new",
     "migrate:up": "npx supabase migration up",
-    "types:generate": "npx supabase gen types typescript --local > types/supabase.ts"
+    "types:generate": "npx supabase gen types typescript --local > types/supabase.ts",
+    "seed:dev": "node scripts/seed-dev-data.js"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
