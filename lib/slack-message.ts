@@ -223,6 +223,134 @@ export async function getSlackMessage(channel: string, ts: string): Promise<Slac
 }
 
 /**
+ * ユーザーIDからユーザー名を取得
+ */
+async function getUserName(slackToken: string, userId: string): Promise<string> {
+  try {
+    const response = await fetch(`https://slack.com/api/users.info?user=${userId}`, {
+      headers: {
+        'Authorization': `Bearer ${slackToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    const data = await response.json()
+
+    if (data.ok && data.user) {
+      // 表示名を優先し、なければ実名、最後にユーザー名
+      return data.user.profile?.display_name || data.user.profile?.real_name || data.user.name || userId
+    }
+    return userId
+  } catch (error) {
+    console.error(`Error fetching user info for ${userId}:`, error)
+    return userId
+  }
+}
+
+/**
+ * グループIDからグループ名を取得
+ */
+async function getGroupName(slackToken: string, groupId: string): Promise<string> {
+  try {
+    const response = await fetch(`https://slack.com/api/usergroups.info?usergroup=${groupId}`, {
+      headers: {
+        'Authorization': `Bearer ${slackToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    const data = await response.json()
+
+    if (data.ok && data.usergroup) {
+      return data.usergroup.name || groupId
+    }
+    return groupId
+  } catch (error) {
+    console.error(`Error fetching group info for ${groupId}:`, error)
+    return groupId
+  }
+}
+
+/**
+ * Slackメッセージ内のメンションを実際の名前に変換
+ */
+async function convertMentions(slackToken: string, text: string): Promise<string> {
+  if (!text) {
+    return text
+  }
+
+  let convertedText = text
+
+  // ユーザーメンション <@USERID> を変換
+  const userMentions = text.match(/<@[A-Z0-9]+>/g)
+  if (userMentions) {
+    for (const mention of userMentions) {
+      const userId = mention.slice(2, -1) // <@ と > を除去
+      const userName = await getUserName(slackToken, userId)
+      convertedText = convertedText.replace(mention, `@${userName}`)
+    }
+  }
+
+  // グループメンション <!subteam^GROUPID> を変換
+  const groupMentions = text.match(/<!subteam\^[A-Z0-9]+>/g)
+  if (groupMentions) {
+    for (const mention of groupMentions) {
+      const groupId = mention.slice(10, -1) // <!subteam^ と > を除去
+      const groupName = await getGroupName(slackToken, groupId)
+      convertedText = convertedText.replace(mention, `@${groupName}`)
+    }
+  }
+
+  // チャンネルメンション <#CHANNELID> を変換
+  const channelMentions = text.match(/<#[A-Z0-9]+>/g)
+  if (channelMentions) {
+    for (const mention of channelMentions) {
+      const channelId = mention.slice(2, -1) // <# と > を除去
+      try {
+        const response = await fetch(`https://slack.com/api/conversations.info?channel=${channelId}`, {
+          headers: {
+            'Authorization': `Bearer ${slackToken}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        const data = await response.json()
+        if (data.ok && data.channel) {
+          convertedText = convertedText.replace(mention, `#${data.channel.name}`)
+        }
+      } catch (error) {
+        console.error(`Error fetching channel info for ${channelId}:`, error)
+      }
+    }
+  }
+
+  return convertedText
+}
+
+/**
+ * チャンネルIDからチャンネル名を取得
+ */
+async function getChannelName(slackToken: string, channelId: string): Promise<string> {
+  try {
+    const response = await fetch(`https://slack.com/api/conversations.info?channel=${channelId}`, {
+      headers: {
+        'Authorization': `Bearer ${slackToken}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    const data = await response.json()
+
+    if (data.ok && data.channel) {
+      return data.channel.name || channelId
+    }
+    return channelId
+  } catch (error) {
+    console.error(`Error fetching channel info for ${channelId}:`, error)
+    return channelId
+  }
+}
+
+/**
  * SlackURLから直接メッセージを取得（フロントエンド向け）
  */
 export async function getSlackMessageFromUrl(slackUrl: string): Promise<SlackMessageResult | null> {
@@ -261,8 +389,21 @@ export async function getSlackMessageFromUrl(slackUrl: string): Promise<SlackMes
       return null
     }
 
+    // メンションを実際の名前に変換
+    let convertedText = await convertMentions(slackToken, message.text || '')
+
+    // Slackの改行コード(\n)をそのまま保持
+    convertedText = convertedText.replace(/\\n/g, '\n')
+
+    // チャンネル名と投稿者名を取得
+    const channelName = await getChannelName(slackToken, channel)
+    const userName = message.user ? await getUserName(slackToken, message.user) : 'Unknown User'
+
+    // メッセージの先頭にチャンネル名と投稿者名を追加
+    const messageWithHeader = `${userName} (#${channelName})\n${convertedText}`
+
     return {
-      text: message.text,
+      text: messageWithHeader,
       user: message.user,
       timestamp: message.ts,
       channel: channel

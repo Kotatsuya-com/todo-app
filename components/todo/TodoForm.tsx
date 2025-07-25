@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Sparkles, Calendar, Link } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Urgency } from '@/types'
@@ -90,17 +90,7 @@ export function TodoForm({
     return /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/[A-Z0-9]+\/p[0-9]+/.test(text)
   }
 
-  const handleBodyChange = (value: string) => {
-    setBody(value)
-    const isSlack = isSlackUrlFormat(value.trim())
-    setIsSlackUrl(isSlack)
-
-    if (!isSlack && slackData) {
-      setSlackData(null)
-    }
-  }
-
-  const fetchSlackMessage = async () => {
+  const fetchSlackMessage = useCallback(async () => {
     if (!isSlackUrl || !body.trim()) {return}
 
     setIsLoadingSlack(true)
@@ -114,6 +104,26 @@ export function TodoForm({
       if (response.ok) {
         const data = await response.json()
         setSlackData({ text: data.text, url: data.url })
+        // Slackメッセージ取得成功時に自動でタイトル生成
+        if (data.text && !title.trim()) {
+          setIsGeneratingTitle(true)
+          try {
+            const titleResponse = await fetch('/api/generate-title', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content: data.text })
+            })
+
+            if (titleResponse.ok) {
+              const titleData = await titleResponse.json()
+              setTitle(titleData.title)
+            }
+          } catch (titleError) {
+            console.error('Failed to generate title:', titleError)
+          } finally {
+            setIsGeneratingTitle(false)
+          }
+        }
       } else {
         console.error('Failed to fetch Slack message')
       }
@@ -122,7 +132,24 @@ export function TodoForm({
     } finally {
       setIsLoadingSlack(false)
     }
+  }, [isSlackUrl, body, title])
+
+  const handleBodyChange = (value: string) => {
+    setBody(value)
+    const isSlack = isSlackUrlFormat(value.trim())
+    setIsSlackUrl(isSlack)
+
+    if (!isSlack && slackData) {
+      setSlackData(null)
+    }
   }
+
+  // Slack URLが検出されたときに自動的にメッセージを取得
+  useEffect(() => {
+    if (isSlackUrl && body.trim() && !slackData && !isLoadingSlack) {
+      fetchSlackMessage()
+    }
+  }, [isSlackUrl, body, slackData, isLoadingSlack, fetchSlackMessage])
 
   const handleUrgencyChange = (newUrgency: Urgency) => {
     setUrgency(newUrgency)
@@ -156,7 +183,7 @@ export function TodoForm({
             <div className="flex items-center gap-2">
               <div className="flex items-center text-sm text-blue-600">
                 <Link className="w-4 h-4 mr-1" />
-                SlackURLが検出されました
+                {isLoadingSlack ? '取得中...' : 'SlackURLが検出されました'}
               </div>
               <Button
                 type="button"
@@ -165,14 +192,14 @@ export function TodoForm({
                 onClick={fetchSlackMessage}
                 disabled={isLoadingSlack}
               >
-                {isLoadingSlack ? '取得中...' : 'メッセージ取得'}
+                {isLoadingSlack ? '取得中...' : '再取得'}
               </Button>
             </div>
           )}
           {slackData && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="text-sm text-blue-700 font-medium mb-1">Slackメッセージ:</div>
-              <div className="text-sm text-gray-700">{slackData.text}</div>
+              <div className="text-sm text-gray-700 whitespace-pre-wrap">{slackData.text}</div>
             </div>
           )}
         </div>
