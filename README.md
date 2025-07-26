@@ -1,6 +1,10 @@
-# ✅ Slack連携 TODO管理アプリ
+# 🐱 do'nTODO - やるべきこと・やるべきでないことを明確にするアプリ
 
-Next.js + Supabase + OpenAI APIを使用したTODO管理アプリケーションです。
+Next.js + Supabase + OpenAI APIを使用した革新的なタスク管理アプリケーションです。
+
+## 💡 コンセプト
+
+**do'nTODO**は従来のTODOアプリとは異なり、Eisenhower Matrix（重要度×緊急度）による分析を通じて、**やるべきこと**だけでなく**やるべきでないこと**も明確にします。これにより、本当に重要なタスクに集中し、生産性を最大化できます。
 
 ## ✨ 主な機能
 
@@ -10,7 +14,8 @@ Next.js + Supabase + OpenAI APIを使用したTODO管理アプリケーション
 - **タスクカードホバー機能**（マウスホバーで本文プレビュー、200文字超過時は展開ボタン表示）
 - **効率的重要度比較システム**（アダプティブ・トーナメント方式で大幅な比較回数削減）
 - **改善された四象限マトリクス**（重要度判定の閾値最適化で適切なタスク振り分け）
-- Slack URLからのメッセージ取得とタスク化
+- **ユーザー別Slack接続**（各ユーザーが自分のSlackワークスペースを接続可能）
+- Slack URLからのメッセージ取得とタスク化（自動タイトル生成・メンション変換対応）
 - **Slackリアクション自動タスク化**（特定の絵文字でリアクションするとタスクが自動作成）
 - OpenAI APIを使用したタスクタイトルの自動生成
 - アイゼンハワーマトリクス（重要度×緊急度）による四象限表示
@@ -73,9 +78,13 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-here
 # OpenAI（必須）
 OPENAI_API_KEY=your-openai-api-key
 
-# Slack（オプション）
+# Slack（オプション - 従来のグローバルトークン方式）
 SLACK_BOT_TOKEN=your-slack-bot-token
 SLACK_SIGNING_SECRET=your-slack-signing-secret
+
+# Slack OAuth（ユーザー別接続機能用）
+NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-app-client-id
+SLACK_CLIENT_SECRET=your-slack-app-client-secret
 
 # ngrok（Slack Webhook開発用、オプション）
 # 注意: 認証トークンは `ngrok config add-authtoken` での設定を推奨
@@ -476,13 +485,20 @@ npm run seed:dev
 
 ### Slack連携機能
 
-1. タスク作成モーダルの本文欄にSlackメッセージのURLを入力
-2. SlackURLが検出されると「メッセージ取得」ボタンが表示
-3. ボタンをクリックしてSlackからメッセージ内容を自動取得
-4. 取得されたメッセージ内容がプレビュー表示される
-5. タスク保存時に、Slackメッセージの内容がタスクの本文として使用される
+#### 1. Slackワークスペース接続
+1. 「設定」画面で「Slackに接続」をクリック
+2. 接続したいSlackワークスペースでアプリを認可
+3. 接続完了後、そのワークスペースのメッセージを取得可能
 
-**注意**: Slack連携機能を使用するには、事前にSlack Bot Tokenの設定が必要です。
+#### 2. Slackメッセージからタスク作成
+1. タスク作成モーダルの本文欄にSlackメッセージのURLを入力
+2. SlackURLが検出されると自動でメッセージを取得（ボタン不要）
+3. 取得されたメッセージ内容がプレビュー表示される
+4. メンション（@ユーザー名、@グループ名）も自動で名前に変換
+5. GPT-4o miniによる自動タイトル生成も実行
+6. タスク保存時に、Slackメッセージの内容がタスクの本文として使用される
+
+**注意**: 各ユーザーが自分のSlackワークスペースを接続する必要があります。
 
 ### 優先度比較
 
@@ -808,6 +824,25 @@ CREATE TABLE users (
 );
 ```
 
+### 🔗 slack_connections テーブル
+
+```sql
+CREATE TABLE slack_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL,
+  workspace_name TEXT NOT NULL,
+  team_name TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  bot_user_id TEXT,
+  scope TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  
+  UNIQUE(user_id, workspace_id)
+);
+```
+
 ### 📋 todos テーブル
 
 ```sql
@@ -902,19 +937,32 @@ CREATE TRIGGER on_auth_user_created
 ### 🔌 API詳細仕様
 
 #### `/api/generate-title`
-- **使用モデル**: OpenAI GPT-3.5-turbo
+- **使用モデル**: OpenAI GPT-4o mini
 - **システムプロンプト**: 「15文字以内で、タスクの本質を表する見出しを生成」
 - **パラメータ**: `temperature: 0.7`, `max_tokens: 50`
 - **入力**: タスクの本文（Slackメッセージまたは直接入力）
 - **出力**: JSON形式の生成されたタイトル
+- **自動実行**: Slackメッセージ取得時に自動でタイトル生成
 
 #### `/api/slack`
+- **認証方式**: ユーザー別Slack OAuth接続
 - **対応URL形式**: 
   - チャンネルメッセージ: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP`
   - スレッドメッセージ: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP?thread_ts=THREAD_TS`
 - **タイムスタンプ変換**: URLの`p123456789012`を`123456.789012`形式に変換
 - **API使用**: スレッドは`conversations.replies`、通常は`conversations.history`
-- **取得情報**: メッセージテキスト、ユーザー名、投稿時刻
+- **取得情報**: メッセージテキスト、ユーザー名、投稿時刻、チャンネル名
+- **メンション変換**: ユーザーID・グループID・チャンネルIDを実際の名前に変換
+- **自動タイトル生成**: メッセージ取得成功時に自動でGPT-4o miniがタイトル生成
+
+#### `/api/slack/auth`
+- **OAuth認証**: Slack OAuth 2.0認証フロー処理
+- **スコープ**: `channels:history,groups:history,im:history,mpim:history,users:read,conversations:read,usergroups:read`
+- **データベース保存**: 認証成功時にユーザー固有のアクセストークンを`slack_connections`に保存
+
+#### `/api/slack/connections`
+- **GET**: ユーザーの接続済みSlackワークスペース一覧取得
+- **DELETE**: 指定したSlack接続の削除
 
 #### `/api/slack/events`
 - **対象絵文字**: `memo`(📝), `clipboard`(📋), `pencil`(✏️), `spiral_note_pad`(🗒️), `page_with_curl`(📄)
@@ -1539,6 +1587,17 @@ const createTaskFromSlack = async (messageText: string, urgency: Urgency): Promi
 - **ESLint**: 全修正でESLintエラーゼロを維持
 - **TypeScript**: 厳密な型定義でコンパイルエラーなし
 - **デバッグ機能**: 重要度スコア計算過程の可視化とアルゴリズム効率性ログ
+
+#### ユーザー別Slack接続機能（最新）
+- **OAuth認証**: 各ユーザーが自分のSlackワークスペースを安全に接続
+- **データベース設計**: `slack_connections`テーブルで個別認証情報を管理
+- **設定画面の拡張**: Slack接続管理UIと従来の絵文字リアクション設定の両方を提供
+- **メンション自動変換**: ユーザーID・グループID・チャンネルIDを実際の名前に自動変換
+- **自動タイトル生成強化**: Slackメッセージ取得時にGPT-4o miniで自動タイトル生成
+- **URL自動検知**: Slack URL入力時の自動メッセージ取得（ボタン不要）
+- **改行対応**: Slackメッセージとタスク本文の改行を正しく表示
+- **API統合**: ユーザー固有トークンでのSlack API呼び出しと認証管理
+- **セキュリティ**: Row Level Securityでユーザー毎の完全なデータ分離
 
 ## 📞 サポート・トラブルシューティング
 

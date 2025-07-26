@@ -52,16 +52,17 @@ export default function DashboardPage() {
   })
 
   const quadrantInfo = {
-    urgent_important: { title: '緊急×重要', color: 'bg-red-50 border-red-200' },
-    not_urgent_important: { title: '重要×緊急でない', color: 'bg-blue-50 border-blue-200' },
-    urgent_not_important: { title: '緊急×重要でない', color: 'bg-yellow-50 border-yellow-200' },
-    not_urgent_not_important: { title: '緊急でない×重要でない', color: 'bg-gray-50 border-gray-200' }
+    urgent_important: { title: '🔥 今すぐやる', color: 'bg-red-50 border-red-200' },
+    not_urgent_important: { title: '📅 計画してやる', color: 'bg-blue-50 border-blue-200' },
+    urgent_not_important: { title: '🤝 誰かに任せる', color: 'bg-yellow-50 border-yellow-200' },
+    not_urgent_not_important: { title: '🗑️ やらない', color: 'bg-gray-50 border-gray-200' }
   }
 
   return (
     <div className="space-y-6">
+
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">タスク一覧</h2>
+        <h2 className="text-2xl font-bold text-gray-900">マトリクス</h2>
 
         <div className="flex items-center gap-3">
           <Button

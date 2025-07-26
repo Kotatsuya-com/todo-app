@@ -80,3 +80,17 @@
 /* ------------- カスタムユーティリティ ------------------ */
 .glass        { @apply bg-white/80 backdrop-blur-sm; }
 .shadow-soft  { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); }
+
+/* ------------- 高品質画像表示 ------------------ */
+.high-quality-image {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* Retina/高DPI対応 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .high-quality-image {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}

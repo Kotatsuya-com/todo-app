@@ -5,10 +5,20 @@ import { useTodoStore } from '@/store/todoStore'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { AuthForm } from '@/components/auth/AuthForm'
+import { Trash2, ExternalLink } from 'lucide-react'
+
+interface SlackConnection {
+  id: string
+  workspace_id: string
+  workspace_name: string
+  team_name: string
+  created_at: string
+}
 
 export default function SettingsPage() {
   const { user } = useTodoStore()
   const [slackUserId, setSlackUserId] = useState('')
+  const [slackConnections, setSlackConnections] = useState<SlackConnection[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -33,11 +43,56 @@ export default function SettingsPage() {
     }
   }, [user?.id])
 
+  const fetchSlackConnections = useCallback(async () => {
+    try {
+      const response = await fetch('/api/slack/connections')
+      if (response.ok) {
+        const data = await response.json()
+        setSlackConnections(data.connections || [])
+      }
+    } catch (error) {
+      console.error('Error fetching Slack connections:', error)
+    }
+  }, [])
+
   useEffect(() => {
     if (user) {
       fetchUserSettings()
+      fetchSlackConnections()
     }
-  }, [user, fetchUserSettings])
+  }, [user, fetchUserSettings, fetchSlackConnections])
+
+  const handleSlackConnect = () => {
+    const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
+    const redirectUri = `${window.location.origin}/api/slack/auth`
+    const scope = 'channels:history,groups:history,im:history,mpim:history,users:read,conversations:read,usergroups:read'
+    const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}`
+
+    window.location.href = slackAuthUrl
+  }
+
+  const handleDeleteConnection = async (connectionId: string) => {
+    if (!confirm('このSlack接続を削除しますか？')) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/slack/connections', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId })
+      })
+
+      if (response.ok) {
+        setSlackConnections(prev => prev.filter(conn => conn.id !== connectionId))
+        setMessage('Slack接続を削除しました')
+      } else {
+        setMessage('削除に失敗しました')
+      }
+    } catch (error) {
+      setMessage('削除中にエラーが発生しました')
+    }
+  }
 
   const handleSaveSettings = async () => {
     if (!user) {return}
@@ -74,11 +129,60 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">設定</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">🐱 設定</h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+        {/* Slackワークスペース接続 */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Slack連携</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Slackワークスペース接続</h2>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Slackワークスペースに接続すると、Slackメッセージからタスクを作成できます
+              </p>
+              <Button
+                onClick={handleSlackConnect}
+                variant="secondary"
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Slackに接続
+              </Button>
+            </div>
+
+            {slackConnections.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700">接続済みワークスペース</h3>
+                {slackConnections.map((connection) => (
+                  <div
+                    key={connection.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
+                    <div>
+                      <div className="font-medium text-gray-900">{connection.workspace_name}</div>
+                      <div className="text-sm text-gray-500">
+                        接続日: {new Date(connection.created_at).toLocaleDateString('ja-JP')}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => handleDeleteConnection(connection.id)}
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 絵文字リアクション設定 */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">絵文字リアクション設定</h2>
 
           <div className="space-y-4">
             <div>

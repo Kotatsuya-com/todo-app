@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Plus, ClipboardList, BarChart3, Scale } from 'lucide-react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/Button'
 import { CreateTodoModal } from '@/components/todo/CreateTodoModal'
 import { MobileMenu } from './MobileMenu'
@@ -16,8 +17,8 @@ export function Navigation() {
   const { user } = useTodoStore()
 
   const tabs = [
-    { name: 'ダッシュボード', href: '/', icon: ClipboardList },
-    { name: '優先度比較', href: '/compare', icon: Scale },
+    { name: 'マトリクス', href: '/', icon: ClipboardList },
+    { name: 'ジャッジ', href: '/compare', icon: Scale },
     { name: 'レポート', href: '/report', icon: BarChart3 }
   ]
 
@@ -27,7 +28,22 @@ export function Navigation() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
-              <h1 className="text-xl font-bold text-gray-900">TODO管理</h1>
+              <Link href="/" className="flex items-center space-x-3">
+                <Image
+                  src="/logo-80.png"
+                  alt="do'nTODO"
+                  width={80}
+                  height={80}
+                  className="w-10 h-10 object-contain high-quality-image"
+                  quality={100}
+                  priority
+                  sizes="(max-width: 768px) 32px, 40px"
+                  style={{
+                    imageRendering: 'crisp-edges'
+                  }}
+                />
+                <h1 className="text-xl font-bold text-gray-900">do&apos;nTODO</h1>
+              </Link>
 
               {/* デスクトップナビゲーション */}
               {user && (

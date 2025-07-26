@@ -19,8 +19,8 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
   const { user, signOut } = useTodoStore()
 
   const tabs = [
-    { name: 'ダッシュボード', href: '/', icon: ClipboardList },
-    { name: '優先度比較', href: '/compare', icon: Scale },
+    { name: 'マトリクス', href: '/', icon: ClipboardList },
+    { name: 'ジャッジ', href: '/compare', icon: Scale },
     { name: 'レポート', href: '/report', icon: BarChart3 },
     { name: '設定', href: '/settings', icon: Settings }
   ]

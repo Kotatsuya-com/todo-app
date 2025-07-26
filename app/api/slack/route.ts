@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSlackMessageFromUrl, parseSlackUrl } from '@/lib/slack-message'
+import { createClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,18 +22,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Slack API用のトークンを環境変数から取得
-    const slackToken = process.env.SLACK_BOT_TOKEN
+    // ユーザー認証
+    const supabase = createClient()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (!slackToken) {
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // URLからワークスペースIDを特定する方法を実装する必要があります
+    // 現在は最初に見つかったSlack接続を使用
+    const { data: connections, error: connectionError } = await supabase
+      .from('slack_connections')
+      .select('access_token, workspace_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    if (connectionError || !connections) {
       return NextResponse.json(
-        { error: 'Slack APIトークンが設定されていません' },
-        { status: 500 }
+        { error: 'Slackワークスペースに接続されていません。設定画面で接続してください。' },
+        { status: 400 }
       )
     }
 
-    // 共通関数を使用してメッセージを取得
-    const messageResult = await getSlackMessageFromUrl(slackUrl)
+    // 共通関数を使用してメッセージを取得（ユーザー固有のトークンを使用）
+    const messageResult = await getSlackMessageFromUrl(slackUrl, connections.access_token)
 
     if (!messageResult) {
       return NextResponse.json(

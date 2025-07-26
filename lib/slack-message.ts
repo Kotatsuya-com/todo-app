@@ -353,11 +353,11 @@ async function getChannelName(slackToken: string, channelId: string): Promise<st
 /**
  * SlackURLから直接メッセージを取得（フロントエンド向け）
  */
-export async function getSlackMessageFromUrl(slackUrl: string): Promise<SlackMessageResult | null> {
+export async function getSlackMessageFromUrl(slackUrl: string, slackToken?: string): Promise<SlackMessageResult | null> {
   try {
-    const slackToken = process.env.SLACK_BOT_TOKEN
-    if (!slackToken) {
-      throw new Error('SLACK_BOT_TOKEN is not configured')
+    const token = slackToken || process.env.SLACK_BOT_TOKEN
+    if (!token) {
+      throw new Error('Slack token is not provided')
     }
 
     // SlackURLをパース
@@ -374,15 +374,19 @@ export async function getSlackMessageFromUrl(slackUrl: string): Promise<SlackMes
     // スレッドメッセージかどうかを判断
     if (threadTs) {
       // スレッド内のメッセージを取得
-      message = await tryGetThreadReplies(slackToken, channel, threadTs, ts)
+      message = await tryGetThreadReplies(token, channel, threadTs, ts)
     } else {
       // チャンネル内のメッセージを取得
-      message = await tryGetChannelMessage(slackToken, channel, ts)
+      message = await tryGetChannelMessage(token, channel, ts)
     }
 
     // 上記で見つからない場合は、共通の検索ロジックを使用
     if (!message) {
-      message = await getSlackMessage(channel, ts)
+      // getSlackMessage関数も修正が必要
+      const tempSlackToken = process.env.SLACK_BOT_TOKEN
+      if (tempSlackToken) {
+        message = await getSlackMessage(channel, ts)
+      }
     }
 
     if (!message) {
@@ -390,14 +394,14 @@ export async function getSlackMessageFromUrl(slackUrl: string): Promise<SlackMes
     }
 
     // メンションを実際の名前に変換
-    let convertedText = await convertMentions(slackToken, message.text || '')
+    let convertedText = await convertMentions(token, message.text || '')
 
     // Slackの改行コード(\n)をそのまま保持
     convertedText = convertedText.replace(/\\n/g, '\n')
 
     // チャンネル名と投稿者名を取得
-    const channelName = await getChannelName(slackToken, channel)
-    const userName = message.user ? await getUserName(slackToken, message.user) : 'Unknown User'
+    const channelName = await getChannelName(token, channel)
+    const userName = message.user ? await getUserName(token, message.user) : 'Unknown User'
 
     // メッセージの先頭にチャンネル名と投稿者名を追加
     const messageWithHeader = `${userName} (#${channelName})\n${convertedText}`
