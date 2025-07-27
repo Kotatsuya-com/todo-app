@@ -63,6 +63,11 @@ async function startDevelopment() {
     console.log('\n✅ Development environment ready!');
     console.log(`📍 Local URL: http://localhost:3000`);
     console.log(`🌐 Public URL: ${ngrokUrl}`);
+    console.log('\n📧 メール認証について:');
+    console.log(`   - ユーザー登録時にメール認証が必要です`);
+    console.log(`   - 開発環境では実際のメールは送信されません`);
+    console.log(`   - Inbucket (http://localhost:54324) で確認メールを確認できます`);
+    console.log(`   - 確認メール内のリンクをクリックして認証を完了してください`);
     console.log('\n🎯 To set up Slack webhook integration:');
     console.log(`   1. Access the app at http://localhost:3000`);
     console.log(`   2. Log in and go to Settings (⚙️)`);
@@ -74,9 +79,53 @@ async function startDevelopment() {
     console.log('\n⚠️  Keep this terminal open to maintain the tunnel');
     console.log('   Press Ctrl+C to stop all services');
     
-    // Save URL to a file for reference
+    // Save URL to a file for reference and environment variable
     const ngrokInfoPath = path.join(__dirname, '..', '.ngrok-url');
     fs.writeFileSync(ngrokInfoPath, ngrokUrl);
+    
+    // Create runtime environment file for dynamic ngrok URL
+    const envRuntimePath = path.join(__dirname, '..', '.env.runtime');
+    fs.writeFileSync(envRuntimePath, `NEXT_PUBLIC_APP_URL=${ngrokUrl}\nAPP_URL=${ngrokUrl}`);
+    
+    // Update Supabase config for ngrok URL
+    const configPath = path.join(__dirname, '..', 'supabase', 'config.toml');
+    let configContent = fs.readFileSync(configPath, 'utf8');
+    
+    // Update site_url to ngrok URL for proper auth redirects
+    configContent = configContent.replace(
+      /site_url = "http:\/\/localhost:3000"/,
+      `site_url = "${ngrokUrl}"`
+    );
+    
+    // Add ngrok URL to additional_redirect_urls
+    configContent = configContent.replace(
+      /additional_redirect_urls = \[\]/,
+      `additional_redirect_urls = ["${ngrokUrl}"]`
+    );
+    
+    fs.writeFileSync(configPath, configContent);
+    
+    console.log(`🔧 Runtime environment updated: ${ngrokUrl}`);
+    console.log(`🔧 Supabase auth config updated for ngrok URL`);
+    
+    // Restart Supabase to apply config changes
+    console.log('🔄 Restarting Supabase to apply auth config...');
+    const restartSupabase = spawn('npm', ['run', 'db:stop'], { 
+      stdio: 'inherit',
+      shell: true 
+    });
+    
+    restartSupabase.on('close', async () => {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const startSupabase = spawn('npm', ['run', 'db:start'], { 
+        stdio: 'inherit',
+        shell: true 
+      });
+      
+      startSupabase.on('close', () => {
+        console.log('✅ Supabase restarted with ngrok auth config');
+      });
+    });
     
   } catch (error) {
     console.error('❌ Failed to start development environment:', error.message);
@@ -118,10 +167,37 @@ async function cleanup() {
     await ngrok.kill();
   }
   
-  // Clean up the URL file
+  // Clean up the URL files
   const ngrokInfoPath = path.join(__dirname, '..', '.ngrok-url');
+  const envRuntimePath = path.join(__dirname, '..', '.env.runtime');
+  
   if (fs.existsSync(ngrokInfoPath)) {
     fs.unlinkSync(ngrokInfoPath);
+  }
+  
+  if (fs.existsSync(envRuntimePath)) {
+    fs.unlinkSync(envRuntimePath);
+  }
+  
+  // Restore original Supabase config
+  const configPath = path.join(__dirname, '..', 'supabase', 'config.toml');
+  if (fs.existsSync(configPath)) {
+    let configContent = fs.readFileSync(configPath, 'utf8');
+    
+    // Restore localhost site_url
+    configContent = configContent.replace(
+      /site_url = "https:\/\/[^"]+\.ngrok[^"]*"/,
+      'site_url = "http://localhost:3000"'
+    );
+    
+    // Remove ngrok URL from additional_redirect_urls
+    configContent = configContent.replace(
+      /additional_redirect_urls = \["https:\/\/[^"]+\.ngrok[^"]*"\]/,
+      'additional_redirect_urls = []'
+    );
+    
+    fs.writeFileSync(configPath, configContent);
+    console.log('🔧 Supabase config restored to localhost');
   }
   
   console.log('✅ All services stopped');

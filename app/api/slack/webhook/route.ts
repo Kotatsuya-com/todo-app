@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { getAppBaseUrl } from '@/lib/ngrok-url'
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to reactivate webhook' }, { status: 500 })
       }
 
-      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/slack/events/user/${existingWebhook.webhook_id}`
+      const webhookUrl = `${getAppBaseUrl(request)}/api/slack/events/user/${existingWebhook.webhook_id}`
       return NextResponse.json({
         webhook: updatedWebhook,
         webhook_url: webhookUrl,
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create webhook' }, { status: 500 })
     }
 
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/slack/events/user/${newWebhook.webhook_id}`
+    const webhookUrl = `${getAppBaseUrl(request)}/api/slack/events/user/${newWebhook.webhook_id}`
 
     return NextResponse.json({
       webhook: newWebhook,
@@ -144,7 +145,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {

@@ -63,11 +63,79 @@ export default function SettingsPage() {
     }
   }, [user, fetchUserSettings, fetchSlackConnections])
 
-  const handleSlackConnect = () => {
+  // Slack認証完了処理（ngrok環境対応）
+  useEffect(() => {
+    console.log('Settings page useEffect triggered', {
+      hasUser: !!user,
+      currentUrl: window.location.href
+    })
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const slackAuthRequired = urlParams.get('slack_auth_required')
+    const slackCode = urlParams.get('slack_code')
+
+    console.log('URL parameters check:', {
+      slackAuthRequired,
+      hasSlackCode: !!slackCode,
+      slackCodeLength: slackCode?.length
+    })
+
+    const processSlackAuth = async (code: string) => {
+      try {
+        setMessage('Slack接続を処理しています...')
+
+        console.log('Authentication debug:', {
+          hasUser: !!user,
+          userId: user?.id,
+          currentOrigin: window.location.origin
+        })
+
+        const response = await fetch('/api/slack/auth-process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code })
+        })
+
+        if (response.ok) {
+          setMessage('Slack接続が完了しました')
+          await fetchSlackConnections()
+          // URLパラメータをクリア
+          window.history.replaceState({}, '', '/settings')
+        } else {
+          const errorData = await response.json()
+          setMessage(errorData.error || 'Slack接続に失敗しました')
+        }
+      } catch (error) {
+        console.error('Slack auth processing error:', error)
+        setMessage('Slack接続の処理中にエラーが発生しました')
+      }
+    }
+
+    if (slackAuthRequired && slackCode && user) {
+      console.log('Processing Slack auth for authenticated user:', { slackCode: slackCode.substring(0, 20) + '...' })
+      processSlackAuth(slackCode)
+    }
+  }, [user, fetchSlackConnections])
+
+  const handleSlackConnect = async () => {
     const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
-    const redirectUri = `${window.location.origin}/api/slack/auth`
-    const scope = 'channels:history,groups:history,im:history,mpim:history,users:read,conversations:read,usergroups:read'
-    const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&scope=${scope}&redirect_uri=${encodeURIComponent(redirectUri)}`
+    // 動的なngrok URLまたは現在のオリジンを取得
+    let baseUrl = window.location.origin
+    // 開発環境の場合、ngrok URLを取得
+    try {
+      const response = await fetch('/api/app-url')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.appUrl) {
+          baseUrl = data.appUrl
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to get app URL, using current origin:', error)
+    }
+    const redirectUri = `${baseUrl}/api/slack/auth`
+    const userScope = 'channels:history,groups:history,im:history,mpim:history'
+    const slackAuthUrl = `https://slack.com/oauth/v2/authorize?client_id=${clientId}&user_scope=${userScope}&redirect_uri=${encodeURIComponent(redirectUri)}`
 
     window.location.href = slackAuthUrl
   }
@@ -138,14 +206,14 @@ export default function SettingsPage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Slackワークスペース接続</h2>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-sm text-gray-600">
                 Slackワークスペースに接続すると、Slackメッセージからタスクを作成できます
               </p>
               <Button
                 onClick={handleSlackConnect}
                 variant="secondary"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 whitespace-nowrap flex-shrink-0"
               >
                 <ExternalLink className="w-4 h-4" />
                 Slackに接続

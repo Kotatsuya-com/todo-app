@@ -20,11 +20,19 @@ export async function middleware(req: NextRequest) {
             return req.cookies.get(name)?.value
           },
           set(name: string, value: string, options: CookieOptions) {
+            // ngrok環境の場合は適切なcookie設定を行う
+            const isNgrok = req.nextUrl.hostname.includes('ngrok')
+            const cookieOptions = { 
+              ...options,
+              secure: isNgrok ? true : options.secure,
+              sameSite: isNgrok ? 'none' as const : options.sameSite,
+            }
+            
             // Request cookieを設定
             req.cookies.set({
               name,
               value,
-              ...options,
+              ...cookieOptions,
             })
             // Response cookieを設定
             response = NextResponse.next({
@@ -35,7 +43,7 @@ export async function middleware(req: NextRequest) {
             response.cookies.set({
               name,
               value,
-              ...options,
+              ...cookieOptions,
             })
           },
           remove(name: string, options: CookieOptions) {

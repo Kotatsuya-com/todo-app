@@ -23,6 +23,24 @@ export default function DashboardPage() {
     }
   }, [user, fetchTodos])
 
+  // Slack認証リダイレクト処理
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const slackAuthRequired = urlParams.get('slack_auth_required')
+    const slackCode = urlParams.get('slack_code')
+
+    console.log('Home page - Slack auth check:', {
+      slackAuthRequired,
+      hasSlackCode: !!slackCode,
+      hasUser: !!user
+    })
+
+    if (slackAuthRequired && slackCode && user) {
+      console.log('Redirecting to settings with Slack auth params')
+      window.location.href = `/settings?slack_auth_required=true&slack_code=${slackCode}`
+    }
+  }, [user])
+
   if (!user) {
     return <AuthForm />
   }
