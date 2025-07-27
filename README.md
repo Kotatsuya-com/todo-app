@@ -34,7 +34,7 @@ Next.js + Supabase + OpenAI APIを使用した革新的なタスク管理アプ�
 - [ ] OpenAIアカウントとAPIキー保有
 - [ ] Supabaseアカウント保有
 - [ ] Docker Desktop（ローカル開発の場合）
-- [ ] Slack Bot Token（Slack連携機能を使用する場合）
+- [ ] Slack OAuth設定（Slack連携機能を使用する場合）
 
 ---
 
@@ -78,11 +78,8 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key-here
 # OpenAI（必須）
 OPENAI_API_KEY=your-openai-api-key
 
-# Slack（オプション - 従来のグローバルトークン方式）
-SLACK_BOT_TOKEN=your-slack-bot-token
-SLACK_SIGNING_SECRET=your-slack-signing-secret
-
-# Slack OAuth（ユーザー別接続機能用）
+# Slack OAuth（ユーザー別接続）
+SLACK_CLIENT_ID=your-slack-app-client-id
 NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-app-client-id
 SLACK_CLIENT_SECRET=your-slack-app-client-secret
 
@@ -518,27 +515,33 @@ npm run seed:dev
 ### 概要
 特定の絵文字でSlackメッセージにリアクションすると、そのメッセージが自動的にタスクとして追加される機能です。
 
-### Slack Bot Token を取得
+### Slack OAuth認証設定
 
 1. [Slack API](https://api.slack.com/apps)にアクセス
 2. 「Create New App」をクリック→「From scratch」を選択
 3. アプリ名とワークスペースを選択して作成
-4. 左メニューの「OAuth & Permissions」をクリック
-5. 「Scopes」セクションで以下の権限を追加：
-   - `reactions:read` - リアクション情報の取得
+4. 左メニューの「Basic Information」をクリック
+5. **App Credentials**から以下を取得：
+   - `Client ID` → `SLACK_CLIENT_ID`と`NEXT_PUBLIC_SLACK_CLIENT_ID`に設定
+   - `Client Secret` → `SLACK_CLIENT_SECRET`に設定
+6. 左メニューの「OAuth & Permissions」をクリック
+7. **Redirect URLs**に以下を追加：
+   - 開発環境: `https://your-ngrok-url.ngrok-free.app/api/slack/auth`
+   - 本番環境: `https://your-domain.com/api/slack/auth`
+8. 「Scopes」セクションで以下の権限を追加：
    - `channels:history` - チャンネルメッセージの取得
    - `groups:history` - プライベートチャンネルメッセージの取得
    - `im:history` - DMメッセージの取得
-6. **Event Subscriptions**を有効化
-7. **Request URL**を設定：`https://your-domain.com/api/slack/events`
-8. **Subscribe to bot events**で `reaction_added` を追加
-9. 「Install to Workspace」をクリックしてアプリをインストール
-10. 表示される「Bot User OAuth Token」を`SLACK_BOT_TOKEN`に設定
+   - `mpim:history` - マルチパーティDMメッセージの取得
+   - `users:read` - ユーザー情報の取得
+   - `conversations:read` - チャンネル情報の取得
+   - `usergroups:read` - グループ情報の取得
 
 ### 環境変数設定
 ```env
-SLACK_BOT_TOKEN=xoxb-your-bot-token
-SLACK_SIGNING_SECRET=your-signing-secret
+SLACK_CLIENT_ID=your-slack-client-id
+NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-client-id
+SLACK_CLIENT_SECRET=your-slack-client-secret
 ```
 
 ### アプリ内設定
@@ -1231,7 +1234,8 @@ todo-app/
 - APIの利用制限に達していないか確認
 
 ### Slack連携エラー
-- `SLACK_BOT_TOKEN`が正しく設定されているか確認
+- Slack OAuth設定（`SLACK_CLIENT_ID`、`SLACK_CLIENT_SECRET`）が正しく設定されているか確認
+- 設定画面でSlackワークスペースに接続済みか確認
 - Slackアプリに必要な権限が付与されているか確認
 - SlackURLの形式が正しいか確認（`https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP`）
 

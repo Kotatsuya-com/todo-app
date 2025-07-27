@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Trash2, ExternalLink } from 'lucide-react'
+import { WebhookManager } from '@/components/slack/WebhookManager'
 
 interface SlackConnection {
   id: string
@@ -180,49 +181,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* 絵文字リアクション設定 */}
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">絵文字リアクション設定</h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Slack User ID
-              </label>
-              <input
-                type="text"
-                value={slackUserId}
-                onChange={(e) => setSlackUserId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="U1234567890"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                SlackのUser IDを設定すると、絵文字リアクションでタスクが自動作成されます
-              </p>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-medium text-blue-900 mb-2">Slack User IDの確認方法</h3>
-              <ol className="text-sm text-blue-800 space-y-1">
-                <li>1. Slackで自分のプロフィールを開く</li>
-                <li>2. 「その他」→「メンバーIDをコピー」をクリック</li>
-                <li>3. コピーされたIDを上記フィールドに入力</li>
-              </ol>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-2">対応絵文字</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-                <div>📝 :memo: → 今日中</div>
-                <div>📋 :clipboard: → 今日中</div>
-                <div>✏️ :pencil: → 明日</div>
-                <div>🗒️ :spiral_note_pad: → それより後</div>
-                <div>📄 :page_with_curl: → それより後</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="flex items-center justify-between pt-4 border-t border-gray-200">
           <div>
             {message && (
@@ -240,6 +198,9 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Webhookマネージャー */}
+      <WebhookManager />
     </div>
   )
 }

@@ -164,9 +164,9 @@ CREATE TRIGGER on_auth_user_created
 - `SUPABASE_SERVICE_ROLE_KEY`: Server-side database operations
 
 #### Optional Slack Integration
-- `SLACK_BOT_TOKEN`: Required for message retrieval and webhook events
-- `SLACK_SIGNING_SECRET`: Webhook signature verification
-- `NGROK_AUTHTOKEN`: Enhanced ngrok features for webhook development
+- `SLACK_CLIENT_ID` + `NEXT_PUBLIC_SLACK_CLIENT_ID`: OAuth Client ID for user authentication
+- `SLACK_CLIENT_SECRET`: OAuth Client Secret for secure token exchange
+- `NGROK_AUTHTOKEN`: Enhanced ngrok features for HTTPS development
 
 ### Development Workflow
 

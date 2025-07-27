@@ -45,3 +45,39 @@ export interface ComparisonPair {
   left: Todo;
   right: Todo;
 }
+
+export interface UserSlackWebhook {
+  id: string;
+  user_id: string;
+  slack_connection_id: string;
+  webhook_id: string;
+  webhook_secret: string;
+  is_active: boolean;
+  last_event_at?: string;
+  event_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SlackReactionEvent {
+  type: 'reaction_added';
+  user: string;
+  reaction: string;
+  item_user: string;
+  item: {
+    type: 'message';
+    channel: string;
+    ts: string;
+  };
+  event_ts: string;
+}
+
+export interface SlackEventPayload {
+  token: string;
+  team_id: string;
+  api_app_id: string;
+  event: SlackReactionEvent;
+  type: 'event_callback' | 'url_verification';
+  challenge?: string;
+  authorized_users?: string[];
+}

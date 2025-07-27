@@ -63,13 +63,14 @@ async function startDevelopment() {
     console.log('\n✅ Development environment ready!');
     console.log(`📍 Local URL: http://localhost:3000`);
     console.log(`🌐 Public URL: ${ngrokUrl}`);
-    console.log(`🔗 Slack Webhook URL: ${ngrokUrl}/api/slack/events`);
-    console.log('\n📋 To configure Slack App Event Subscriptions:');
-    console.log(`   1. Go to https://api.slack.com/apps`);
-    console.log(`   2. Select your app`);
-    console.log(`   3. Go to "Event Subscriptions"`);
-    console.log(`   4. Set Request URL to: ${ngrokUrl}/api/slack/events`);
-    console.log(`   5. Subscribe to "reaction_added" event`);
+    console.log('\n🎯 To set up Slack webhook integration:');
+    console.log(`   1. Access the app at http://localhost:3000`);
+    console.log(`   2. Log in and go to Settings (⚙️)`);
+    console.log(`   3. Connect to your Slack workspace`);
+    console.log(`   4. Click "絵文字リアクション連携を有効化"`);
+    console.log(`   5. Copy your unique webhook URL`);
+    console.log(`   6. Configure it in your Slack App Event Subscriptions`);
+    console.log('\n💡 Each user gets their own unique webhook URL!');
     console.log('\n⚠️  Keep this terminal open to maintain the tunnel');
     console.log('   Press Ctrl+C to stop all services');
     
