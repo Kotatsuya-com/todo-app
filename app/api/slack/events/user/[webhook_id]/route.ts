@@ -95,44 +95,46 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     logger.debug({ webhookCount: allWebhooks?.length || 0 }, 'All webhooks in database')
 
+    // webhookの基本情報を取得
     const { data: webhook, error: webhookError } = await supabase
       .from('user_slack_webhooks')
-      .select(`
-        id,
-        user_id,
-        webhook_secret,
-        is_active,
-        event_count,
-        slack_connection_id,
-        slack_connections (
-          access_token,
-          workspace_id,
-          workspace_name
-        ),
-        users (
-          slack_user_id,
-          user_emoji_settings (
-            today_emoji,
-            tomorrow_emoji,
-            later_emoji
-          )
-        )
-      `)
+      .select('id, user_id, webhook_secret, is_active, event_count, slack_connection_id')
       .eq('webhook_id', webhook_id)
       .eq('is_active', true)
       .single()
-
-    logger.debug({
-      webhookFound: !!webhook,
-      error: webhookError?.message,
-      userId: webhook?.user_id,
-      userSlackId: (Array.isArray(webhook?.users) ? webhook?.users[0] : webhook?.users)?.slack_user_id
-    }, 'Webhook query result')
 
     if (webhookError || !webhook) {
       logger.error({ error: webhookError?.message }, 'Webhook not found or inactive')
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
     }
+
+    // ユーザー情報と絵文字設定を取得
+    const { data: userWithSettings } = await supabase
+      .from('users')
+      .select(`
+        slack_user_id,
+        user_emoji_settings (
+          today_emoji,
+          tomorrow_emoji,
+          later_emoji
+        )
+      `)
+      .eq('id', webhook.user_id)
+      .single()
+
+    // Slack接続情報を取得
+    const { data: slackConnection } = await supabase
+      .from('slack_connections')
+      .select('access_token, workspace_id, workspace_name')
+      .eq('id', webhook.slack_connection_id)
+      .single()
+
+    logger.debug({
+      webhookFound: true,
+      userId: webhook.user_id,
+      userSlackId: userWithSettings?.slack_user_id,
+      hasSlackConnection: !!slackConnection
+    }, 'Webhook and related data query result')
 
     let payload: SlackEventPayload
     try {
@@ -171,8 +173,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }, 'Processing reaction_added event')
 
       // ユーザー検証：リアクションしたユーザーが連携を行ったユーザー本人かチェック
-      const userData = Array.isArray(webhook.users) ? webhook.users[0] : webhook.users
-      const userSlackId = userData?.slack_user_id
+      const userSlackId = userWithSettings?.slack_user_id
 
       if (!userSlackId) {
         logger.debug({
@@ -203,10 +204,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       // ユーザーの絵文字設定を取得（設定が存在しない場合はデフォルト値を使用）
       let userEmojiSettings = DEFAULT_EMOJI_SETTINGS
 
-      if (userData?.user_emoji_settings && Array.isArray(userData.user_emoji_settings) && userData.user_emoji_settings.length > 0) {
-        userEmojiSettings = userData.user_emoji_settings[0]
-      } else if (userData?.user_emoji_settings && !Array.isArray(userData.user_emoji_settings)) {
-        userEmojiSettings = userData.user_emoji_settings
+      if (userWithSettings?.user_emoji_settings && Array.isArray(userWithSettings.user_emoji_settings) && userWithSettings.user_emoji_settings.length > 0) {
+        userEmojiSettings = userWithSettings.user_emoji_settings[0]
+      } else if (userWithSettings?.user_emoji_settings && !Array.isArray(userWithSettings.user_emoji_settings)) {
+        userEmojiSettings = userWithSettings.user_emoji_settings
       }
 
       const taskEmojis = [
@@ -230,7 +231,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ message: 'Emoji not configured for task creation' })
       }
 
-      await processReactionEvent(event, webhook, userEmojiSettings)
+      await processReactionEvent(event, webhook, userEmojiSettings, slackConnection)
     }
 
     // イベント統計更新
@@ -253,7 +254,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 async function processReactionEvent(
   event: SlackReactionEvent,
   webhook: any,
-  emojiSettings: any
+  emojiSettings: any,
+  slackConnection: any
 ) {
   try {
     const supabase = createClient(
@@ -266,10 +268,11 @@ async function processReactionEvent(
         }
       }
     )
-    // slack_connectionsは配列で返される可能性があるため対応
-    const slackConnection = Array.isArray(webhook.slack_connections)
-      ? webhook.slack_connections[0]
-      : webhook.slack_connections
+    // Slack接続からアクセストークンを取得
+    if (!slackConnection) {
+      webhookLogger.error({ webhookId: webhook.id }, 'No Slack connection found for webhook')
+      return
+    }
     const slackToken = slackConnection.access_token
 
     const logger = webhookLogger.child({
