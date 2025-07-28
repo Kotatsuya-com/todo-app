@@ -6,6 +6,7 @@ import { Check, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp } from 'lu
 import { formatDeadline, isOverdue } from '@/lib/utils'
 import { useTodoStore } from '@/store/todoStore'
 import { useState } from 'react'
+import { uiLogger } from '@/lib/client-logger'
 
 interface TodoCardProps {
   todo: Todo
@@ -64,7 +65,7 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
       try {
         await deleteTodo(todo.id)
       } catch (error) {
-        console.error('Failed to delete todo:', error)
+        uiLogger.error({ error, todoId: todo.id }, 'Failed to delete todo')
         setIsDeleting(false)
       }
     }

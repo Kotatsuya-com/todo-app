@@ -9,6 +9,7 @@ import { Grid3x3, List, Filter } from 'lucide-react'
 import { getQuadrant, isOverdue } from '@/lib/utils'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Todo } from '@/types'
+import { uiLogger, authLogger } from '@/lib/client-logger'
 
 export default function DashboardPage() {
   const { user, todos, loading, fetchTodos } = useTodoStore()
@@ -29,14 +30,14 @@ export default function DashboardPage() {
     const slackAuthRequired = urlParams.get('slack_auth_required')
     const slackCode = urlParams.get('slack_code')
 
-    console.log('Home page - Slack auth check:', {
+    authLogger.debug({
       slackAuthRequired,
       hasSlackCode: !!slackCode,
       hasUser: !!user
-    })
+    }, 'Home page - Slack auth check')
 
     if (slackAuthRequired && slackCode && user) {
-      console.log('Redirecting to settings with Slack auth params')
+      authLogger.info('Redirecting to settings with Slack auth params')
       window.location.href = `/settings?slack_auth_required=true&slack_code=${slackCode}`
     }
   }, [user])
@@ -51,10 +52,15 @@ export default function DashboardPage() {
     : activeTodos
 
   // デバッグ: タスクのスコアと四象限をログ出力
-  console.log('🔍 [DEBUG] Dashboard - displayTodos:')
+  uiLogger.debug({ todoCount: displayTodos.length }, 'Dashboard - displayTodos analysis')
   displayTodos.forEach(todo => {
     const quadrant = getQuadrant(todo.deadline, todo.importance_score)
-    console.log(`🔍 [DEBUG] Todo "${todo.title}": score=${todo.importance_score}, deadline=${todo.deadline}, quadrant=${quadrant}`)
+    uiLogger.debug({
+      todoTitle: todo.title,
+      score: todo.importance_score,
+      deadline: todo.deadline,
+      quadrant
+    }, 'Todo analysis')
   })
 
   const quadrants = {
@@ -64,10 +70,10 @@ export default function DashboardPage() {
     not_urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'not_urgent_not_important')
   }
 
-  console.log('🔍 [DEBUG] Quadrant counts:')
-  Object.entries(quadrants).forEach(([key, todos]) => {
-    console.log(`🔍 [DEBUG] ${key}: ${todos.length} todos`)
-  })
+  const quadrantCounts = Object.fromEntries(
+    Object.entries(quadrants).map(([key, todos]) => [key, todos.length])
+  )
+  uiLogger.debug(quadrantCounts, 'Quadrant distribution')
 
   const quadrantInfo = {
     urgent_important: { title: '🔥 今すぐやる', color: 'bg-red-50 border-red-200' },

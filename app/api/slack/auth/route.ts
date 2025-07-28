@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getAppBaseUrl } from '@/lib/ngrok-url'
+import { authLogger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   // エラーハンドリング
   if (error) {
-    console.error('Slack OAuth error:', error)
+    authLogger.error({ slackError: error }, 'Slack OAuth error received')
     return NextResponse.redirect(new URL('/settings?slack_error=access_denied', getAppBaseUrl(request)))
   }
 
@@ -21,16 +22,16 @@ export async function GET(request: NextRequest) {
     const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    console.log('Slack auth callback - User check:', {
+    authLogger.debug({
       hasUser: !!user,
       userError: userError?.message,
       cookieCount: request.headers.get('cookie')?.split(';').length || 0,
       origin: request.headers.get('origin'),
       host: request.headers.get('host')
-    })
+    }, 'Slack auth callback - User authentication check')
 
     if (userError || !user) {
-      console.log('User not authenticated, redirecting with auth prompt')
+      authLogger.info('User not authenticated, redirecting with auth prompt')
       // 認証が必要な場合は、ログインページに適切にリダイレクト
       const redirectUrl = new URL('/', getAppBaseUrl(request))
       redirectUrl.searchParams.set('slack_auth_required', 'true')
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     if (!tokenData.ok) {
-      console.error('Slack token exchange error:', tokenData.error)
+      authLogger.error({ slackError: tokenData.error }, 'Slack token exchange failed')
       return NextResponse.redirect(new URL('/settings?slack_error=token_exchange', getAppBaseUrl(request)))
     }
 
@@ -73,14 +74,14 @@ export async function GET(request: NextRequest) {
       })
 
     if (insertError) {
-      console.error('Database insert error:', insertError)
+      authLogger.error({ error: insertError }, 'Failed to save Slack connection')
       return NextResponse.redirect(new URL('/settings?slack_error=db_error', getAppBaseUrl(request)))
     }
 
     return NextResponse.redirect(new URL('/settings?slack_success=true', getAppBaseUrl(request)))
 
   } catch (error) {
-    console.error('Slack OAuth callback error:', error)
+    authLogger.error({ error }, 'Slack OAuth callback error')
     return NextResponse.redirect(new URL('/settings?slack_error=server_error', getAppBaseUrl(request)))
   }
 }

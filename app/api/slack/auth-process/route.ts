@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getAppBaseUrl } from '@/lib/ngrok-url'
+import { authLogger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,15 +15,16 @@ export async function POST(request: NextRequest) {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      console.error('Auth error in auth-process:', {
+      authLogger.error({
         userError: userError?.message,
         hasUser: !!user,
         cookieCount: request.headers.get('cookie')?.split(';').length || 0
-      })
+      }, 'Authentication error in auth-process')
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 })
     }
 
-    console.log('Processing Slack auth for user:', user.id)
+    const logger = authLogger.child({ userId: user.id })
+    logger.info('Processing Slack authentication')
 
     // ユーザーデータベースレコードの存在確認と作成
     const { error: userCheckError } = await supabase
@@ -33,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     if (userCheckError && userCheckError.code === 'PGRST116') {
       // ユーザーレコードが存在しない場合は作成
-      console.log('Creating user record for:', user.id)
+      logger.debug('Creating user record')
       const { error: createUserError } = await supabase
         .from('users')
         .insert({
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
         })
 
       if (createUserError) {
-        console.error('Failed to create user record:', createUserError)
+        logger.error({ error: createUserError }, 'Failed to create user record')
         return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 })
       }
     }
@@ -64,14 +66,14 @@ export async function POST(request: NextRequest) {
     const tokenData = await tokenResponse.json()
 
     if (!tokenData.ok) {
-      console.error('Slack token exchange error:', tokenData.error)
+      logger.error({ slackError: tokenData.error }, 'Slack token exchange failed')
       return NextResponse.json({ error: 'Slack token exchange failed' }, { status: 400 })
     }
 
-    console.log('Slack token exchange successful:', {
-      team: tokenData.team?.name,
+    logger.info({
+      teamName: tokenData.team?.name,
       hasUserToken: !!tokenData.authed_user?.access_token
-    })
+    }, 'Slack token exchange successful')
 
     // データベースに保存
     const { error: insertError } = await supabase
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (insertError) {
-      console.error('Database insert error:', insertError)
+      logger.error({ error: insertError }, 'Failed to save Slack connection to database')
       return NextResponse.json({ error: 'Failed to save Slack connection' }, { status: 500 })
     }
 
@@ -97,7 +99,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Slack auth processing error:', error)
+    authLogger.error({ error }, 'Slack auth processing error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

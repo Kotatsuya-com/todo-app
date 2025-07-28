@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { apiLogger } from './logger'
 
 /**
  * 動的に生成されたngrok URLを取得する
@@ -28,7 +29,7 @@ export function getNgrokUrl(): string | null {
 
     return null
   } catch (error) {
-    console.error('Failed to read ngrok URL:', error)
+    apiLogger.error({ error }, 'Failed to read ngrok URL')
     return null
   }
 }

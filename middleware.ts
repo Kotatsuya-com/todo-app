@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import type { CookieOptions } from '@supabase/ssr'
+import { createLogger } from './lib/logger'
 
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({
@@ -83,7 +84,8 @@ export async function middleware(req: NextRequest) {
 
   } catch (error) {
     // cookieエラーなどの場合は通常通り処理を続行
-    console.warn('Middleware auth check failed:', error)
+    const logger = createLogger({ module: 'middleware' })
+    logger.warn({ error }, 'Middleware auth check failed')
   }
 
   return response

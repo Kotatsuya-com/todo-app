@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X, Plus, ClipboardList, BarChart3, Scale, Settings, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useTodoStore } from '@/store/todoStore'
+import { authLogger } from '@/lib/client-logger'
 
 interface MobileMenuProps {
   onCreateTask: () => void
@@ -45,7 +46,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
       await signOut()
       router.push('/')
     } catch (error) {
-      console.error('ログアウトエラー:', error)
+      authLogger.error({ error }, 'Logout error')
     } finally {
       setIsLoggingOut(false)
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSlackMessageFromUrl, parseSlackUrl } from '@/lib/slack-message'
 import { createClient } from '@/lib/supabase'
+import { slackLogger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Slack API 連携エラー:', error)
+    slackLogger.error({ error }, 'Slack API integration error')
     return NextResponse.json(
       { error: 'Slackメッセージの取得に失敗しました' },
       { status: 500 }

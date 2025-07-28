@@ -14,7 +14,7 @@
     "react-hooks/exhaustive-deps": "warn",
     
     // 一般的なコード品質
-    "no-console": ["warn", { "allow": ["warn", "error", "log"] }],
+    "no-console": "error", // ログライブラリ使用を強制
     "no-debugger": "error",
     "no-duplicate-imports": "error",
     "no-unused-expressions": "error",
@@ -47,7 +47,13 @@
       }
     },
     {
-      "files": ["scripts/**/*", "app/api/**/*"],
+      "files": ["lib/logger.ts", "lib/client-logger.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["scripts/**/*", "*.config.js", "*.config.ts"],
       "rules": {
         "no-console": "off"
       }

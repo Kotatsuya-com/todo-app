@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { UserSlackWebhook } from '@/types'
 import { Copy, ExternalLink, Trash2, Plus, CheckCircle, AlertCircle } from 'lucide-react'
+import { slackLogger } from '@/lib/client-logger'
 
 interface SlackConnection {
   id: string
@@ -37,7 +38,7 @@ export function WebhookManager() {
         .order('created_at', { ascending: false })
 
       if (connectionsError) {
-        console.error('Failed to fetch connections:', connectionsError)
+        slackLogger.error({ error: connectionsError }, 'Failed to fetch connections')
         setMessage('Slack接続の取得に失敗しました')
         return
       }
@@ -49,13 +50,13 @@ export function WebhookManager() {
       const webhookData = await webhookResponse.json()
 
       if (!webhookResponse.ok) {
-        console.error('Failed to fetch webhooks:', webhookData.error)
+        slackLogger.error({ error: webhookData.error }, 'Failed to fetch webhooks (response not ok)')
         setMessage('Webhookの取得に失敗しました')
         return
       }
 
       if (webhookData.error) {
-        console.error('Failed to fetch webhooks:', webhookData.error)
+        slackLogger.error({ error: webhookData.error }, 'Failed to fetch webhooks (data error)')
         setMessage('Webhookの取得に失敗しました')
         return
       }
@@ -63,7 +64,7 @@ export function WebhookManager() {
       setWebhooks(webhookData.webhooks || [])
 
     } catch (error) {
-      console.error('Data fetch error:', error)
+      slackLogger.error({ error }, 'Data fetch error')
       setMessage('データの取得中にエラーが発生しました')
     } finally {
       setLoading(false)
@@ -92,7 +93,7 @@ export function WebhookManager() {
       await fetchData() // データを再取得
 
     } catch (error) {
-      console.error('Create webhook error:', error)
+      slackLogger.error({ error }, 'Create webhook error')
       setMessage('Webhookの作成中にエラーが発生しました')
     } finally {
       setCreating(false)
@@ -120,7 +121,7 @@ export function WebhookManager() {
       await fetchData()
 
     } catch (error) {
-      console.error('Delete webhook error:', error)
+      slackLogger.error({ error }, 'Delete webhook error')
       setMessage('Webhookの削除中にエラーが発生しました')
     }
   }
@@ -131,7 +132,7 @@ export function WebhookManager() {
       setMessage('URLをクリップボードにコピーしました')
       setTimeout(() => setMessage(''), 3000)
     } catch (error) {
-      console.error('Copy failed:', error)
+      slackLogger.warn({ error }, 'Copy to clipboard failed')
       setMessage('コピーに失敗しました')
     }
   }

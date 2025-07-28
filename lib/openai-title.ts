@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { apiLogger } from './logger'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -34,7 +35,7 @@ export async function generateTaskTitle(content: string): Promise<string> {
     const title = completion.choices[0]?.message?.content?.trim() || 'タスク'
     return title
   } catch (error) {
-    console.error('Failed to generate title with OpenAI:', error)
+    apiLogger.error({ error, contentLength: content.length }, 'Failed to generate title with OpenAI')
     throw new Error('Failed to generate title')
   }
 }

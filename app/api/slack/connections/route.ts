@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { slackLogger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,14 +18,14 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Failed to fetch Slack connections:', error)
+      slackLogger.error({ error }, 'Failed to fetch Slack connections')
       return NextResponse.json({ error: 'Failed to fetch connections' }, { status: 500 })
     }
 
     return NextResponse.json({ connections })
 
   } catch (error) {
-    console.error('Slack connections API error:', error)
+    slackLogger.error({ error }, 'Slack connections API error')
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }
@@ -51,14 +52,14 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
 
     if (error) {
-      console.error('Failed to delete Slack connection:', error)
+      slackLogger.error({ error, connectionId }, 'Failed to delete Slack connection')
       return NextResponse.json({ error: 'Failed to delete connection' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error('Slack connection delete API error:', error)
+    slackLogger.error({ error }, 'Slack connection delete API error')
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

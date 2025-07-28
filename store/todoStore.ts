@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { Todo, User, Comparison } from '@/types'
 import { createClient } from '@/lib/supabase'
 import { format } from 'date-fns'
+import { createLogger } from '@/lib/logger'
 
 interface TodoStore {
   user: User | null
@@ -348,9 +349,8 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const comparisons = get().comparisons
     const K = 32 // K-factor
 
-    console.log('🔍 [DEBUG] updateImportanceScores - 開始')
-    console.log('🔍 [DEBUG] Todos count:', todos.length)
-    console.log('🔍 [DEBUG] Comparisons count:', comparisons.length)
+    const logger = createLogger({ module: 'todoStore' })
+    logger.debug({ todosCount: todos.length, comparisonsCount: comparisons.length }, 'updateImportanceScores started')
 
     // 各TODOのスコアを初期化（緊急度に基づいて差別化）
     const scores = new Map<string, number>()
@@ -375,7 +375,11 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
       }
       
       scores.set(todo.id, initialScore)
-      console.log(`🔍 [DEBUG] Todo "${todo.title}" - Initial score: ${initialScore} (deadline: ${todo.deadline})`)
+      logger.debug({ 
+        todoTitle: todo.title, 
+        initialScore, 
+        deadline: todo.deadline 
+      }, 'Todo initial score set')
     })
 
     // 比較結果に基づいてスコアを更新
@@ -397,15 +401,23 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const maxScore = Math.max(...Array.from(scores.values()))
     const range = maxScore - minScore || 1
 
-    console.log('🔍 [DEBUG] 正規化前 - minScore:', minScore, 'maxScore:', maxScore, 'range:', range)
-    console.log('🔍 [DEBUG] 正規化前の全スコア:', Array.from(scores.entries()))
+    logger.debug({ 
+      minScore, 
+      maxScore, 
+      range, 
+      allScoresCount: scores.size 
+    }, 'Scores before normalization')
 
     // データベースを更新
     const supabase = createClient()
     for (const [todoId, score] of Array.from(scores.entries())) {
       const normalizedScore = (score - minScore) / range
       const todo = todos.find(t => t.id === todoId)
-      console.log(`🔍 [DEBUG] Todo "${todo?.title}" - Raw score: ${score}, Normalized: ${normalizedScore}`)
+      logger.debug({ 
+        todoTitle: todo?.title, 
+        rawScore: score, 
+        normalizedScore 
+      }, 'Todo score normalized')
       await supabase
         .from('todos')
         .update({ importance_score: normalizedScore })

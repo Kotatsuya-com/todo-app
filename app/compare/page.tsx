@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { ArrowLeft, ArrowRight, SkipForward, CheckCircle } from 'lucide-react'
 import { TodoCard } from '@/components/todo/TodoCard'
 import { useRouter } from 'next/navigation'
+import { uiLogger } from '@/lib/client-logger'
 
 export default function ComparePage() {
   const { user, todos, createComparison, fetchTodos } = useTodoStore()
@@ -47,7 +48,7 @@ export default function ComparePage() {
     const pairs: ComparisonPair[] = []
     const n = todos.length
 
-    console.log(`🎯 [COMPARE] Generating efficient pairs for ${n} todos`)
+    uiLogger.debug({ todoCount: n }, 'Generating efficient pairs for comparison')
 
     // 1. タスクが少ない場合（≤5）: 全ペア比較
     if (n <= 5) {
@@ -56,7 +57,7 @@ export default function ComparePage() {
           pairs.push({ left: todos[i], right: todos[j] })
         }
       }
-      console.log(`🎯 [COMPARE] Small set: ${pairs.length} total pairs`)
+      uiLogger.debug({ pairCount: pairs.length }, 'Small set: using all pairs')
       return pairs.sort(() => Math.random() - 0.5)
     }
 
@@ -67,7 +68,10 @@ export default function ComparePage() {
     const topCandidates = sortedByImportance.slice(0, Math.min(8, Math.ceil(n * 0.4)))
     const remainingTodos = sortedByImportance.slice(topCandidates.length)
 
-    console.log(`🎯 [COMPARE] Top candidates: ${topCandidates.length}, Remaining: ${remainingTodos.length}`)
+    uiLogger.debug({
+      topCandidateCount: topCandidates.length,
+      remainingCount: remainingTodos.length
+    }, 'Split todos into top candidates and remaining')
 
     // Phase 2: 上位候補内での精密比較（全ペア）
     for (let i = 0; i < topCandidates.length; i++) {
@@ -100,8 +104,13 @@ export default function ComparePage() {
       }
     }
 
-    console.log(`🎯 [COMPARE] Efficient algorithm: ${pairs.length} pairs (vs ${n * (n-1) / 2} full pairs)`)
-    console.log(`🎯 [COMPARE] Efficiency gain: ${Math.round((1 - pairs.length / (n * (n-1) / 2)) * 100)}%`)
+    const fullPairCount = n * (n - 1) / 2
+    const efficiencyGain = Math.round((1 - pairs.length / fullPairCount) * 100)
+    uiLogger.debug({
+      pairCount: pairs.length,
+      fullPairCount,
+      efficiencyGain: `${efficiencyGain}%`
+    }, 'Efficient comparison algorithm results')
 
     // 最終的にランダムシャッフル
     return pairs.sort(() => Math.random() - 0.5)

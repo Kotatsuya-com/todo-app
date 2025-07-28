@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getSlackMessage } from '@/lib/slack-message'
 import { generateTaskTitle } from '@/lib/openai-title'
 import { SlackEventPayload, SlackReactionEvent } from '@/types'
+import { webhookLogger } from '@/lib/logger'
 import crypto from 'crypto'
 
 // タスク作成対象の絵文字リスト
@@ -33,21 +34,21 @@ async function verifySlackSignature(
   // Slack App全体で共通のSigning Secretを使用
   const slackSigningSecret = process.env.SLACK_SIGNING_SECRET
 
-  console.log('🔐 Verifying Slack signature:', {
+  webhookLogger.debug({
     hasSignature: !!signature,
     hasTimestamp: !!timestamp,
     hasSigningSecret: !!slackSigningSecret
-  })
+  }, 'Verifying Slack signature')
 
   if (!signature || !timestamp || !slackSigningSecret) {
-    console.error('❌ Missing required headers or signing secret')
+    webhookLogger.error('Missing required headers or signing secret')
     return false
   }
 
   // タイムスタンプの検証（5分以内）
   const currentTime = Math.floor(Date.now() / 1000)
   if (Math.abs(currentTime - parseInt(timestamp)) > 300) {
-    console.error('❌ Request timestamp too old')
+    webhookLogger.error('Request timestamp too old')
     return false
   }
 
@@ -63,11 +64,11 @@ async function verifySlackSignature(
     Buffer.from(expectedSignature)
   )
 
-  console.log('🔐 Signature verification result:', {
+  webhookLogger.debug({
     isValid,
     receivedSignature: signature.substring(0, 20) + '...',
     expectedSignature: expectedSignature.substring(0, 20) + '...'
-  })
+  }, 'Signature verification result')
 
   return isValid
 }
@@ -76,7 +77,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { webhook_id } = params
     const body = await request.text()
-    console.log('🔔 Webhook event received:', { webhook_id, body: body.substring(0, 200) })
+    const logger = webhookLogger.child({ webhookId: webhook_id })
+    logger.info({ bodyPreview: body.substring(0, 200) }, 'Webhook event received')
 
     // webhook設定を取得 - service_roleキーを使用してRLSをバイパス
     const supabase = createClient(
@@ -89,14 +91,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
       }
     )
-    console.log('🔍 Looking for webhook_id:', webhook_id)
+    logger.debug({ webhookId: webhook_id }, 'Looking for webhook in database')
 
     // まず全てのwebhookを確認
     const { data: allWebhooks } = await supabase
       .from('user_slack_webhooks')
       .select('webhook_id, is_active, user_id')
 
-    console.log('📋 All webhooks in DB:', allWebhooks)
+    logger.debug({ webhookCount: allWebhooks?.length || 0 }, 'All webhooks in database')
 
     const { data: webhook, error: webhookError } = await supabase
       .from('user_slack_webhooks')
@@ -117,10 +119,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .eq('is_active', true)
       .single()
 
-    console.log('🔍 Webhook query result:', { webhook, webhookError })
+    logger.debug({
+      webhookFound: !!webhook,
+      error: webhookError?.message,
+      userId: webhook?.user_id
+    }, 'Webhook query result')
 
     if (webhookError || !webhook) {
-      console.error('❌ Webhook not found or inactive:', webhookError)
+      logger.error({ error: webhookError?.message }, 'Webhook not found or inactive')
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
     }
 
@@ -128,13 +134,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       payload = JSON.parse(body)
     } catch (error) {
-      console.error('❌ Invalid JSON payload:', error)
+      logger.error({ error }, 'Invalid JSON payload')
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
     // URL verification (初回設定時のチャレンジレスポンス)
     if (payload.type === 'url_verification') {
-      console.log('✅ URL verification challenge:', payload.challenge)
+      logger.info({ challenge: payload.challenge }, 'URL verification challenge received')
       return NextResponse.json({ challenge: payload.challenge })
     }
 
@@ -145,7 +151,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     )
 
     if (!isValidSignature) {
-      console.error('❌ Invalid Slack signature')
+      logger.error('Invalid Slack signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
@@ -153,16 +159,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (payload.type === 'event_callback' && payload.event.type === 'reaction_added') {
       const event = payload.event
 
-      console.log('🎯 Processing reaction_added event:', {
+      logger.info({
         reaction: event.reaction,
         user: event.user,
         channel: event.item.channel,
         ts: event.item.ts
-      })
+      }, 'Processing reaction_added event')
 
       // 対象絵文字かチェック
       if (!TASK_EMOJIS.includes(event.reaction)) {
-        console.log('⏭️ Ignoring non-target emoji:', event.reaction)
+        logger.debug({ reaction: event.reaction }, 'Ignoring non-target emoji')
         return NextResponse.json({ message: 'Emoji not configured for task creation' })
       }
 
@@ -181,7 +187,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ message: 'Event processed successfully' })
 
   } catch (error) {
-    console.error('❌ Slack event processing error:', error)
+    webhookLogger.error({ error }, 'Slack event processing error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -207,41 +213,36 @@ async function processReactionEvent(
       : webhook.slack_connections
     const slackToken = slackConnection.access_token
 
-    console.log('📝 Fetching Slack message:', {
+    const logger = webhookLogger.child({
+      userId: webhook.user_id,
       channel: event.item.channel,
-      ts: event.item.ts
+      messageTs: event.item.ts
     })
+    logger.debug('Fetching Slack message')
 
     // メッセージ内容を取得
     const messageData = await getSlackMessage(event.item.channel, event.item.ts, slackToken)
 
     if (!messageData) {
-      console.warn('⚠️ No message data found for reaction:', {
-        channel: event.item.channel,
-        ts: event.item.ts
-      })
+      logger.warn('No message data found for reaction')
       return
     }
 
     if (!messageData.text) {
-      console.warn('⚠️ Message found but no text content:', {
-        channel: event.item.channel,
-        ts: event.item.ts,
-        user: messageData.user
-      })
+      logger.warn({ messageUser: messageData.user }, 'Message found but no text content')
       return
     }
 
-    console.log('✅ Message content retrieved successfully')
+    logger.debug('Message content retrieved successfully')
 
     // タイトルを自動生成
     let title: string
     try {
       title = await generateTaskTitle(messageData.text)
-      console.log('🤖 Generated title:', title)
+      logger.debug({ title }, 'Generated title from AI')
     } catch (titleError) {
-      console.error('⚠️ Title generation failed, using fallback:', titleError)
       title = `Slack reaction: ${event.reaction}`
+      logger.warn({ error: titleError, fallbackTitle: title }, 'Title generation failed, using fallback')
     }
 
     // 緊急度を絵文字から決定
@@ -290,19 +291,19 @@ async function processReactionEvent(
       .single()
 
     if (createError) {
-      console.error('❌ Failed to create todo:', createError)
+      logger.error({ error: createError }, 'Failed to create todo')
       return
     }
 
-    console.log('✅ Task created successfully:', {
-      id: newTodo.id,
+    logger.info({
+      todoId: newTodo.id,
       title: newTodo.title,
-      urgency: newTodo.urgency,
-      deadline: newTodo.deadline
-    })
+      deadline: newTodo.deadline,
+      importanceScore: newTodo.importance_score
+    }, 'Task created successfully')
 
   } catch (error) {
-    console.error('❌ Error processing reaction event:', error)
+    webhookLogger.error({ error }, 'Error processing reaction event')
     throw error
   }
 }

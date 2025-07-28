@@ -1,3 +1,5 @@
+import { slackLogger } from './logger'
+
 interface SlackMessage {
   text: string
   user?: string
@@ -61,13 +63,13 @@ async function tryGetChannelMessage(slackToken: string, channel: string, ts: str
     const data = await response.json()
 
     if (!data.ok) {
-      console.error('Slack API error in conversations.history:', data.error)
+      slackLogger.error({ slackError: data.error, channel, ts }, 'Slack API error in conversations.history')
       return null
     }
 
     return data.messages?.[0] || null
   } catch (error) {
-    console.error('Error in tryGetChannelMessage:', error)
+    slackLogger.error({ error, channel, ts }, 'Error in tryGetChannelMessage')
     return null
   }
 }
@@ -88,14 +90,14 @@ async function tryGetThreadMessage(slackToken: string, channel: string, ts: stri
     const channelData = await channelResponse.json()
 
     if (!channelData.ok) {
-      console.error('Slack API error in channel scan:', channelData.error)
+      slackLogger.error({ slackError: channelData.error, channel }, 'Slack API error in channel scan')
       return null
     }
 
     // スレッドを持つメッセージを探す
     const threadsParents = channelData.messages?.filter((msg: any) => msg.reply_count > 0) || []
 
-    console.log(`Found ${threadsParents.length} messages with threads`)
+    slackLogger.debug({ threadCount: threadsParents.length, channel }, 'Found messages with threads')
 
     // 各スレッドを検索
     for (const parent of threadsParents) {
@@ -118,7 +120,7 @@ async function tryGetThreadMessage(slackToken: string, channel: string, ts: stri
       if (threadData.ok && threadData.messages) {
         const targetMessage = threadData.messages.find((msg: SlackMessage) => msg.ts === ts)
         if (targetMessage) {
-          console.log(`Found target message in thread ${parent.ts}`)
+          slackLogger.debug({ parentTs: parent.ts, targetTs: ts }, 'Found target message in thread')
           return targetMessage
         }
       }
@@ -126,7 +128,7 @@ async function tryGetThreadMessage(slackToken: string, channel: string, ts: stri
 
     return null
   } catch (error) {
-    console.error('Error in tryGetThreadMessage:', error)
+    slackLogger.error({ error, channel, ts }, 'Error in tryGetThreadMessage')
     return null
   }
 }
@@ -154,7 +156,7 @@ async function tryGetThreadReplies(slackToken: string, channel: string, threadTs
     const slackData = await response.json()
 
     if (!slackData.ok) {
-      console.error('Slack API error in conversations.replies:', slackData.error)
+      slackLogger.error({ slackError: slackData.error, channel, threadTs, targetTs }, 'Slack API error in conversations.replies')
       return null
     }
 
@@ -167,7 +169,7 @@ async function tryGetThreadReplies(slackToken: string, channel: string, threadTs
     return targetMessage || null
 
   } catch (error) {
-    console.error('Error in tryGetThreadReplies:', error)
+    slackLogger.error({ error, channel, threadTs, targetTs }, 'Error in tryGetThreadReplies')
     return null
   }
 }
@@ -182,41 +184,41 @@ export async function getSlackMessage(channel: string, ts: string, slackToken: s
       throw new Error('Slack token is required')
     }
 
-    console.log('Attempting to fetch message:', { channel, ts })
+    slackLogger.debug({ channel, ts }, 'Attempting to fetch message')
 
     // 最初にチャンネルのメッセージ履歴から検索
     let message = await tryGetChannelMessage(slackToken, channel, ts)
 
     if (message) {
-      console.log('Found message in channel history:', {
+      slackLogger.debug({
         channel,
         ts,
-        text: message.text?.substring(0, 100) + '...',
+        textPreview: message.text?.substring(0, 100) + '...',
         hasText: !!message.text
-      })
+      }, 'Found message in channel history')
       return message
     }
 
-    console.log('Message not found in channel history, checking for thread messages...')
+    slackLogger.debug({ channel, ts }, 'Message not found in channel history, checking threads')
 
     // チャンネル履歴で見つからない場合、スレッド内メッセージを検索
     message = await tryGetThreadMessage(slackToken, channel, ts)
 
     if (message) {
-      console.log('Found message in thread:', {
+      slackLogger.debug({
         channel,
         ts,
-        text: message.text?.substring(0, 100) + '...',
+        textPreview: message.text?.substring(0, 100) + '...',
         hasText: !!message.text
-      })
+      }, 'Found message in thread')
       return message
     }
 
-    console.warn('No message found in channel or threads for:', { channel, ts })
+    slackLogger.warn({ channel, ts }, 'No message found in channel or threads')
     return null
 
   } catch (error) {
-    console.error('Error fetching Slack message:', error)
+    slackLogger.error({ error, channel, ts }, 'Error fetching Slack message')
     throw error
   }
 }
@@ -241,7 +243,7 @@ async function getUserName(slackToken: string, userId: string): Promise<string> 
     }
     return userId
   } catch (error) {
-    console.error(`Error fetching user info for ${userId}:`, error)
+    slackLogger.error({ error, userId }, 'Error fetching user info')
     return userId
   }
 }
@@ -265,7 +267,7 @@ async function getGroupName(slackToken: string, groupId: string): Promise<string
     }
     return groupId
   } catch (error) {
-    console.error(`Error fetching group info for ${groupId}:`, error)
+    slackLogger.error({ error, groupId }, 'Error fetching group info')
     return groupId
   }
 }
@@ -317,7 +319,7 @@ async function convertMentions(slackToken: string, text: string): Promise<string
           convertedText = convertedText.replace(mention, `#${data.channel.name}`)
         }
       } catch (error) {
-        console.error(`Error fetching channel info for ${channelId}:`, error)
+        slackLogger.error({ error, channelId }, 'Error fetching channel info for mention')
       }
     }
   }
@@ -344,7 +346,7 @@ async function getChannelName(slackToken: string, channelId: string): Promise<st
     }
     return channelId
   } catch (error) {
-    console.error(`Error fetching channel info for ${channelId}:`, error)
+    slackLogger.error({ error, channelId }, 'Error fetching channel info')
     return channelId
   }
 }
@@ -408,7 +410,7 @@ export async function getSlackMessageFromUrl(slackUrl: string, slackToken: strin
     }
 
   } catch (error) {
-    console.error('Error fetching Slack message from URL:', error)
+    slackLogger.error({ error, slackUrl }, 'Error fetching Slack message from URL')
     throw error
   }
 }

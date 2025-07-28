@@ -8,6 +8,7 @@ import { Calendar, PieChart, RotateCcw } from 'lucide-react'
 import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { PieChart as RechartsPC, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { apiLogger } from '@/lib/client-logger'
 import { useRouter } from 'next/navigation'
 
 type TimeRange = 'day' | 'week' | 'month'
@@ -101,7 +102,7 @@ export default function ReportPage() {
       const result = Object.values(aggregated || {}) as CompletionData[]
       setCompletionData(result)
     } catch (error) {
-      console.error('Failed to fetch completion data:', error)
+      apiLogger.error({ error }, 'Failed to fetch completion data')
     } finally {
       setLoading(false)
     }

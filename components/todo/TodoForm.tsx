@@ -5,6 +5,7 @@ import { Sparkles, Calendar, Link } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Urgency } from '@/types'
 import { getDeadlineFromUrgency } from '@/lib/utils'
+import { apiLogger } from '@/lib/client-logger'
 
 interface TodoFormProps {
   initialTitle?: string
@@ -80,7 +81,7 @@ export function TodoForm({
         setTitle(data.title)
       }
     } catch (error) {
-      console.error('Failed to generate title:', error)
+      apiLogger.error({ error }, 'Failed to generate title')
     } finally {
       setIsGeneratingTitle(false)
     }
@@ -119,16 +120,16 @@ export function TodoForm({
               setTitle(titleData.title)
             }
           } catch (titleError) {
-            console.error('Failed to generate title:', titleError)
+            apiLogger.error({ error: titleError }, 'Failed to generate title from Slack content')
           } finally {
             setIsGeneratingTitle(false)
           }
         }
       } else {
-        console.error('Failed to fetch Slack message')
+        apiLogger.error('Failed to fetch Slack message - response not ok')
       }
     } catch (error) {
-      console.error('Failed to fetch Slack message:', error)
+      apiLogger.error({ error }, 'Failed to fetch Slack message')
     } finally {
       setIsLoadingSlack(false)
     }

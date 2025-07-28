@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react'
 import { useTodoStore } from '@/store/todoStore'
+import { authLogger } from '@/lib/client-logger'
 
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false)
@@ -37,7 +38,7 @@ export function UserMenu() {
       await signOut()
       router.push('/')
     } catch (error) {
-      console.error('ログアウトエラー:', error)
+      authLogger.error({ error }, 'Logout error')
     } finally {
       setIsLoggingOut(false)
     }

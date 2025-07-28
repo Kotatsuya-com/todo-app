@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { getAppBaseUrl } from '@/lib/ngrok-url'
+import { webhookLogger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,26 +33,26 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (webhookError) {
-      console.error('Failed to fetch webhooks:', webhookError)
+      webhookLogger.error({ error: webhookError }, 'Failed to fetch webhooks')
       return NextResponse.json({ error: 'Failed to fetch webhooks' }, { status: 500 })
     }
 
     return NextResponse.json({ webhooks })
 
   } catch (error) {
-    console.error('Webhook GET error:', error)
+    webhookLogger.error({ error }, 'Webhook GET error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🚀 POST /api/slack/webhook called')
+    webhookLogger.info('POST /api/slack/webhook called')
     const { slack_connection_id } = await request.json()
-    console.log('📝 Request data:', { slack_connection_id })
+    webhookLogger.debug({ slack_connection_id }, 'Request data received')
 
     if (!slack_connection_id) {
-      console.log('❌ slack_connection_id is missing')
+      webhookLogger.warn('slack_connection_id is missing from request')
       return NextResponse.json(
         { error: 'slack_connection_id is required' },
         { status: 400 }
@@ -60,15 +61,16 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
-    console.log('👤 User auth result:', { user: user?.id, userError })
+    webhookLogger.debug({ userId: user?.id, hasError: !!userError }, 'User authentication result')
 
     if (userError || !user) {
-      console.log('❌ Authentication failed')
+      webhookLogger.warn('User authentication failed')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Slack接続の存在確認
-    console.log('🔍 Checking Slack connection:', { slack_connection_id, user_id: user.id })
+    const logger = webhookLogger.child({ userId: user.id, slackConnectionId: slack_connection_id })
+    logger.debug('Checking Slack connection')
     const { data: connection, error: connectionError } = await supabase
       .from('slack_connections')
       .select('id, workspace_name')
@@ -76,10 +78,14 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .single()
 
-    console.log('📋 Connection check result:', { connection, connectionError })
+    logger.debug({
+      connectionFound: !!connection,
+      workspaceName: connection?.workspace_name,
+      error: connectionError?.message
+    }, 'Connection check result')
 
     if (connectionError || !connection) {
-      console.log('❌ Slack connection not found')
+      logger.warn('Slack connection not found')
       return NextResponse.json(
         { error: 'Slack connection not found' },
         { status: 404 }
@@ -104,7 +110,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (updateError) {
-        console.error('Failed to reactivate webhook:', updateError)
+        logger.error({ error: updateError }, 'Failed to reactivate webhook')
         return NextResponse.json({ error: 'Failed to reactivate webhook' }, { status: 500 })
       }
 
@@ -117,17 +123,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 新しいwebhookを作成
-    console.log('🔄 Creating webhook for user:', user.id, 'connection:', slack_connection_id)
+    logger.info('Creating new webhook')
     const { data: webhookResult, error: createError } = await supabase
       .rpc('create_user_slack_webhook', {
         p_user_id: user.id,
         p_slack_connection_id: slack_connection_id
       })
 
-    console.log('📝 Webhook creation result:', { webhookResult, createError })
+    logger.debug({
+      hasResult: !!webhookResult,
+      error: createError?.message
+    }, 'Webhook creation result')
 
     if (createError || !webhookResult) {
-      console.error('Failed to create webhook:', createError)
+      logger.error({ error: createError }, 'Failed to create webhook')
       return NextResponse.json({ error: 'Failed to create webhook' }, { status: 500 })
     }
 
@@ -135,7 +144,7 @@ export async function POST(request: NextRequest) {
     const newWebhook = Array.isArray(webhookResult) ? webhookResult[0] : webhookResult
 
     if (!newWebhook) {
-      console.error('No webhook data returned from RPC')
+      logger.error('No webhook data returned from RPC function')
       return NextResponse.json({ error: 'Failed to create webhook' }, { status: 500 })
     }
 
@@ -148,7 +157,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error) {
-    console.error('Webhook POST error:', error)
+    webhookLogger.error({ error }, 'Webhook POST error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -180,14 +189,14 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
 
     if (deleteError) {
-      console.error('Failed to deactivate webhook:', deleteError)
+      webhookLogger.error({ error: deleteError, webhookId }, 'Failed to deactivate webhook')
       return NextResponse.json({ error: 'Failed to deactivate webhook' }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'Webhook deactivated successfully' })
 
   } catch (error) {
-    console.error('Webhook DELETE error:', error)
+    webhookLogger.error({ error }, 'Webhook DELETE error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

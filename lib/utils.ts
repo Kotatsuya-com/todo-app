@@ -1,6 +1,7 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { Urgency, Quadrant } from '@/types'
+import { createLogger } from './logger'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -29,7 +30,8 @@ export function getQuadrant(deadline: string | null | undefined, importanceScore
   const isImportant = importanceScore >= 0.4
 
   // デバッグログ
-  console.log(`🔍 [DEBUG] getQuadrant - deadline: ${deadline}, score: ${importanceScore}, isUrgent: ${isUrgent}, isImportant: ${isImportant}`)
+  const logger = createLogger({ module: 'utils' })
+  logger.debug({ deadline, importanceScore, isUrgent, isImportant }, 'getQuadrant calculation')
 
   if (isUrgent && isImportant) {return 'urgent_important'}
   if (!isUrgent && isImportant) {return 'not_urgent_important'}

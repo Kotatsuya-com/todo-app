@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Trash2, ExternalLink } from 'lucide-react'
 import { WebhookManager } from '@/components/slack/WebhookManager'
+import { authLogger } from '@/lib/client-logger'
 
 interface SlackConnection {
   id: string
@@ -40,7 +41,7 @@ export default function SettingsPage() {
         setSlackUserId(data.slack_user_id)
       }
     } catch (error) {
-      console.error('Error fetching user settings:', error)
+      authLogger.error({ error }, 'Error fetching user settings')
     }
   }, [user?.id])
 
@@ -52,7 +53,7 @@ export default function SettingsPage() {
         setSlackConnections(data.connections || [])
       }
     } catch (error) {
-      console.error('Error fetching Slack connections:', error)
+      authLogger.error({ error }, 'Error fetching Slack connections')
     }
   }, [])
 
@@ -65,30 +66,27 @@ export default function SettingsPage() {
 
   // Slack認証完了処理（ngrok環境対応）
   useEffect(() => {
-    console.log('Settings page useEffect triggered', {
-      hasUser: !!user,
-      currentUrl: window.location.href
-    })
+    const logger = authLogger.child({ hasUser: !!user })
+    logger.debug({ currentUrl: window.location.href }, 'Settings page useEffect triggered')
 
     const urlParams = new URLSearchParams(window.location.search)
     const slackAuthRequired = urlParams.get('slack_auth_required')
     const slackCode = urlParams.get('slack_code')
 
-    console.log('URL parameters check:', {
+    logger.debug({
       slackAuthRequired,
       hasSlackCode: !!slackCode,
       slackCodeLength: slackCode?.length
-    })
+    }, 'URL parameters check')
 
     const processSlackAuth = async (code: string) => {
       try {
         setMessage('Slack接続を処理しています...')
 
-        console.log('Authentication debug:', {
-          hasUser: !!user,
+        logger.debug({
           userId: user?.id,
           currentOrigin: window.location.origin
-        })
+        }, 'Authentication debug')
 
         const response = await fetch('/api/slack/auth-process', {
           method: 'POST',
@@ -106,13 +104,13 @@ export default function SettingsPage() {
           setMessage(errorData.error || 'Slack接続に失敗しました')
         }
       } catch (error) {
-        console.error('Slack auth processing error:', error)
+        logger.error({ error }, 'Slack auth processing error')
         setMessage('Slack接続の処理中にエラーが発生しました')
       }
     }
 
     if (slackAuthRequired && slackCode && user) {
-      console.log('Processing Slack auth for authenticated user:', { slackCode: slackCode.substring(0, 20) + '...' })
+      logger.info({ slackCodePreview: slackCode.substring(0, 20) + '...' }, 'Processing Slack auth for authenticated user')
       processSlackAuth(slackCode)
     }
   }, [user, fetchSlackConnections])
@@ -131,7 +129,7 @@ export default function SettingsPage() {
         }
       }
     } catch (error) {
-      console.warn('Failed to get app URL, using current origin:', error)
+      authLogger.warn({ error }, 'Failed to get app URL, using current origin')
     }
     const redirectUri = `${baseUrl}/api/slack/auth`
     const userScope = 'channels:history,groups:history,im:history,mpim:history'
