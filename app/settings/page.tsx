@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Trash2, ExternalLink } from 'lucide-react'
 import { WebhookManager } from '@/components/slack/WebhookManager'
+import { EmojiSettings } from '@/components/settings/EmojiSettings'
 import { authLogger } from '@/lib/client-logger'
 
 interface SlackConnection {
@@ -264,6 +265,9 @@ export default function SettingsPage() {
           </Button>
         </div>
       </div>
+
+      {/* 絵文字リアクション設定 */}
+      <EmojiSettings />
 
       {/* Webhookマネージャー */}
       <WebhookManager />

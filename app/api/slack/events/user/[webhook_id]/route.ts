@@ -6,16 +6,11 @@ import { SlackEventPayload, SlackReactionEvent } from '@/types'
 import { webhookLogger } from '@/lib/logger'
 import crypto from 'crypto'
 
-// タスク作成対象の絵文字リスト
-const TASK_EMOJIS = ['memo', 'clipboard', 'pencil', 'spiral_note_pad', 'page_with_curl']
-
-// 緊急度マッピング
-const URGENCY_MAPPING: Record<string, 'today' | 'tomorrow' | 'later'> = {
-  'memo': 'today',
-  'clipboard': 'today',
-  'pencil': 'tomorrow',
-  'spiral_note_pad': 'tomorrow',
-  'page_with_curl': 'later'
+// デフォルト絵文字設定（ユーザー設定がない場合のフォールバック）
+const DEFAULT_EMOJI_SETTINGS = {
+  today_emoji: 'fire',
+  tomorrow_emoji: 'calendar',
+  later_emoji: 'memo'
 }
 
 interface RouteParams {
@@ -115,7 +110,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           workspace_name
         ),
         users (
-          slack_user_id
+          slack_user_id,
+          user_emoji_settings (
+            today_emoji,
+            tomorrow_emoji,
+            later_emoji
+          )
         )
       `)
       .eq('webhook_id', webhook_id)
@@ -170,12 +170,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         ts: event.item.ts
       }, 'Processing reaction_added event')
 
-      // 対象絵文字かチェック
-      if (!TASK_EMOJIS.includes(event.reaction)) {
-        logger.debug({ reaction: event.reaction }, 'Ignoring non-target emoji')
-        return NextResponse.json({ message: 'Emoji not configured for task creation' })
-      }
-
       // ユーザー検証：リアクションしたユーザーが連携を行ったユーザー本人かチェック
       const userData = Array.isArray(webhook.users) ? webhook.users[0] : webhook.users
       const userSlackId = userData?.slack_user_id
@@ -206,7 +200,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         webhookUserId: webhook.user_id
       }, 'User verification successful')
 
-      await processReactionEvent(event, webhook)
+      // ユーザーの絵文字設定を取得
+      const userEmojiSettings = userData?.user_emoji_settings?.[0] || DEFAULT_EMOJI_SETTINGS
+      const taskEmojis = [
+        userEmojiSettings.today_emoji,
+        userEmojiSettings.tomorrow_emoji,
+        userEmojiSettings.later_emoji
+      ]
+
+      // 対象絵文字かチェック
+      if (!taskEmojis.includes(event.reaction)) {
+        logger.debug({
+          reaction: event.reaction,
+          configuredEmojis: taskEmojis
+        }, 'Ignoring non-configured emoji')
+        return NextResponse.json({ message: 'Emoji not configured for task creation' })
+      }
+
+      await processReactionEvent(event, webhook, userEmojiSettings)
     }
 
     // イベント統計更新
@@ -228,7 +239,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 async function processReactionEvent(
   event: SlackReactionEvent,
-  webhook: any
+  webhook: any,
+  emojiSettings: any
 ) {
   try {
     const supabase = createClient(
@@ -280,7 +292,14 @@ async function processReactionEvent(
     }
 
     // 緊急度を絵文字から決定
-    const urgency = URGENCY_MAPPING[event.reaction] || 'later'
+    let urgency: 'today' | 'tomorrow' | 'later' = 'later'
+    if (event.reaction === emojiSettings.today_emoji) {
+      urgency = 'today'
+    } else if (event.reaction === emojiSettings.tomorrow_emoji) {
+      urgency = 'tomorrow'
+    } else if (event.reaction === emojiSettings.later_emoji) {
+      urgency = 'later'
+    }
     // 期限を設定
     let deadline: string | null = null
     const today = new Date()
