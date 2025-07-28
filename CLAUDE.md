@@ -26,12 +26,20 @@ npm run types:generate   # Generate TypeScript types from database schema
 # Build and deployment
 npm run build            # Production build
 npm run lint             # ESLint check
+
+# Testing
+npm run test             # Run Jest tests
+npm run test:watch       # Run Jest in watch mode
+npm run test:coverage    # Run tests with coverage report
 ```
 
 ### Testing Individual Components
-- Run specific pages: Navigate to `http://localhost:3000/{route}` where routes are `/`, `/compare`, `/report`, `/settings`
-- Test API endpoints: Use `/api/generate-title`, `/api/slack`, `/api/slack/events`
-- Database testing: Use `npm run db:studio` to access Supabase Studio
+- **Pages**: Navigate to `http://localhost:3000/{route}` where routes are `/`, `/compare`, `/report`, `/settings`
+- **API endpoints**: Use `/api/generate-title`, `/api/slack`, `/api/slack/events`
+- **Database testing**: Use `npm run db:studio` to access Supabase Studio
+- **Unit tests**: Jest configuration with jsdom environment for React component testing
+- **Test patterns**: Tests should be placed in `__tests__/` directories or use `.test.ts` or `.spec.ts` suffixes
+- **Coverage**: Focus on testing lib utilities - see `jest.config.js` for coverage configuration
 
 ## Architecture Overview
 
