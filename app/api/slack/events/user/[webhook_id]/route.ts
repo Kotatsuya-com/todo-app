@@ -200,13 +200,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         webhookUserId: webhook.user_id
       }, 'User verification successful')
 
-      // ユーザーの絵文字設定を取得
-      const userEmojiSettings = userData?.user_emoji_settings?.[0] || DEFAULT_EMOJI_SETTINGS
+      // ユーザーの絵文字設定を取得（設定が存在しない場合はデフォルト値を使用）
+      let userEmojiSettings = DEFAULT_EMOJI_SETTINGS
+
+      if (userData?.user_emoji_settings && Array.isArray(userData.user_emoji_settings) && userData.user_emoji_settings.length > 0) {
+        userEmojiSettings = userData.user_emoji_settings[0]
+      } else if (userData?.user_emoji_settings && !Array.isArray(userData.user_emoji_settings)) {
+        userEmojiSettings = userData.user_emoji_settings
+      }
+
       const taskEmojis = [
         userEmojiSettings.today_emoji,
         userEmojiSettings.tomorrow_emoji,
         userEmojiSettings.later_emoji
       ]
+
+      logger.debug({
+        userEmojiSettings,
+        taskEmojis,
+        reaction: event.reaction
+      }, 'Using emoji settings for task creation')
 
       // 対象絵文字かチェック
       if (!taskEmojis.includes(event.reaction)) {

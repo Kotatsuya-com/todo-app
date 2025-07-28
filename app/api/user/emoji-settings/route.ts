@@ -90,7 +90,10 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Failed to update settings',
+        details: error.message
+      }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -127,7 +130,10 @@ export async function POST(_request: NextRequest) {
       .single()
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to reset settings' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Failed to reset settings',
+        details: error.message
+      }, { status: 500 })
     }
 
     return NextResponse.json({

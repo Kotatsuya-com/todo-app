@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 import { Button } from '@/components/ui/Button'
-import { createClient } from '@/lib/supabase'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Trash2, ExternalLink } from 'lucide-react'
 import { WebhookManager } from '@/components/slack/WebhookManager'
@@ -20,31 +19,9 @@ interface SlackConnection {
 
 export default function SettingsPage() {
   const { user } = useTodoStore()
-  const [slackUserId, setSlackUserId] = useState('')
   const [slackConnections, setSlackConnections] = useState<SlackConnection[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  const fetchUserSettings = useCallback(async () => {
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('users')
-        .select('slack_user_id')
-        .eq('id', user?.id)
-        .single()
-
-      if (error && error.code !== 'PGRST116') {
-        throw error
-      }
-
-      if (data?.slack_user_id) {
-        setSlackUserId(data.slack_user_id)
-      }
-    } catch (error) {
-      authLogger.error({ error }, 'Error fetching user settings')
-    }
-  }, [user?.id])
 
   const fetchSlackConnections = useCallback(async () => {
     try {
@@ -60,10 +37,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
-      fetchUserSettings()
       fetchSlackConnections()
     }
-  }, [user, fetchUserSettings, fetchSlackConnections])
+  }, [user, fetchSlackConnections])
 
   // Slack認証完了処理（ngrok環境対応）
   useEffect(() => {
@@ -162,34 +138,6 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSaveSettings = async () => {
-    if (!user) {return}
-
-    setIsLoading(true)
-    setMessage('')
-
-    try {
-      const supabase = createClient()
-
-      const { error } = await supabase
-        .from('users')
-        .upsert({
-          id: user.id,
-          slack_user_id: slackUserId.trim() || null,
-          display_name: user.display_name
-        })
-
-      if (error) {
-        throw error
-      }
-
-      setMessage('設定を保存しました')
-    } catch (error: any) {
-      setMessage(`エラー: ${error.message}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   if (!user) {
     return <AuthForm />
@@ -248,22 +196,13 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <div>
-            {message && (
-              <p className={`text-sm ${message.includes('エラー') ? 'text-red-600' : 'text-green-600'}`}>
-                {message}
-              </p>
-            )}
+        {message && (
+          <div className="pt-4 border-t border-gray-200">
+            <p className={`text-sm ${message.includes('エラー') ? 'text-red-600' : 'text-green-600'}`}>
+              {message}
+            </p>
           </div>
-          <Button
-            onClick={handleSaveSettings}
-            disabled={isLoading}
-            className="flex items-center space-x-2"
-          >
-            {isLoading ? '保存中...' : '設定を保存'}
-          </Button>
-        </div>
+        )}
       </div>
 
       {/* 絵文字リアクション設定 */}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
-import { RotateCcw, Save } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 
 interface EmojiOption {
   name: string
@@ -16,13 +16,32 @@ interface EmojiSettingsType {
   later_emoji: string
 }
 
+// デフォルト設定
+const DEFAULT_SETTINGS: EmojiSettingsType = {
+  today_emoji: 'fire',
+  tomorrow_emoji: 'calendar',
+  later_emoji: 'memo'
+}
+
+// デフォルト絵文字リスト
+const DEFAULT_AVAILABLE_EMOJIS: EmojiOption[] = [
+  { name: 'fire', display: '🔥', label: '緊急' },
+  { name: 'calendar', display: '📅', label: '計画' },
+  { name: 'memo', display: '📝', label: 'メモ' },
+  { name: 'warning', display: '⚠️', label: '警告' },
+  { name: 'clock', display: '🕐', label: '時計' },
+  { name: 'hourglass', display: '⏳', label: '砂時計' },
+  { name: 'pushpin', display: '📌', label: 'ピン' },
+  { name: 'bookmark', display: '🔖', label: 'ブックマーク' },
+  { name: 'bulb', display: '💡', label: 'アイデア' },
+  { name: 'star', display: '⭐', label: 'スター' },
+  { name: 'zap', display: '⚡', label: '稲妻' },
+  { name: 'bell', display: '🔔', label: 'ベル' }
+]
+
 export function EmojiSettings() {
-  const [settings, setSettings] = useState<EmojiSettingsType>({
-    today_emoji: 'fire',
-    tomorrow_emoji: 'calendar',
-    later_emoji: 'memo'
-  })
-  const [availableEmojis, setAvailableEmojis] = useState<EmojiOption[]>([])
+  const [settings, setSettings] = useState<EmojiSettingsType>(DEFAULT_SETTINGS)
+  const [availableEmojis, setAvailableEmojis] = useState<EmojiOption[]>(DEFAULT_AVAILABLE_EMOJIS)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -35,17 +54,23 @@ export function EmojiSettings() {
       const response = await fetch('/api/user/emoji-settings')
       if (response.ok) {
         const data = await response.json()
-        setSettings(data.settings)
-        setAvailableEmojis(data.availableEmojis)
+        setSettings(data.settings || DEFAULT_SETTINGS)
+        setAvailableEmojis(data.availableEmojis || DEFAULT_AVAILABLE_EMOJIS)
       } else {
-        setMessage('設定の取得に失敗しました')
+        // APIエラーの場合もデフォルト設定を使用して画面を表示
+        setSettings(DEFAULT_SETTINGS)
+        setAvailableEmojis(DEFAULT_AVAILABLE_EMOJIS)
+        setMessage('設定の取得に失敗しました（デフォルト設定で表示しています）')
       }
     } catch (error) {
-      setMessage('設定の取得中にエラーが発生しました')
+      // ネットワークエラーなどの場合もデフォルト設定を使用
+      setSettings(DEFAULT_SETTINGS)
+      setAvailableEmojis(DEFAULT_AVAILABLE_EMOJIS)
+      setMessage('設定の取得中にエラーが発生しました（デフォルト設定で表示しています）')
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = async (settingsToSave = settings) => {
     setIsLoading(true)
     setMessage('')
 
@@ -53,7 +78,7 @@ export function EmojiSettings() {
       const response = await fetch('/api/user/emoji-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(settingsToSave)
       })
 
       if (response.ok) {
@@ -154,10 +179,14 @@ export function EmojiSettings() {
                 <span className="text-2xl">{getEmojiDisplay(settings[option.key])}</span>
                 <select
                   value={settings[option.key]}
-                  onChange={(e) => setSettings(prev => ({
-                    ...prev,
-                    [option.key]: e.target.value
-                  }))}
+                  onChange={(e) => {
+                    const newSettings = {
+                      ...settings,
+                      [option.key]: e.target.value
+                    }
+                    setSettings(newSettings)
+                    handleSave(newSettings)
+                  }}
                   className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {availableEmojis.map((emoji) => (
@@ -172,23 +201,13 @@ export function EmojiSettings() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-        <div>
-          {message && (
-            <p className={`text-sm ${message.includes('エラー') || message.includes('失敗') ? 'text-red-600' : 'text-green-600'}`}>
-              {message}
-            </p>
-          )}
+      {message && (
+        <div className="pt-4 border-t border-gray-200">
+          <p className={`text-sm ${message.includes('エラー') || message.includes('失敗') ? 'text-red-600' : 'text-green-600'}`}>
+            {message}
+          </p>
         </div>
-        <Button
-          onClick={handleSave}
-          disabled={isLoading}
-          className="flex items-center gap-2"
-        >
-          <Save className="w-4 h-4" />
-          {isLoading ? '保存中...' : '設定を保存'}
-        </Button>
-      </div>
+      )}
     </div>
   )
 }

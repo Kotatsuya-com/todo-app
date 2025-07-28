@@ -3,22 +3,12 @@ import pino from 'pino'
 // ログレベルの環境変数を取得（デフォルトは開発環境でdebug、本番でinfo）
 const logLevel = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug')
 
-// 開発環境かどうかを判定
-const isDevelopment = process.env.NODE_ENV !== 'production'
-
 // Pinoロガーの設定
 const logger = pino({
   level: logLevel,
   // 開発環境では見やすい形式、本番環境では構造化JSON
-  transport: isDevelopment ? {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'HH:MM:ss',
-      ignore: 'pid,hostname',
-      singleLine: false
-    }
-  } : undefined,
+  // worker threadの問題を避けるため、開発環境でもJSONフォーマットを使用
+  transport: undefined,
   // 本番環境では構造化ログ用の基本設定
   formatters: {
     level: (label) => ({ level: label })
