@@ -18,7 +18,8 @@ jest.mock('pino', () => {
   return mockPino
 })
 
-import { createLogger, apiLogger } from '@/lib/logger'
+import { createLogger, apiLogger, slackLogger, webhookLogger, authLogger } from '@/lib/logger'
+import defaultLogger from '@/lib/logger'
 import pino from 'pino'
 
 describe('logger basic test', () => {
@@ -52,5 +53,21 @@ describe('logger basic test', () => {
       logger.warn('warning message')
       logger.error('error message')
     }).not.toThrow()
+  })
+
+  it('should test all predefined loggers', () => {
+    // 各専用ロガーが定義されていることを確認
+    expect(slackLogger).toBeDefined()
+    expect(webhookLogger).toBeDefined() 
+    expect(authLogger).toBeDefined()
+    expect(apiLogger).toBeDefined()
+    
+    // デフォルトロガーも確認
+    expect(defaultLogger).toBeDefined()
+  })
+
+  it('should create logger with empty context', () => {
+    const logger = createLogger()
+    expect(logger).toBeDefined()
   })
 })

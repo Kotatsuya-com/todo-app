@@ -249,6 +249,26 @@ describe('ClientLogger', () => {
         { module: 'test', error: 'something went wrong' }
       )
     })
+
+    it('should support debug with context + message pattern (line 57)', () => {
+      logger.debug({ requestId: 'abc123' }, 'debug with context')
+      
+      expect(console.log).toHaveBeenCalledWith(
+        '[10:30:45] DEBUG', 
+        'debug with context', 
+        { module: 'test', requestId: 'abc123' }
+      )
+    })
+
+    it('should support info with context + message pattern (line 69)', () => {
+      logger.info({ userId: 456 }, 'info with context')
+      
+      expect(console.info).toHaveBeenCalledWith(
+        '[10:30:45] INFO', 
+        'info with context', 
+        { module: 'test', userId: 456 }
+      )
+    })
   })
 
   describe('child logger', () => {
