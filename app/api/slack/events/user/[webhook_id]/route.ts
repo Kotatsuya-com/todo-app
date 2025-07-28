@@ -113,6 +113,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           access_token,
           workspace_id,
           workspace_name
+        ),
+        users (
+          slack_user_id
         )
       `)
       .eq('webhook_id', webhook_id)
@@ -122,7 +125,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     logger.debug({
       webhookFound: !!webhook,
       error: webhookError?.message,
-      userId: webhook?.user_id
+      userId: webhook?.user_id,
+      userSlackId: (Array.isArray(webhook?.users) ? webhook?.users[0] : webhook?.users)?.slack_user_id
     }, 'Webhook query result')
 
     if (webhookError || !webhook) {
@@ -171,6 +175,36 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         logger.debug({ reaction: event.reaction }, 'Ignoring non-target emoji')
         return NextResponse.json({ message: 'Emoji not configured for task creation' })
       }
+
+      // ユーザー検証：リアクションしたユーザーが連携を行ったユーザー本人かチェック
+      const userData = Array.isArray(webhook.users) ? webhook.users[0] : webhook.users
+      const userSlackId = userData?.slack_user_id
+
+      if (!userSlackId) {
+        logger.debug({
+          webhookUserId: webhook.user_id,
+          reactionUser: event.user
+        }, 'User has not configured Slack User ID - cannot verify reaction ownership')
+        return NextResponse.json({
+          error: 'Slack User ID not configured. Please set your Slack User ID in the settings.'
+        }, { status: 400 })
+      }
+
+      if (event.user !== userSlackId) {
+        logger.debug({
+          webhookUserId: webhook.user_id,
+          expectedSlackUser: userSlackId,
+          actualReactionUser: event.user
+        }, 'Reaction from unauthorized user - ignoring')
+        return NextResponse.json({
+          message: 'Reaction ignored - only the webhook owner can create tasks'
+        })
+      }
+
+      logger.debug({
+        verifiedUser: event.user,
+        webhookUserId: webhook.user_id
+      }, 'User verification successful')
 
       await processReactionEvent(event, webhook)
     }
