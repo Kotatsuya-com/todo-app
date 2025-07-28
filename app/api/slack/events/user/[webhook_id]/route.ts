@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { getSlackMessage } from '@/lib/slack-message'
 import { generateTaskTitle } from '@/lib/openai-title'
 import { SlackEventPayload, SlackReactionEvent } from '@/types'
@@ -25,33 +25,51 @@ interface RouteParams {
 
 async function verifySlackSignature(
   request: NextRequest,
-  body: string,
-  webhook_secret: string
+  body: string
 ): Promise<boolean> {
   const signature = request.headers.get('x-slack-signature')
   const timestamp = request.headers.get('x-slack-request-timestamp')
 
-  if (!signature || !timestamp) {
+  // Slack App全体で共通のSigning Secretを使用
+  const slackSigningSecret = process.env.SLACK_SIGNING_SECRET
+
+  console.log('🔐 Verifying Slack signature:', {
+    hasSignature: !!signature,
+    hasTimestamp: !!timestamp,
+    hasSigningSecret: !!slackSigningSecret
+  })
+
+  if (!signature || !timestamp || !slackSigningSecret) {
+    console.error('❌ Missing required headers or signing secret')
     return false
   }
 
   // タイムスタンプの検証（5分以内）
   const currentTime = Math.floor(Date.now() / 1000)
   if (Math.abs(currentTime - parseInt(timestamp)) > 300) {
+    console.error('❌ Request timestamp too old')
     return false
   }
 
   // 署名の検証
   const sigBasestring = `v0:${timestamp}:${body}`
   const expectedSignature = `v0=${crypto
-    .createHmac('sha256', webhook_secret)
+    .createHmac('sha256', slackSigningSecret)
     .update(sigBasestring)
     .digest('hex')}`
 
-  return crypto.timingSafeEqual(
+  const isValid = crypto.timingSafeEqual(
     Buffer.from(signature),
     Buffer.from(expectedSignature)
   )
+
+  console.log('🔐 Signature verification result:', {
+    isValid,
+    receivedSignature: signature.substring(0, 20) + '...',
+    expectedSignature: expectedSignature.substring(0, 20) + '...'
+  })
+
+  return isValid
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -60,8 +78,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.text()
     console.log('🔔 Webhook event received:', { webhook_id, body: body.substring(0, 200) })
 
-    // webhook設定を取得
-    const supabase = createClient()
+    // webhook設定を取得 - service_roleキーを使用してRLSをバイパス
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+    console.log('🔍 Looking for webhook_id:', webhook_id)
+
+    // まず全てのwebhookを確認
+    const { data: allWebhooks } = await supabase
+      .from('user_slack_webhooks')
+      .select('webhook_id, is_active, user_id')
+
+    console.log('📋 All webhooks in DB:', allWebhooks)
+
     const { data: webhook, error: webhookError } = await supabase
       .from('user_slack_webhooks')
       .select(`
@@ -70,7 +106,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         webhook_secret,
         is_active,
         event_count,
-        slack_connections!inner (
+        slack_connection_id,
+        slack_connections (
           access_token,
           workspace_id,
           workspace_name
@@ -79,6 +116,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .eq('webhook_id', webhook_id)
       .eq('is_active', true)
       .single()
+
+    console.log('🔍 Webhook query result:', { webhook, webhookError })
 
     if (webhookError || !webhook) {
       console.error('❌ Webhook not found or inactive:', webhookError)
@@ -102,8 +141,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 署名検証（セキュリティ）
     const isValidSignature = await verifySlackSignature(
       request,
-      body,
-      webhook.webhook_secret
+      body
     )
 
     if (!isValidSignature) {
@@ -153,8 +191,21 @@ async function processReactionEvent(
   webhook: any
 ) {
   try {
-    const supabase = createClient()
-    const slackToken = webhook.slack_connections.access_token
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+    // slack_connectionsは配列で返される可能性があるため対応
+    const slackConnection = Array.isArray(webhook.slack_connections)
+      ? webhook.slack_connections[0]
+      : webhook.slack_connections
+    const slackToken = slackConnection.access_token
 
     console.log('📝 Fetching Slack message:', {
       channel: event.item.channel,
@@ -206,17 +257,34 @@ async function processReactionEvent(
       deadline = tomorrow.toISOString().split('T')[0]
     }
 
-    // タスクを作成
+    // 初期重要度スコアを設定（READMEの仕様に基づく）
+    let importance_score = 0.5
+    if (deadline) {
+      const deadlineDate = new Date(deadline)
+      const todayDate = new Date(today.toISOString().split('T')[0])
+
+      if (deadlineDate < todayDate) {
+        // 期限切れ
+        importance_score = 0.7
+      } else if (deadlineDate.getTime() === todayDate.getTime()) {
+        // 今日期限
+        importance_score = 0.6
+      } else {
+        // その他（0.3-0.7のランダム値）
+        importance_score = 0.3 + Math.random() * 0.4
+      }
+    }
+
+    // タスクを作成（urgencyフィールドは削除）
     const { data: newTodo, error: createError } = await supabase
       .from('todos')
       .insert({
         user_id: webhook.user_id,
         title,
         body: messageData.text,
-        urgency,
         deadline,
         status: 'open',
-        importance_score: 0.5 // デフォルト値
+        importance_score
       })
       .select()
       .single()

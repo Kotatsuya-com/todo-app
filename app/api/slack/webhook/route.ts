@@ -46,9 +46,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 POST /api/slack/webhook called')
     const { slack_connection_id } = await request.json()
+    console.log('📝 Request data:', { slack_connection_id })
 
     if (!slack_connection_id) {
+      console.log('❌ slack_connection_id is missing')
       return NextResponse.json(
         { error: 'slack_connection_id is required' },
         { status: 400 }
@@ -57,12 +60,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
+    console.log('👤 User auth result:', { user: user?.id, userError })
 
     if (userError || !user) {
+      console.log('❌ Authentication failed')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Slack接続の存在確認
+    console.log('🔍 Checking Slack connection:', { slack_connection_id, user_id: user.id })
     const { data: connection, error: connectionError } = await supabase
       .from('slack_connections')
       .select('id, workspace_name')
@@ -70,7 +76,10 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .single()
 
+    console.log('📋 Connection check result:', { connection, connectionError })
+
     if (connectionError || !connection) {
+      console.log('❌ Slack connection not found')
       return NextResponse.json(
         { error: 'Slack connection not found' },
         { status: 404 }
@@ -108,14 +117,25 @@ export async function POST(request: NextRequest) {
     }
 
     // 新しいwebhookを作成
-    const { data: newWebhook, error: createError } = await supabase
+    console.log('🔄 Creating webhook for user:', user.id, 'connection:', slack_connection_id)
+    const { data: webhookResult, error: createError } = await supabase
       .rpc('create_user_slack_webhook', {
         p_user_id: user.id,
         p_slack_connection_id: slack_connection_id
       })
 
-    if (createError || !newWebhook) {
+    console.log('📝 Webhook creation result:', { webhookResult, createError })
+
+    if (createError || !webhookResult) {
       console.error('Failed to create webhook:', createError)
+      return NextResponse.json({ error: 'Failed to create webhook' }, { status: 500 })
+    }
+
+    // RPCの結果は配列で返される場合があるので、最初の要素を取得
+    const newWebhook = Array.isArray(webhookResult) ? webhookResult[0] : webhookResult
+
+    if (!newWebhook) {
+      console.error('No webhook data returned from RPC')
       return NextResponse.json({ error: 'Failed to create webhook' }, { status: 500 })
     }
 

@@ -22,7 +22,6 @@
     "db:link": "npx supabase link",
     "db:pull": "npx supabase db pull",
     "db:diff": "npx supabase db diff",
-    "db:studio": "npx supabase studio",
     "migrate:new": "npx supabase migration new",
     "migrate:up": "npx supabase migration up",
     "types:generate": "npx supabase gen types typescript --local > types/supabase.ts",

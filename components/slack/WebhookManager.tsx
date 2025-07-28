@@ -45,11 +45,17 @@ export function WebhookManager() {
       setSlackConnections(connections || [])
 
       // Webhookを取得
-      const { data: webhookData, error: webhookError } = await fetch('/api/slack/webhook')
-        .then(res => res.json())
+      const webhookResponse = await fetch('/api/slack/webhook')
+      const webhookData = await webhookResponse.json()
 
-      if (webhookError || !webhookData) {
-        console.error('Failed to fetch webhooks:', webhookError)
+      if (!webhookResponse.ok) {
+        console.error('Failed to fetch webhooks:', webhookData.error)
+        setMessage('Webhookの取得に失敗しました')
+        return
+      }
+
+      if (webhookData.error) {
+        console.error('Failed to fetch webhooks:', webhookData.error)
         setMessage('Webhookの取得に失敗しました')
         return
       }

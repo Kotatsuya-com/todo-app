@@ -58,9 +58,13 @@ npm run lint             # ESLint check
 
 #### API Architecture
 ```
-/api/generate-title/     # OpenAI integration for AI-powered task titles
-/api/slack/              # Slack message content retrieval (supports threads)
-/api/slack/events/       # Slack Event API webhook for emoji reactions
+/api/generate-title/                    # OpenAI integration for AI-powered task titles
+/api/slack/                            # Slack message content retrieval (supports threads)
+/api/slack/auth/                       # Slack OAuth authentication flow
+/api/slack/connections/                # Slack connection management (CRUD)
+/api/slack/webhook/                    # User-specific webhook management
+/api/slack/events/user/[webhook_id]/   # User-specific Slack Event API webhooks
+/api/app-url/                          # Dynamic app URL detection for ngrok/production
 ```
 
 #### Authentication Flow
@@ -83,13 +87,19 @@ npm run lint             # ESLint check
 
 ### Slack Integration Architecture
 
-#### Two-Mode Integration
+#### Three-Mode Integration
 1. **Message Retrieval**: Parse Slack URLs to fetch message content via Web API
    - Supports channel messages, DMs, and threaded conversations
    - Handles timestamp conversion and API method selection
    
-2. **Event-Driven Automation**: Real-time task creation from emoji reactions
-   - Listens to `reaction_added` events via webhooks
+2. **OAuth Authentication**: User-specific Slack workspace connections
+   - Each user connects their own Slack workspace via OAuth
+   - Secure token storage in `slack_connections` table
+   - Workspace-specific permissions and access control
+   
+3. **Event-Driven Automation**: Real-time task creation from emoji reactions
+   - User-specific webhook endpoints for each connected workspace
+   - Listens to `reaction_added` events via secure webhooks
    - Maps 5 specific emoji types to urgency levels
    - Async processing to comply with Slack's 3-second response requirement
 
@@ -146,10 +156,40 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 ```
 
+#### Core Tables
+```sql
+-- User-specific Slack webhook management
+CREATE TABLE user_slack_webhooks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  slack_connection_id UUID REFERENCES slack_connections(id) ON DELETE CASCADE,
+  webhook_id TEXT UNIQUE NOT NULL,
+  webhook_secret TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  last_event_at TIMESTAMP WITH TIME ZONE,
+  event_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Slack workspace connections per user
+CREATE TABLE slack_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  workspace_id TEXT NOT NULL,
+  workspace_name TEXT NOT NULL,
+  team_name TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
 #### Security Model
 - All tables protected by RLS policies
 - User isolation via `auth.uid() = user_id` checks
 - Complex policy for `completion_log` using JOIN to verify ownership
+- User-specific webhook URLs with secure secret verification
 
 #### Foreign Key Strategy
 - Manual cascade deletion in application code
@@ -185,10 +225,13 @@ CREATE TRIGGER on_auth_user_created
 
 #### Slack Development
 - **Testing Message Retrieval**: Use real Slack URLs in development
-- **Testing Webhooks**: Use `npm run dev:webhook` with ngrok
+- **OAuth Testing**: Connect test Slack workspace via settings page
+- **Testing Webhooks**: Use `npm run dev:webhook` with ngrok for user-specific webhooks
+- **Webhook Management**: Create/manage user webhooks via `/api/slack/webhook`
 - **Event Testing**: Create test Slack workspace for safe emoji reaction testing
 - **Debugging**: Check server logs for detailed reaction processing information
-- **User Setup**: Ensure Slack User ID is configured in app settings for reaction automation
+- **URL Patterns**: User-specific webhook URLs: `/api/slack/events/user/[webhook_id]`
+- **Security**: Each webhook has unique ID and secret for signature verification
 
 ### Production Deployment
 
@@ -203,3 +246,29 @@ CREATE TRIGGER on_auth_user_created
 - Production environment variables
 
 This architecture enables rapid development while maintaining production-grade security, performance, and scalability.
+
+## 📝 Recent Updates (January 2025)
+
+### User-Specific Slack Webhook System
+- **New Architecture**: Each user gets individual webhook endpoints for Slack integration
+- **Database Schema**: Added `user_slack_webhooks` table with secure webhook management
+- **API Endpoints**: New `/api/slack/webhook/` for webhook CRUD operations
+- **Security Enhancement**: Unique webhook IDs and secrets for each user connection
+- **URL Pattern**: User-specific webhook URLs: `/api/slack/events/user/[webhook_id]`
+
+### Enhanced Slack Integration
+- **OAuth Flow**: Complete user-specific Slack workspace authentication
+- **Webhook Manager**: New `WebhookManager` component for UI-based webhook management
+- **Connection Management**: Full CRUD for Slack workspace connections
+- **Dynamic URLs**: Automatic app URL detection for ngrok/production environments
+
+### Database Improvements
+- **New Migration**: `20250727085000_fix_webhook_encoding.sql` for secure webhook ID generation
+- **Base64URL Encoding**: Improved webhook ID generation with URL-safe characters
+- **RLS Policies**: Row Level Security for all new Slack-related tables
+- **Performance Indexes**: Optimized database indexes for webhook operations
+
+### Development Workflow Enhancements
+- **Improved ngrok Integration**: Better handling of ngrok tunnels for webhook development
+- **Error Handling**: Enhanced error messages and logging for Slack operations
+- **Testing Support**: Easier testing of user-specific webhook functionality

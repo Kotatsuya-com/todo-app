@@ -82,15 +82,11 @@ OPENAI_API_KEY=your-openai-api-key
 SLACK_CLIENT_ID=your-slack-app-client-id
 NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-app-client-id
 SLACK_CLIENT_SECRET=your-slack-app-client-secret
+SLACK_SIGNING_SECRET=your-slack-signing-secret
 
 # ngrok（Slack Webhook開発用、オプション）
 # 注意: 認証トークンは `ngrok config add-authtoken` での設定を推奨
 # NGROK_AUTHTOKEN=your-ngrok-authtoken-here
-
-# ローカル開発用Supabase Service Role Key（重要）
-# 以下のコマンドで取得: npm run db:status
-# service_role key の値をコピーして設定してください
-SUPABASE_SERVICE_ROLE_KEY=your-local-supabase-service-role-key
 ```
 
 ### ステップ3: アプリケーションの起動
@@ -217,8 +213,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # OpenAI（必須）
 OPENAI_API_KEY=your-openai-api-key
 
-# Slack（オプション）
-SLACK_BOT_TOKEN=your-slack-bot-token
+# Slack OAuth（ユーザー別接続）
+SLACK_CLIENT_ID=your-slack-client-id
+NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-client-id
+SLACK_CLIENT_SECRET=your-slack-client-secret
 SLACK_SIGNING_SECRET=your-slack-signing-secret
 
 # App
@@ -279,8 +277,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # OpenAI
 OPENAI_API_KEY=your-openai-api-key
 
-# Slack（オプション）
-SLACK_BOT_TOKEN=your-slack-bot-token
+# Slack OAuth（ユーザー別接続）
+SLACK_CLIENT_ID=your-slack-client-id
+NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-client-id
+SLACK_CLIENT_SECRET=your-slack-client-secret
 SLACK_SIGNING_SECRET=your-slack-signing-secret
 
 # App
@@ -515,20 +515,32 @@ npm run seed:dev
 ### 概要
 特定の絵文字でSlackメッセージにリアクションすると、そのメッセージが自動的にタスクとして追加される機能です。
 
-### Slack OAuth認証設定
+### Slack App設定（完全ガイド）
+
+#### 1. Slack Appの作成
 
 1. [Slack API](https://api.slack.com/apps)にアクセス
 2. 「Create New App」をクリック→「From scratch」を選択
 3. アプリ名とワークスペースを選択して作成
-4. 左メニューの「Basic Information」をクリック
-5. **App Credentials**から以下を取得：
-   - `Client ID` → `SLACK_CLIENT_ID`と`NEXT_PUBLIC_SLACK_CLIENT_ID`に設定
-   - `Client Secret` → `SLACK_CLIENT_SECRET`に設定
-6. 左メニューの「OAuth & Permissions」をクリック
-7. **Redirect URLs**に以下を追加：
+
+#### 2. 基本認証情報の取得
+
+1. 左メニューの「Basic Information」をクリック
+2. **App Credentials**から以下を取得して`.env.local`に設定：
+   ```env
+   SLACK_CLIENT_ID=xoxb-xxxxx
+   NEXT_PUBLIC_SLACK_CLIENT_ID=xoxb-xxxxx  # 同じ値
+   SLACK_CLIENT_SECRET=xxxxx
+   SLACK_SIGNING_SECRET=xxxxx  # Event API用
+   ```
+
+#### 3. OAuth & Permissions設定
+
+1. 左メニューの「OAuth & Permissions」をクリック
+2. **Redirect URLs**に以下を追加：
    - 開発環境: `https://your-ngrok-url.ngrok-free.app/api/slack/auth`
    - 本番環境: `https://your-domain.com/api/slack/auth`
-8. 「Scopes」セクションで以下の権限を追加：
+3. **User Token Scopes**に以下を追加：
    - `channels:history` - チャンネルメッセージの取得
    - `groups:history` - プライベートチャンネルメッセージの取得
    - `im:history` - DMメッセージの取得
@@ -537,18 +549,69 @@ npm run seed:dev
    - `conversations:read` - チャンネル情報の取得
    - `usergroups:read` - グループ情報の取得
 
-### 環境変数設定
-```env
-SLACK_CLIENT_ID=your-slack-client-id
-NEXT_PUBLIC_SLACK_CLIENT_ID=your-slack-client-id
-SLACK_CLIENT_SECRET=your-slack-client-secret
+#### 4. Event Subscriptions設定（リアクション自動タスク化）
+
+1. 左メニューの「Event Subscriptions」をクリック
+2. 「Enable Events」をONに
+3. **Request URL**に以下を入力：
+   ```
+   開発環境（初回設定用）:
+   https://your-ngrok-url.ngrok-free.app/api/slack/events/user/test-webhook-id
+   
+   ※ 初回はURL verificationのため仮のwebhook IDを使用
+   ※ アプリで実際のWebhookを作成後、正しいURLに更新
+   ```
+4. URL verificationが成功したら「Subscribe to events on behalf of users」で以下を追加：
+   - `reaction_added` - 絵文字リアクションの追加を検知
+5. 「Save Changes」をクリック
+
+#### 5. アプリのインストール
+
+1. 「OAuth & Permissions」に戻る
+2. 「Install to Workspace」をクリック
+3. 権限を確認して許可
+
+
+### 開発環境でのSlack連携設定手順
+
+#### ステップ1: 環境変数の設定
+`.env.local`に以下を設定（前述の手順で取得した値）：
+```bash
+SLACK_CLIENT_ID=your-client-id
+NEXT_PUBLIC_SLACK_CLIENT_ID=your-client-id  # 同じ値
+SLACK_CLIENT_SECRET=your-client-secret
+SLACK_SIGNING_SECRET=your-signing-secret
 ```
 
+#### ステップ2: ngrokでWebhook開発環境を起動
+```bash
+npm run dev:webhook
+```
+
+起動すると以下が表示されます：
+```
+🌐 Public URL: https://abc123.ngrok.io
+🔗 Slack Webhook URL: https://abc123.ngrok.io/api/slack/events/user/WEBHOOK_ID
+```
+
+#### ステップ3: アプリでSlack連携を有効化
+1. `http://localhost:3000`にアクセス
+2. 「設定」ページへ移動
+3. 「Slackに接続」をクリックしてワークスペースを認証
+4. 「絵文字リアクション連携を有効化」をクリック
+5. 表示されたWebhook URLをコピー
+
+#### ステップ4: Slack AppのEvent URL更新
+1. [Slack API](https://api.slack.com/apps)でアプリを選択
+2. 「Event Subscriptions」へ移動
+3. **Request URL**を手順3でコピーしたURLに更新
+4. URL verificationが成功することを確認
+5. 「Save Changes」をクリック
+
 ### アプリ内設定
-1. アプリの「設定」ページでSlack User IDを設定
-2. Slack User IDの確認方法：
-   - Slackで自分のプロフィールを開く
-   - 「その他」→「メンバーIDをコピー」
+1. アプリの「設定」ページでSlack接続を確認
+2. Webhook URLが正しく設定されていることを確認
+3. テスト：Slackで対象絵文字でリアクション
 
 ### 対応絵文字と緊急度
 
@@ -939,42 +1002,177 @@ CREATE TRIGGER on_auth_user_created
 
 ### 🔌 API詳細仕様
 
-#### `/api/generate-title`
-- **使用モデル**: OpenAI GPT-4o mini
-- **システムプロンプト**: 「15文字以内で、タスクの本質を表する見出しを生成」
-- **パラメータ**: `temperature: 0.7`, `max_tokens: 50`
-- **入力**: タスクの本文（Slackメッセージまたは直接入力）
-- **出力**: JSON形式の生成されたタイトル
-- **自動実行**: Slackメッセージ取得時に自動でタイトル生成
+#### 🔐 認証について
+APIエンドポイントは以下の3つの認証パターンを使用します：
+- **ユーザー認証必須** (`🔐`): Supabase認証でログインユーザーのみアクセス可能
+- **Service Role認証** (`🔑`): Slack APIなど外部サービスからのアクセス用（service_roleキー使用）
+- **認証不要** (`🌐`): 公開エンドポイント
 
-#### `/api/slack`
-- **認証方式**: ユーザー別Slack OAuth接続
-- **対応URL形式**: 
-  - チャンネルメッセージ: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP`
-  - スレッドメッセージ: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP?thread_ts=THREAD_TS`
-- **タイムスタンプ変換**: URLの`p123456789012`を`123456.789012`形式に変換
-- **API使用**: スレッドは`conversations.replies`、通常は`conversations.history`
-- **取得情報**: メッセージテキスト、ユーザー名、投稿時刻、チャンネル名
-- **メンション変換**: ユーザーID・グループID・チャンネルIDを実際の名前に変換
-- **自動タイトル生成**: メッセージ取得成功時に自動でGPT-4o miniがタイトル生成
+#### 📋 完全なAPIエンドポイント一覧
 
-#### `/api/slack/auth`
-- **OAuth認証**: Slack OAuth 2.0認証フロー処理
-- **スコープ**: `channels:history,groups:history,im:history,mpim:history,users:read,conversations:read,usergroups:read`
-- **データベース保存**: 認証成功時にユーザー固有のアクセストークンを`slack_connections`に保存
+##### `/api/generate-title` 🔐
+- **メソッド**: `POST`
+- **認証**: ユーザー認証必須
+- **機能**: OpenAI GPT-4o miniでタスクタイトルを自動生成
+- **リクエスト**: 
+  ```json
+  { "body": "タスクの本文" }
+  ```
+- **レスポンス**: 
+  ```json
+  { "title": "生成されたタイトル" }
+  ```
+- **詳細**:
+  - 使用モデル: GPT-4o mini
+  - システムプロンプト: 「15文字以内で、タスクの本質を表する見出しを生成」
+  - パラメータ: `temperature: 0.7`, `max_tokens: 50`
 
-#### `/api/slack/connections`
-- **GET**: ユーザーの接続済みSlackワークスペース一覧取得
-- **DELETE**: 指定したSlack接続の削除
+##### `/api/slack` 🔐
+- **メソッド**: `POST`
+- **認証**: ユーザー認証必須
+- **機能**: Slack URLからメッセージ内容を取得
+- **リクエスト**: 
+  ```json
+  { "slackUrl": "https://workspace.slack.com/archives/..." }
+  ```
+- **レスポンス**: 
+  ```json
+  {
+    "message": "メッセージ内容",
+    "userName": "送信者名",
+    "timestamp": "投稿時刻",
+    "channelName": "チャンネル名",
+    "slackUrl": "元のURL"
+  }
+  ```
+- **対応URL形式**:
+  - チャンネル: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP`
+  - スレッド: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP?thread_ts=THREAD_TS`
 
-#### `/api/slack/events`
-- **対象絵文字**: `memo`(📝), `clipboard`(📋), `pencil`(✏️), `spiral_note_pad`(🗒️), `page_with_curl`(📄)
-- **緊急度マッピング**: 
-  - `memo`, `clipboard` → `today`（今日）
-  - `pencil` → `tomorrow`（明日）
-  - `spiral_note_pad`, `page_with_curl` → `later`（それより後）
-- **非同期処理**: 3秒制限のため即座にレスポンス返却後、バックグラウンドでタスク作成
-- **URL構築**: `https://slack.com/archives/${channel}/p${timestamp.replace('.', '')}`
+##### `/api/slack/auth` 🔐
+- **メソッド**: `GET`
+- **認証**: ユーザー認証必須
+- **機能**: Slack OAuth認証処理（リダイレクト先）
+- **パラメータ**: 
+  - `code`: Slackからの認証コード
+  - `state`: CSRF対策用のstate
+- **処理**:
+  - OAuth tokenの交換
+  - workspace情報の保存
+  - 成功時は設定画面へリダイレクト
+
+##### `/api/slack/auth-process` 🔐
+- **メソッド**: `POST`
+- **認証**: ユーザー認証必須
+- **機能**: Slack OAuth認証の内部処理
+- **リクエスト**: 
+  ```json
+  { "code": "認証コード" }
+  ```
+- **レスポンス**: 
+  ```json
+  { "success": true, "workspace": "ワークスペース名" }
+  ```
+
+##### `/api/slack/connections` 🔐
+- **メソッド**: `GET`, `DELETE`
+- **認証**: ユーザー認証必須
+- **機能**: 
+  - `GET`: 接続済みSlackワークスペース一覧取得
+  - `DELETE`: 指定した接続を削除
+- **GETレスポンス**: 
+  ```json
+  {
+    "connections": [{
+      "id": "接続ID",
+      "workspace_name": "ワークスペース名",
+      "team_name": "チーム名",
+      "created_at": "作成日時"
+    }]
+  }
+  ```
+- **DELETEパラメータ**: `?id=接続ID`
+
+##### `/api/slack/webhook` 🔐
+- **メソッド**: `GET`, `POST`, `DELETE`
+- **認証**: ユーザー認証必須
+- **機能**: ユーザー固有のWebhook管理
+- **GET**: 作成済みWebhook一覧取得
+  ```json
+  {
+    "webhooks": [{
+      "id": "webhook ID",
+      "webhook_id": "URL用のwebhook ID",
+      "is_active": true,
+      "event_count": 10,
+      "last_event_at": "最終イベント日時",
+      "slack_connections": {
+        "workspace_name": "ワークスペース名"
+      }
+    }]
+  }
+  ```
+- **POST**: 新規Webhook作成
+  ```json
+  // リクエスト
+  { "slack_connection_id": "接続ID" }
+  
+  // レスポンス
+  {
+    "webhook": { ... },
+    "webhook_url": "https://app.com/api/slack/events/user/WEBHOOK_ID",
+    "message": "Webhook created successfully"
+  }
+  ```
+- **DELETE**: Webhook削除
+  - パラメータ: `?id=webhook ID`
+
+##### `/api/slack/events/user/[webhook_id]` 🔑
+- **メソッド**: `POST`, `GET`
+- **認証**: Service Role認証（Slack APIからの匿名アクセス対応）
+- **機能**: 
+  - `POST`: Slack Event APIからのイベント受信
+  - `GET`: Webhook情報確認（デバッグ用）
+- **POST処理**:
+  - URL verification（初回設定時）
+  - reaction_addedイベントの処理
+  - 署名検証（webhook_secret使用）
+- **対象絵文字と緊急度**:
+  - 📝 `memo`, 📋 `clipboard` → 今日
+  - ✏️ `pencil` → 明日
+  - 🗒️ `spiral_note_pad`, 📄 `page_with_curl` → それより後
+
+##### `/api/app-url` 🌐
+- **メソッド**: `GET`
+- **認証**: 不要
+- **機能**: 現在のアプリケーションURLを返す（ngrok対応）
+- **レスポンス**: 
+  ```json
+  { "url": "https://app-url.ngrok.io" }
+  ```
+- **用途**: 動的なWebhook URL生成
+
+#### 🔒 セキュリティ実装詳細
+
+##### 認証フロー
+1. **ユーザー認証** (`🔐`)
+   - Supabase SSRを使用したCookieベース認証
+   - `createServerSupabaseClient`でサーバーサイド認証
+   - 失敗時は401 Unauthorizedを返す
+
+2. **Service Role認証** (`🔑`)
+   - 環境変数`SUPABASE_SERVICE_ROLE_KEY`使用
+   - RLS（Row Level Security）をバイパス
+   - Slack APIなど外部サービス専用
+
+3. **Webhook署名検証**
+   - Slack署名検証: `x-slack-signature`ヘッダー
+   - HMAC-SHA256で署名計算
+   - タイムスタンプ5分以内チェック
+
+##### CORS設定
+- Next.jsのAPIルートはデフォルトで同一オリジンのみ許可
+- ngrok環境では自動的にCookie設定を調整
 
 ### ⚖️ 効率的重要度比較システム
 
@@ -1234,10 +1432,38 @@ todo-app/
 - APIの利用制限に達していないか確認
 
 ### Slack連携エラー
-- Slack OAuth設定（`SLACK_CLIENT_ID`、`SLACK_CLIENT_SECRET`）が正しく設定されているか確認
-- 設定画面でSlackワークスペースに接続済みか確認
-- Slackアプリに必要な権限が付与されているか確認
-- SlackURLの形式が正しいか確認（`https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP`）
+
+#### 認証関連
+- **OAuth設定**: `SLACK_CLIENT_ID`、`SLACK_CLIENT_SECRET`が正しく設定されているか確認
+- **Signing Secret**: `SLACK_SIGNING_SECRET`が設定されているか確認（Event API必須）
+- **Redirect URL**: Slack Appの設定でRedirect URLが正しいか確認
+
+#### Event API関連
+- **Webhook URL**: アプリで生成されたWebhook URLがSlack Appに設定されているか確認
+- **URL Verification**: Slack AppのEvent SubscriptionsでURL verificationが成功しているか確認
+- **署名検証エラー**: `❌ Invalid Slack signature` が出る場合
+  ```bash
+  # SLACK_SIGNING_SECRETが正しく設定されているか確認
+  echo $SLACK_SIGNING_SECRET
+  # Slack AppのEvent SubscriptionsページでSigning Secretを再確認
+  ```
+- **Webhook取得エラー**: データベースにWebhook IDが存在しない場合
+  - アプリの設定画面でWebhookを再作成
+  - ログでWebhook IDが正しく表示されているか確認
+
+#### 開発環境特有
+- **ngrok URL変更**: 再起動のたびにURLが変わるため、Slack App設定の更新が必要
+- **タスク作成エラー**: `urgency column not found` エラー
+  ```bash
+  # データベースをリセット（最新マイグレーション適用）
+  npm run db:reset
+  ```
+
+#### 権限関連
+- **User Token Scopes**: 以下の権限が付与されているか確認
+  - `channels:history`, `groups:history`, `im:history`, `mpim:history`
+  - `users:read`, `conversations:read`, `usergroups:read`
+- **SlackURL形式**: `https://workspace.slack.com/archives/CHANNEL_ID/pTIMESTAMP`
 
 ### ビルドエラー
 ```bash
@@ -1355,9 +1581,13 @@ npm run dev:webhook
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: 認証用
 - `SUPABASE_SERVICE_ROLE_KEY`: サーバーサイドAPI用
 
-#### オプション設定
-- `SLACK_BOT_TOKEN`: Slack連携機能用
-- `SLACK_SIGNING_SECRET`: Slack Event API検証用
+#### Slack連携（オプション）
+- `SLACK_CLIENT_ID`: Slack OAuth認証用（Client ID）
+- `NEXT_PUBLIC_SLACK_CLIENT_ID`: クライアントサイド用（同じ値）
+- `SLACK_CLIENT_SECRET`: Slack OAuth認証用（Client Secret）
+- `SLACK_SIGNING_SECRET`: Slack Event API署名検証用（必須）
+
+#### 開発環境（オプション）
 - `NGROK_AUTHTOKEN`: ローカルWebhook開発用
 - `NGROK_SUBDOMAIN`: カスタムサブドメイン（有料）
 
