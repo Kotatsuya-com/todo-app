@@ -40,8 +40,9 @@ export function TodoForm({
   const [deadline, setDeadline] = useState<string>(initialDeadline)
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false)
   const [isSlackUrl, setIsSlackUrl] = useState(false)
-  const [slackData, setSlackData] = useState<{ text: string; url: string } | null>(null)
+  const [slackData, setSlackData] = useState<{ text: string; url: string; workspace?: string } | null>(null)
   const [isLoadingSlack, setIsLoadingSlack] = useState(false)
+  const [slackError, setSlackError] = useState<string | null>(null)
 
   // 初期値が変更されたときに状態を更新
   useEffect(() => {
@@ -51,6 +52,7 @@ export function TodoForm({
     setDeadline(initialDeadline)
     setSlackData(null)
     setIsSlackUrl(false)
+    setSlackError(null)
   }, [initialTitle, initialBody, initialUrgency, initialDeadline])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -95,6 +97,7 @@ export function TodoForm({
     if (!isSlackUrl || !body.trim()) {return}
 
     setIsLoadingSlack(true)
+    setSlackError(null)
     try {
       const response = await fetch('/api/slack', {
         method: 'POST',
@@ -104,7 +107,13 @@ export function TodoForm({
 
       if (response.ok) {
         const data = await response.json()
-        setSlackData({ text: data.text, url: data.url })
+        setSlackData({
+          text: data.text,
+          url: data.url,
+          workspace: data.workspace
+        })
+        setSlackError(null)
+
         // Slackメッセージ取得成功時に自動でタイトル生成
         if (data.text && !title.trim()) {
           setIsGeneratingTitle(true)
@@ -126,9 +135,14 @@ export function TodoForm({
           }
         }
       } else {
-        apiLogger.error('Failed to fetch Slack message - response not ok')
+        const errorData = await response.json()
+        const errorMessage = errorData.details || errorData.error || 'メッセージの取得に失敗しました'
+        setSlackError(errorMessage)
+        apiLogger.error({ status: response.status, errorData }, 'Failed to fetch Slack message')
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'ネットワークエラーが発生しました'
+      setSlackError(errorMessage)
       apiLogger.error({ error }, 'Failed to fetch Slack message')
     } finally {
       setIsLoadingSlack(false)
@@ -142,6 +156,7 @@ export function TodoForm({
 
     if (!isSlack && slackData) {
       setSlackData(null)
+      setSlackError(null)
     }
   }
 
@@ -197,9 +212,27 @@ export function TodoForm({
               </Button>
             </div>
           )}
+          {slackError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="text-sm text-red-700 font-medium mb-1">エラー:</div>
+              <div className="text-sm text-red-600">{slackError}</div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={fetchSlackMessage}
+                disabled={isLoadingSlack}
+                className="mt-2"
+              >
+                再試行
+              </Button>
+            </div>
+          )}
           {slackData && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="text-sm text-blue-700 font-medium mb-1">Slackメッセージ:</div>
+              <div className="text-sm text-blue-700 font-medium mb-1">
+                Slackメッセージ: {slackData.workspace && `(${slackData.workspace})`}
+              </div>
               <div className="text-sm text-gray-700 whitespace-pre-wrap">{slackData.text}</div>
             </div>
           )}

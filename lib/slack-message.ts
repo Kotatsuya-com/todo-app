@@ -15,18 +15,19 @@ export interface SlackMessageResult {
 }
 
 /**
- * SlackURLからチャンネルIDとタイムスタンプを抽出
+ * SlackURLからワークスペース名、チャンネルID、タイムスタンプを抽出
  */
-export function parseSlackUrl(slackUrl: string): { channel: string; timestamp: string; threadTs?: string } | null {
-  const slackUrlPattern = /https:\/\/[a-zA-Z0-9-]+\.slack\.com\/archives\/([A-Z0-9]+)\/p([0-9]+)(?:\?thread_ts=([0-9.]+))?/
+export function parseSlackUrl(slackUrl: string): { workspace: string; channel: string; timestamp: string; threadTs?: string } | null {
+  const slackUrlPattern = /https:\/\/([a-zA-Z0-9-]+)\.slack\.com\/archives\/([A-Z0-9]+)\/p([0-9]+)(?:\?thread_ts=([0-9.]+))?/
   const match = slackUrl.match(slackUrlPattern)
 
   if (!match) {
     return null
   }
 
-  const [, channel, timestamp, threadTs] = match
+  const [, workspace, channel, timestamp, threadTs] = match
   return {
+    workspace,
     channel,
     timestamp,
     threadTs

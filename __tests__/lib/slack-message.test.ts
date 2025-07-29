@@ -32,6 +32,7 @@ describe('slack-message.ts', () => {
       const result = parseSlackUrl(url)
       
       expect(result).toEqual({
+        workspace: 'workspace',
         channel: 'C1234567890',
         timestamp: '1609459200000100',
         threadTs: undefined,
@@ -43,6 +44,7 @@ describe('slack-message.ts', () => {
       const result = parseSlackUrl(url)
       
       expect(result).toEqual({
+        workspace: 'workspace',
         channel: 'C1234567890',
         timestamp: '1609459200000100',
         threadTs: '1609459100.000200',
@@ -59,6 +61,7 @@ describe('slack-message.ts', () => {
       const result = parseSlackUrl(url)
       
       expect(result).toEqual({
+        workspace: 'my-company-workspace',
         channel: 'C1234567890',
         timestamp: '1609459200000100',
         threadTs: undefined,
