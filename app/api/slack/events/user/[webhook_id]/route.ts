@@ -243,6 +243,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         webhookUserId: webhook.user_id
       }, 'User verification successful')
 
+      // イベント重複チェック
+      const eventKey = `${event.item.channel}:${event.item.ts}:${event.reaction}:${event.user}`
+      logger.debug({
+        eventKey,
+        channel: event.item.channel,
+        messageTs: event.item.ts,
+        reaction: event.reaction,
+        user: event.user
+      }, 'Checking for duplicate event')
+
+      const { data: existingEvent } = await supabase
+        .from('slack_event_processed')
+        .select('id, todo_id, processed_at')
+        .eq('event_key', eventKey)
+        .single()
+
+      if (existingEvent) {
+        logger.info({
+          eventKey,
+          existingTodoId: existingEvent.todo_id,
+          processedAt: existingEvent.processed_at,
+          duplicateDetected: true
+        }, 'Duplicate event detected - skipping processing')
+
+        return NextResponse.json({
+          message: 'Event already processed',
+          existingTodoId: existingEvent.todo_id
+        })
+      }
+
+      logger.debug({ eventKey }, 'Event is new - proceeding with processing')
+
       // ユーザーの絵文字設定を取得（設定が存在しない場合はデフォルト値を使用）
       let userEmojiSettings = DEFAULT_EMOJI_SETTINGS
 
@@ -273,19 +305,49 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ message: 'Emoji not configured for task creation' })
       }
 
-      await processReactionEvent(event, webhook, userEmojiSettings, slackConnection)
+      // 非同期でタスク処理を実行（Slackへの高速レスポンスのため）
+      processReactionEvent(event, webhook, userEmojiSettings, slackConnection, eventKey)
+        .then((todoId) => {
+          if (todoId) {
+            webhookLogger.info({
+              eventKey,
+              todoId,
+              webhook_id: webhook.id
+            }, 'Background task processing completed')
+          }
+        })
+        .catch((error) => {
+          webhookLogger.error({
+            error,
+            eventKey,
+            webhook_id: webhook.id
+          }, 'Background task processing failed')
+        })
+
+      // 即座にSlackにレスポンスを返す（3秒制限内）
+      logger.info({
+        eventKey,
+        backgroundProcessing: true
+      }, 'Event queued for background processing')
     }
 
-    // イベント統計更新
-    await supabase
+    // イベント統計更新（非同期で実行しつつエラーはログのみ）
+    supabase
       .from('user_slack_webhooks')
       .update({
         last_event_at: new Date().toISOString(),
         event_count: webhook.event_count + 1
       })
       .eq('id', webhook.id)
+      .then(({ error }) => {
+        if (error) {
+          webhookLogger.warn({ error, webhook_id: webhook.id }, 'Failed to update webhook stats')
+        } else {
+          webhookLogger.debug({ webhook_id: webhook.id }, 'Webhook stats updated')
+        }
+      })
 
-    return NextResponse.json({ message: 'Event processed successfully' })
+    return NextResponse.json({ message: 'Event received and queued for processing' })
 
   } catch (error) {
     webhookLogger.error({ error }, 'Slack event processing error')
@@ -297,8 +359,9 @@ async function processReactionEvent(
   event: SlackReactionEvent,
   webhook: any,
   emojiSettings: any,
-  slackConnection: any
-) {
+  slackConnection: any,
+  eventKey: string
+): Promise<string | null> {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -313,7 +376,7 @@ async function processReactionEvent(
     // Slack接続からアクセストークンを取得
     if (!slackConnection) {
       webhookLogger.error({ webhookId: webhook.id }, 'No Slack connection found for webhook')
-      return
+      return null
     }
     const slackToken = slackConnection.access_token
 
@@ -329,12 +392,12 @@ async function processReactionEvent(
 
     if (!messageData) {
       logger.warn('No message data found for reaction')
-      return
+      return null
     }
 
     if (!messageData.text) {
       logger.warn({ messageUser: messageData.user }, 'Message found but no text content')
-      return
+      return null
     }
 
     logger.debug('Message content retrieved successfully')
@@ -403,7 +466,7 @@ async function processReactionEvent(
 
     if (createError) {
       logger.error({ error: createError }, 'Failed to create todo')
-      return
+      return null
     }
 
     logger.info({
@@ -412,6 +475,33 @@ async function processReactionEvent(
       deadline: newTodo.deadline,
       importanceScore: newTodo.importance_score
     }, 'Task created successfully')
+
+    // イベント処理完了を記録（重複防止用）
+    const { error: recordError } = await supabase
+      .from('slack_event_processed')
+      .insert({
+        event_key: eventKey,
+        user_id: webhook.user_id,
+        channel_id: event.item.channel,
+        message_ts: event.item.ts,
+        reaction: event.reaction,
+        todo_id: newTodo.id
+      })
+
+    if (recordError) {
+      logger.warn({
+        error: recordError,
+        eventKey,
+        todoId: newTodo.id
+      }, 'Failed to record processed event - may allow duplicates')
+    } else {
+      logger.debug({
+        eventKey,
+        todoId: newTodo.id
+      }, 'Event processing recorded successfully')
+    }
+
+    return newTodo.id
 
   } catch (error) {
     webhookLogger.error({ error }, 'Error processing reaction event')
