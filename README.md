@@ -18,6 +18,7 @@ Next.js + Supabase + OpenAI APIを使用した革新的なタスク管理アプ�
 - Slack URLからのメッセージ取得とタスク化（自動タイトル生成・メンション変換対応）
 - **Slackリアクション自動タスク化**（カスタマイズ可能な絵文字でリアクションするとタスクが自動作成）
 - **絵文字リアクション設定のカスタマイズ**（ユーザーが緊急度ごとに好みの絵文字を選択可能）
+- **重複タスク作成防止**（同一イベントの重複処理を検知し、確実に1つのタスクのみ作成）
 - OpenAI APIを使用したタスクタイトルの自動生成
 - アイゼンハワーマトリクス（重要度×緊急度）による四象限表示
 - タスクの重要度比較機能
@@ -968,6 +969,28 @@ CREATE TABLE user_emoji_settings (
 );
 ```
 
+### 🔒 slack_event_processed テーブル
+
+```sql
+CREATE TABLE slack_event_processed (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_key TEXT UNIQUE NOT NULL,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  channel_id TEXT NOT NULL,
+  message_ts TEXT NOT NULL,
+  reaction TEXT NOT NULL,
+  processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  todo_id UUID REFERENCES todos(id) ON DELETE CASCADE,
+  
+  CONSTRAINT unique_event_key UNIQUE (event_key)
+);
+```
+
+**目的**: Slack絵文字リアクションイベントの重複処理を防止
+- `event_key`: `channel:timestamp:reaction:user`の一意キー
+- 24時間後の自動クリーンアップで軽量化
+- 同一イベントの重複タスク作成を完全防止
+
 ### 📊 completion_log テーブル
 
 ```sql
@@ -1787,6 +1810,18 @@ const createTaskFromSlack = async (messageText: string, urgency: Urgency): Promi
 ## 📝 最近の更新履歴
 
 ### 2025年1月最新アップデート
+
+#### Slack絵文字リアクションの重複タスク作成防止（2025/01/29）
+- **問題解決**: 1つの絵文字リアクションで2つのタスクが作成される重複処理を完全防止
+- **根本原因**: Slackの仕様によるイベント重複送信（タイムアウト・ネットワーク遅延時のリトライ）
+- **技術実装**:
+  - 新テーブル`slack_event_processed`でイベント重複検知
+  - ユニークキー（`channel + timestamp + reaction + user`）による確実な重複防止
+  - 24時間後の自動クリーンアップで軽量化
+- **パフォーマンス向上**:
+  - 非同期タスク処理でSlackへの3秒以内レスポンス保証
+  - 背景処理ログでデバッグ可能性向上
+- **User ID取得最適化**: 複雑な多段階フォールバック処理を削除し、シンプルで確実な方法に統一
 
 #### 絵文字リアクション設定のカスタマイズ化（2025/01/28）
 - **新機能**: ユーザーが緊急度ごとに好みの絵文字を選択可能
