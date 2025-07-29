@@ -108,8 +108,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
     }
 
-    // ユーザー情報と絵文字設定を取得
-    const { data: userWithSettings } = await supabase
+    // ユーザー情報と絵文字設定を取得（強制的に最新データを取得）
+    logger.debug({
+      webhookUserId: webhook.user_id,
+      action: 'fetching_user_data'
+    }, 'Fetching user data and emoji settings')
+
+    const { data: userWithSettings, error: userFetchError } = await supabase
       .from('users')
       .select(`
         slack_user_id,
@@ -121,6 +126,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       `)
       .eq('id', webhook.user_id)
       .single()
+
+    if (userFetchError) {
+      logger.error({
+        error: userFetchError,
+        webhookUserId: webhook.user_id
+      }, 'Failed to fetch user data')
+    }
+
+    // 追加で直接ユーザーテーブルからSlack User IDだけを取得して確認
+    const { data: userSlackIdData, error: slackIdError } = await supabase
+      .from('users')
+      .select('slack_user_id')
+      .eq('id', webhook.user_id)
+      .single()
+
+    logger.debug({
+      webhookUserId: webhook.user_id,
+      userWithSettingsSlackId: userWithSettings?.slack_user_id,
+      directQuerySlackId: userSlackIdData?.slack_user_id,
+      userFetchError: userFetchError?.message,
+      slackIdError: slackIdError?.message
+    }, 'User Slack ID lookup results comparison')
 
     // Slack接続情報を取得
     const { data: slackConnection } = await supabase
@@ -173,12 +200,26 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }, 'Processing reaction_added event')
 
       // ユーザー検証：リアクションしたユーザーが連携を行ったユーザー本人かチェック
-      const userSlackId = userWithSettings?.slack_user_id
+      // 複数ソースからSlack User IDを取得
+      const userSlackId = userWithSettings?.slack_user_id || userSlackIdData?.slack_user_id
+
+      logger.info({
+        webhookUserId: webhook.user_id,
+        reactionUser: event.user,
+        configuredSlackUserId: userSlackId,
+        hasUserWithSettings: !!userWithSettings,
+        hasDirectQuery: !!userSlackIdData,
+        dataSourceUsed: userWithSettings?.slack_user_id ? 'userWithSettings' : 'directQuery'
+      }, 'User verification data for reaction')
 
       if (!userSlackId) {
-        logger.debug({
+        logger.warn({
           webhookUserId: webhook.user_id,
-          reactionUser: event.user
+          reactionUser: event.user,
+          userFetchError: userFetchError?.message,
+          slackIdError: slackIdError?.message,
+          userWithSettings: !!userWithSettings,
+          userSlackIdData: !!userSlackIdData
         }, 'User has not configured Slack User ID - cannot verify reaction ownership')
         return NextResponse.json({
           error: 'Slack User ID not configured. Please set your Slack User ID in the settings.'
@@ -189,8 +230,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         logger.debug({
           webhookUserId: webhook.user_id,
           expectedSlackUser: userSlackId,
-          actualReactionUser: event.user
-        }, 'Reaction from unauthorized user - ignoring')
+          actualReactionUser: event.user,
+          userMismatch: true
+        }, 'Reaction from different user - ignoring (not the webhook owner)')
         return NextResponse.json({
           message: 'Reaction ignored - only the webhook owner can create tasks'
         })

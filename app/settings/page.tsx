@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTodoStore } from '@/store/todoStore'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase'
 import { AuthForm } from '@/components/auth/AuthForm'
-import { Trash2, ExternalLink } from 'lucide-react'
+import { Trash2, ExternalLink, UserCheck } from 'lucide-react'
 import { WebhookManager } from '@/components/slack/WebhookManager'
 import { EmojiSettings } from '@/components/settings/EmojiSettings'
 import { authLogger } from '@/lib/client-logger'
@@ -20,7 +21,9 @@ interface SlackConnection {
 export default function SettingsPage() {
   const { user } = useTodoStore()
   const [slackConnections, setSlackConnections] = useState<SlackConnection[]>([])
+  const [slackUserId, setSlackUserId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
+  const [fetchingUserId, setFetchingUserId] = useState<string | null>(null)
 
 
   const fetchSlackConnections = useCallback(async () => {
@@ -35,11 +38,33 @@ export default function SettingsPage() {
     }
   }, [])
 
+  const fetchUserSlackId = useCallback(async () => {
+    if (!user) {
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('users')
+        .select('slack_user_id')
+        .eq('id', user.id)
+        .single()
+
+      if (!error && data?.slack_user_id) {
+        setSlackUserId(data.slack_user_id)
+      }
+    } catch (error) {
+      authLogger.error({ error }, 'Error fetching user Slack ID')
+    }
+  }, [user])
+
   useEffect(() => {
     if (user) {
       fetchSlackConnections()
+      fetchUserSlackId()
     }
-  }, [user, fetchSlackConnections])
+  }, [user, fetchSlackConnections, fetchUserSlackId])
 
   // Slack認証完了処理（ngrok環境対応）
   useEffect(() => {
@@ -74,6 +99,7 @@ export default function SettingsPage() {
         if (response.ok) {
           setMessage('Slack接続が完了しました')
           await fetchSlackConnections()
+          await fetchUserSlackId()  // Slack User IDも再取得
           // URLパラメータをクリア
           window.history.replaceState({}, '', '/settings')
         } else {
@@ -90,7 +116,7 @@ export default function SettingsPage() {
       logger.info({ slackCodePreview: slackCode.substring(0, 20) + '...' }, 'Processing Slack auth for authenticated user')
       processSlackAuth(slackCode)
     }
-  }, [user, fetchSlackConnections])
+  }, [user, fetchSlackConnections, fetchUserSlackId])
 
   const handleSlackConnect = async () => {
     const clientId = process.env.NEXT_PUBLIC_SLACK_CLIENT_ID
@@ -138,6 +164,32 @@ export default function SettingsPage() {
     }
   }
 
+  const handleFetchUserId = async (connectionId: string) => {
+    setFetchingUserId(connectionId)
+    setMessage('')
+
+    try {
+      const response = await fetch('/api/slack/fetch-user-id', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionId })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSlackUserId(data.slackUserId)
+        setMessage(`Slack User ID (${data.slackUserId}) を取得しました`)
+      } else {
+        const errorData = await response.json()
+        setMessage(errorData.error || 'Slack User IDの取得に失敗しました')
+      }
+    } catch (error) {
+      setMessage('Slack User IDの取得中にエラーが発生しました')
+    } finally {
+      setFetchingUserId(null)
+    }
+  }
+
 
   if (!user) {
     return <AuthForm />
@@ -181,19 +233,58 @@ export default function SettingsPage() {
                         接続日: {new Date(connection.created_at).toLocaleDateString('ja-JP')}
                       </div>
                     </div>
-                    <Button
-                      onClick={() => handleDeleteConnection(connection.id)}
-                      variant="ghost"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {!slackUserId && (
+                        <Button
+                          onClick={() => handleFetchUserId(connection.id)}
+                          variant="secondary"
+                          size="sm"
+                          disabled={fetchingUserId === connection.id}
+                          className="flex items-center gap-1"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                          {fetchingUserId === connection.id ? '取得中...' : 'User ID取得'}
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => handleDeleteConnection(connection.id)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+        </div>
+
+        {/* Slack User ID表示 */}
+        <div className="pt-4 border-t border-gray-200">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">Slack User ID</h3>
+          {slackUserId ? (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-mono text-sm text-gray-900">{slackUserId}</div>
+                  <div className="text-xs text-green-600 mt-1">
+                    このIDを持つユーザーのリアクションのみタスクを作成します
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="text-sm text-yellow-800 font-medium mb-1">Slack User IDが未設定です</div>
+              <div className="text-xs text-yellow-700">
+                絵文字リアクションでのタスク作成を使用するには、Slack User IDが必要です。
+                上記の「User ID取得」ボタンで設定してください。
+              </div>
+            </div>
+          )}
         </div>
 
         {message && (
