@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSlackMessageFromUrl, parseSlackUrl } from '@/lib/slack-message'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { slackLogger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ユーザー認証
-    const supabase = createClient()
+    // ユーザー認証（サーバーサイド）
+    const supabase = createServerSupabaseClient(request)
     const { data: { user }, error: userError } = await supabase.auth.getUser()
 
     if (userError || !user) {

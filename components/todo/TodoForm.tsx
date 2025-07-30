@@ -43,6 +43,28 @@ export function TodoForm({
   const [slackData, setSlackData] = useState<{ text: string; url: string; workspace?: string } | null>(null)
   const [isLoadingSlack, setIsLoadingSlack] = useState(false)
   const [slackError, setSlackError] = useState<string | null>(null)
+  const [hasSlackConnection, setHasSlackConnection] = useState<boolean | null>(null)
+
+  // Slack連携状態をチェック
+  const checkSlackConnection = useCallback(async () => {
+    try {
+      const response = await fetch('/api/slack/connections')
+      if (response.ok) {
+        const data = await response.json()
+        setHasSlackConnection((data.connections || []).length > 0)
+      } else {
+        setHasSlackConnection(false)
+      }
+    } catch (error) {
+      apiLogger.error({ error }, 'Failed to check Slack connection')
+      setHasSlackConnection(false)
+    }
+  }, [])
+
+  // コンポーネントマウント時にSlack連携状態をチェック
+  useEffect(() => {
+    checkSlackConnection()
+  }, [checkSlackConnection])
 
   // 初期値が変更されたときに状態を更新
   useEffect(() => {
@@ -139,6 +161,11 @@ export function TodoForm({
         const errorMessage = errorData.details || errorData.error || 'メッセージの取得に失敗しました'
         setSlackError(errorMessage)
         apiLogger.error({ status: response.status, errorData }, 'Failed to fetch Slack message')
+
+        // 401または400エラーの場合は連携状態を再チェック
+        if (response.status === 401 || response.status === 400) {
+          await checkSlackConnection()
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'ネットワークエラーが発生しました'
@@ -147,7 +174,7 @@ export function TodoForm({
     } finally {
       setIsLoadingSlack(false)
     }
-  }, [isSlackUrl, body, title])
+  }, [isSlackUrl, body, title, checkSlackConnection])
 
   const handleBodyChange = (value: string) => {
     setBody(value)
@@ -160,12 +187,12 @@ export function TodoForm({
     }
   }
 
-  // Slack URLが検出されたときに自動的にメッセージを取得
+  // Slack URLが検出されたときに自動的にメッセージを取得（連携済みの場合のみ）
   useEffect(() => {
-    if (isSlackUrl && body.trim() && !slackData && !isLoadingSlack) {
+    if (isSlackUrl && body.trim() && !slackData && !isLoadingSlack && hasSlackConnection === true) {
       fetchSlackMessage()
     }
-  }, [isSlackUrl, body, slackData, isLoadingSlack, fetchSlackMessage])
+  }, [isSlackUrl, body, slackData, isLoadingSlack, hasSlackConnection, fetchSlackMessage])
 
   const handleUrgencyChange = (newUrgency: Urgency) => {
     setUrgency(newUrgency)
@@ -196,20 +223,43 @@ export function TodoForm({
             required
           />
           {isSlackUrl && (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center text-sm text-blue-600">
-                <Link className="w-4 h-4 mr-1" />
-                {isLoadingSlack ? '取得中...' : 'SlackURLが検出されました'}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center text-sm text-blue-600">
+                  <Link className="w-4 h-4 mr-1" />
+                  SlackURLが検出されました
+                </div>
+                {hasSlackConnection === true && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={fetchSlackMessage}
+                    disabled={isLoadingSlack}
+                  >
+                    {isLoadingSlack ? '取得中...' : '再取得'}
+                  </Button>
+                )}
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={fetchSlackMessage}
-                disabled={isLoadingSlack}
-              >
-                {isLoadingSlack ? '取得中...' : '再取得'}
-              </Button>
+              {hasSlackConnection === false && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="text-sm text-amber-700 font-medium mb-1">
+                    Slack連携が必要です
+                  </div>
+                  <div className="text-sm text-amber-600 mb-2">
+                    Slack連携を行うとメッセージを自動取得できます
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => window.open('/settings', '_blank')}
+                  >
+                    <Link className="w-4 h-4 mr-1" />
+                    Slack連携（設定画面を開く）
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           {slackError && (
