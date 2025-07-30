@@ -138,7 +138,8 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
           user_id: user.id,
           deadline,
           importance_score: initialImportanceScore,
-          status: 'open'
+          status: 'open',
+          created_via: 'manual'
         })
         .select()
         .single()

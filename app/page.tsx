@@ -51,29 +51,12 @@ export default function DashboardPage() {
     ? activeTodos.filter(todo => isOverdue(todo.deadline))
     : activeTodos
 
-  // デバッグ: タスクのスコアと四象限をログ出力
-  uiLogger.debug({ todoCount: displayTodos.length }, 'Dashboard - displayTodos analysis')
-  displayTodos.forEach(todo => {
-    const quadrant = getQuadrant(todo.deadline, todo.importance_score)
-    uiLogger.debug({
-      todoTitle: todo.title,
-      score: todo.importance_score,
-      deadline: todo.deadline,
-      quadrant
-    }, 'Todo analysis')
-  })
-
   const quadrants = {
     urgent_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'urgent_important'),
     not_urgent_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'not_urgent_important'),
     urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'urgent_not_important'),
     not_urgent_not_important: displayTodos.filter(todo => getQuadrant(todo.deadline, todo.importance_score) === 'not_urgent_not_important')
   }
-
-  const quadrantCounts = Object.fromEntries(
-    Object.entries(quadrants).map(([key, todos]) => [key, todos.length])
-  )
-  uiLogger.debug(quadrantCounts, 'Quadrant distribution')
 
   const quadrantInfo = {
     urgent_important: { title: '🔥 今すぐやる', color: 'bg-red-50 border-red-200' },

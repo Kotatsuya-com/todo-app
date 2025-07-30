@@ -1,5 +1,6 @@
 export type Urgency = 'today' | 'tomorrow' | 'later';
 export type Status = 'open' | 'done';
+export type CreatedVia = 'manual' | 'slack_webhook';
 export type Quadrant = 'urgent_important' | 'not_urgent_important' | 'urgent_not_important' | 'not_urgent_not_important';
 
 export interface User {
@@ -18,6 +19,7 @@ export interface Todo {
   deadline?: string;
   importance_score: number;
   status: Status;
+  created_via: CreatedVia;
   created_at: string;
   completed_at?: string;
 }

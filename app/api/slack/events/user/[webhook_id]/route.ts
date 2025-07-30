@@ -461,7 +461,8 @@ async function processReactionEvent(
         body: messageData.text,
         deadline,
         status: 'open',
-        importance_score
+        importance_score,
+        created_via: 'slack_webhook'
       })
       .select()
       .single()

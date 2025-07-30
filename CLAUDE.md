@@ -271,10 +271,11 @@ This architecture enables rapid development while maintaining production-grade s
 - **Dynamic URLs**: Automatic app URL detection for ngrok/production environments
 
 ### Database Improvements
-- **New Migration**: `20250727085000_fix_webhook_encoding.sql` for secure webhook ID generation
+- **New Migration**: `20250730175158_add_created_via_to_todos.sql` adds task creation source tracking
+- **Task Source Tracking**: `created_via` column distinguishes manual vs Slack webhook task creation
 - **Base64URL Encoding**: Improved webhook ID generation with URL-safe characters
 - **RLS Policies**: Row Level Security for all new Slack-related tables
-- **Performance Indexes**: Optimized database indexes for webhook operations
+- **Performance Indexes**: Optimized database indexes for webhook operations and task queries
 
 ### Development Workflow Enhancements
 - **Improved ngrok Integration**: Better handling of ngrok tunnels for webhook development

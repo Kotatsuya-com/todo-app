@@ -148,6 +148,54 @@ export type Database = {
         }
         Relationships: []
       }
+      slack_event_processed: {
+        Row: {
+          channel_id: string
+          event_key: string
+          id: string
+          message_ts: string
+          processed_at: string | null
+          reaction: string
+          todo_id: string | null
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          event_key: string
+          id?: string
+          message_ts: string
+          processed_at?: string | null
+          reaction: string
+          todo_id?: string | null
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          event_key?: string
+          id?: string
+          message_ts?: string
+          processed_at?: string | null
+          reaction?: string
+          todo_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_event_processed_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slack_event_processed_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       todos: {
         Row: {
           body: string | null
@@ -274,6 +322,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           display_name: string | null
+          enable_webhook_notifications: boolean | null
           id: string
           slack_user_id: string | null
         }
@@ -281,6 +330,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
+          enable_webhook_notifications?: boolean | null
           id: string
           slack_user_id?: string | null
         }
@@ -288,6 +338,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
+          enable_webhook_notifications?: boolean | null
           id?: string
           slack_user_id?: string | null
         }
@@ -298,6 +349,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_slack_events: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       create_user_slack_webhook: {
         Args: { p_slack_connection_id: string; p_user_id: string }
         Returns: {

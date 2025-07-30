@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { showWebhookTaskNotification, isNotificationAvailable } from '@/lib/notifications'
+import { showWebhookTaskNotification } from '@/lib/notifications'
 import { Todo } from '@/types'
 import { apiLogger } from '@/lib/client-logger'
 
@@ -32,17 +32,20 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
     const setupRealtimeSubscription = async () => {
       apiLogger.debug({ userId: userId.substring(0, 8) + '...' }, 'useWebhookNotifications: Setting up realtime subscription')
       
-      // 通知が利用可能かチェック
+      // ユーザー設定をチェック
       try {
-        const notificationAvailable = await isNotificationAvailable()
-        apiLogger.debug({ notificationAvailable }, 'useWebhookNotifications: Notification availability checked')
-        
-        if (!notificationAvailable) {
-          apiLogger.warn('useWebhookNotifications: Notifications not available, skipping subscription')
+        const response = await fetch('/api/user/notifications')
+        if (!response.ok) {
+          apiLogger.warn('useWebhookNotifications: Failed to fetch user notification settings, skipping subscription')
+          return
+        }
+        const data = await response.json()
+        if (!data.enable_webhook_notifications) {
+          apiLogger.debug('useWebhookNotifications: User has disabled webhook notifications, skipping subscription')
           return
         }
       } catch (error) {
-        apiLogger.error({ error }, 'useWebhookNotifications: Failed to check notification availability')
+        apiLogger.error({ error }, 'useWebhookNotifications: Failed to check user notification settings')
         return
       }
 
@@ -78,8 +81,18 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
                 todoId: newTodo.id,
                 title: newTodo.title,
                 createdAt: newTodo.created_at,
+                createdVia: newTodo.created_via,
                 userId: userId.substring(0, 8) + '...'
               }, 'useWebhookNotifications: New todo detected via realtime')
+
+              // Slackウェブフック経由で作成されたタスクのみ通知
+              if (newTodo.created_via !== 'slack_webhook') {
+                apiLogger.debug({ 
+                  todoId: newTodo.id, 
+                  createdVia: newTodo.created_via 
+                }, 'Skipping notification - not created via Slack webhook')
+                return
+              }
 
               // 短時間内の重複通知を防ぐ
               if (lastNotificationRef.current === newTodo.id) {
@@ -89,30 +102,15 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
 
               lastNotificationRef.current = newTodo.id
 
-              // 少し待ってから通知を表示（他の処理が完了するのを待つ）
-              setTimeout(async () => {
-                apiLogger.debug({ todoId: newTodo.id }, 'useWebhookNotifications: Processing notification after delay')
-                
-                // 通知設定を再確認
-                const stillAvailable = await isNotificationAvailable()
-                apiLogger.debug({ 
-                  stillAvailable, 
-                  todoId: newTodo.id 
-                }, 'useWebhookNotifications: Rechecked notification availability')
-                
-                if (stillAvailable) {
-                  apiLogger.debug({ todoId: newTodo.id }, 'useWebhookNotifications: Calling showWebhookTaskNotification')
-                  const notification = showWebhookTaskNotification(newTodo)
-                  
-                  apiLogger.info({
-                    todoId: newTodo.id,
-                    title: newTodo.title,
-                    notificationCreated: !!notification
-                  }, 'useWebhookNotifications: Webhook task notification processed')
-                } else {
-                  apiLogger.warn({ todoId: newTodo.id }, 'useWebhookNotifications: Notification not available after recheck')
-                }
-              }, 500)
+              // 通知を表示
+              apiLogger.debug({ todoId: newTodo.id }, 'useWebhookNotifications: Calling showWebhookTaskNotification')
+              const notification = await showWebhookTaskNotification(newTodo)
+              
+              apiLogger.info({
+                todoId: newTodo.id,
+                title: newTodo.title,
+                notificationCreated: !!notification
+              }, 'useWebhookNotifications: Webhook task notification processed')
             }
           )
           .subscribe((status, err) => {

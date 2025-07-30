@@ -95,12 +95,29 @@ export function showNotification(options: NotificationOptions): Notification | n
 /**
  * Webhook経由で作成されたタスクの通知を表示
  */
-export function showWebhookTaskNotification(todo: Todo): Notification | null {
+export async function showWebhookTaskNotification(todo: Todo): Promise<Notification | null> {
   apiLogger.debug({
     todoId: todo.id,
     title: todo.title,
     deadline: todo.deadline
   }, 'showWebhookTaskNotification: Processing webhook task notification')
+
+  // ユーザー設定をチェック
+  try {
+    const response = await fetch('/api/user/notifications')
+    if (!response.ok) {
+      apiLogger.warn('showWebhookTaskNotification: Failed to fetch user notification settings')
+      return null
+    }
+    const data = await response.json()
+    if (!data.enable_webhook_notifications) {
+      apiLogger.debug('showWebhookTaskNotification: User has disabled webhook notifications, skipping notification')
+      return null
+    }
+  } catch (error) {
+    apiLogger.error({ error }, 'showWebhookTaskNotification: Failed to check user notification settings')
+    return null
+  }
 
   const urgencyEmoji = {
     today: '⏰',
@@ -189,19 +206,4 @@ export async function checkNotificationSettings(): Promise<{
       userEnabled: false
     }
   }
-}
-
-/**
- * 通知が利用可能かどうかをチェック
- */
-export async function isNotificationAvailable(): Promise<boolean> {
-  apiLogger.debug('isNotificationAvailable: Checking notification availability')
-  const settings = await checkNotificationSettings()
-  const available = settings.browserPermission === 'granted' && settings.userEnabled
-  apiLogger.debug({
-    browserPermission: settings.browserPermission,
-    userEnabled: settings.userEnabled,
-    available
-  }, 'isNotificationAvailable: Availability check result')
-  return available
 }
