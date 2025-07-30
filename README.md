@@ -19,6 +19,7 @@ Next.js + Supabase + OpenAI APIを使用した革新的なタスク管理アプ�
 - **Slackリアクション自動タスク化**（カスタマイズ可能な絵文字でリアクションするとタスクが自動作成）
 - **絵文字リアクション設定のカスタマイズ**（ユーザーが緊急度ごとに好みの絵文字を選択可能）
 - **重複タスク作成防止**（同一イベントの重複処理を検知し、確実に1つのタスクのみ作成）
+- **リアルタイムWebhook通知**（Slackリアクションでタスク作成時に即座にブラウザ通知を受信）
 - OpenAI APIを使用したタスクタイトルの自動生成
 - アイゼンハワーマトリクス（重要度×緊急度）による四象限表示
 - タスクの重要度比較機能
@@ -714,9 +715,11 @@ npm run seed:dev -- --email EMAIL  # 指定したメールアドレスのユー�
 npm run seed:dev -- --user-id UUID # 指定したユーザーIDにデータ投入
 
 # マイグレーション
-npm run migrate:new [name]  # 新しいマイグレーションファイルを作成
-npm run db:migrate          # リモートDBにマイグレーションを適用
-npm run db:reset            # ローカルDBをリセット
+npm run migrate:new [name]   # 新しいマイグレーションファイルを作成
+npm run db:migrate           # リモートDBにマイグレーションを適用
+npm run db:migrate-local     # ローカルDBに新しいマイグレーションを適用
+npm run db:ensure-local      # ローカルDBを完全リセット（全マイグレーション適用）
+npm run db:reset             # ローカルDBをリセット
 
 # スキーマ管理
 npm run db:pull       # リモートDBからスキーマを取得
@@ -800,6 +803,7 @@ npm run types:generate
 | 🤖 Slackリアクション自動タスク化 | カスタマイズ可能な絵文字でリアクションするとタスクが自動作成 |
 | 🎨 絵文字設定カスタマイズ | ユーザーが緊急度ごとに12種類の絵文字から選択可能 |
 | 🔐 セキュアなリアクション連携 | 連携を行ったユーザー本人のリアクションのみでタスク作成 |
+| 🔔 リアルタイムWebhook通知 | Slackリアクションでタスク作成時に即座にブラウザ通知を受信 |
 
 ### 画面構成とUI仕様
 
@@ -879,6 +883,30 @@ npm run types:generate
 * 保存時は取得したSlackメッセージ内容をタスクの本文として使用
 * 必要な権限: `channels:history`, `groups:history`, `im:history`, `mpim:history`
 
+#### 5. ⚙️ 設定画面（`/settings`）
+
+**主な要素**
+* 🔗 **Slack連携管理**：
+  * OAuth認証ボタンでSlackワークスペースに接続
+  * 接続状態の表示（ワークスペース名、チーム名、接続日時）
+  * Webhook URL自動生成と表示
+  * 連携解除ボタン（全データリセット）
+* 🎨 **絵文字設定カスタマイズ**（Slack連携後に表示）：
+  * 緊急度ごとの絵文字選択（12種類から選択可能）
+  * プレビュー機能付きのドロップダウン
+  * リアルタイム設定反映
+* 🔔 **通知設定**：
+  * Webhook通知のON/OFFトグル
+  * ブラウザ通知許可状態の表示
+  * 通知許可リクエストボタン
+  * テスト通知機能（許可時に自動実行）
+
+**設定機能詳細**
+* **ユーザー固有設定**: 各ユーザーが個別に設定を管理
+* **リアルタイム反映**: 設定変更は即座にWebhook処理に適用
+* **セキュリティ**: 接続解除時は関連データを完全削除
+* **通知管理**: ブラウザ通知の許可・拒否状態を適切に管理
+
 ### 画面遷移仕様（SPA内）
 
 ```
@@ -900,6 +928,7 @@ CREATE TABLE users (
   display_name TEXT,
   avatar_url TEXT,
   slack_user_id TEXT UNIQUE,  -- Slack連携用ユーザーID
+  enable_webhook_notifications BOOLEAN DEFAULT true,  -- Webhook通知設定
   created_at TIMESTAMP DEFAULT NOW()
 );
 ```
@@ -1505,10 +1534,21 @@ todo-app/
 
 #### 開発環境特有
 - **ngrok URL変更**: 再起動のたびにURLが変わるため、Slack App設定の更新が必要
-- **タスク作成エラー**: `urgency column not found` エラー
+- **新しいマイグレーション適用**: 他の開発者が新しいマイグレーションを追加した場合
   ```bash
-  # データベースをリセット（最新マイグレーション適用）
-  npm run db:reset
+  # 増分マイグレーション適用（データ保持）
+  npm run db:migrate-local
+  
+  # 完全リセット（全データ削除）
+  npm run db:ensure-local
+  ```
+- **データベース関連エラー**: `column does not exist` や `relation does not exist` エラー
+  ```bash
+  # まず増分マイグレーションを試行
+  npm run db:migrate-local
+  
+  # エラーが続く場合は完全リセット
+  npm run db:ensure-local
   ```
 
 #### 権限関連
@@ -1706,6 +1746,7 @@ types/                 # TypeScript型定義
 - **共通ロジック**: 重複する処理は `lib/` 内で共通化
 - **セキュリティ**: 認証チェックと入力検証を必須実装
 - **ログ出力**: デバッグ情報と本番運用に必要な情報を適切に出力
+- **リアルタイム通信**: Supabaseリアルタイム機能を活用したユーザー固有のデータ同期
 
 ### 🧪 テスト・品質保証
 
@@ -1810,6 +1851,21 @@ const createTaskFromSlack = async (messageText: string, urgency: Urgency): Promi
 ## 📝 最近の更新履歴
 
 ### 2025年1月最新アップデート
+
+#### リアルタイムWebhook通知システム（2025/01/30）
+- **新機能**: Slackリアクションでタスク作成時に即座にブラウザ通知を受信
+- **ユーザー固有**: 各ユーザーは自分のタスク作成時のみ通知を受信（完全分離）
+- **技術実装**:
+  - データベース: `users`テーブルに`enable_webhook_notifications`フィールド追加
+  - API: `/api/user/notifications`でユーザー固有の通知設定管理
+  - リアルタイム: Supabaseリアルタイムsubscriptionで即座に検出
+  - ブラウザ通知: Permission APIでネイティブ通知を表示
+- **UI機能**:
+  - 設定画面に通知ON/OFFトグル追加
+  - ブラウザ通知許可状態の表示と許可要求ボタン
+  - 通知プレビュー機能（許可時にテスト通知表示）
+- **通知内容**: タスクタイトル、緊急度、作成元情報を含む詳細通知
+- **セキュリティ**: ユーザー認証必須、個人データ完全分離
 
 #### Slack絵文字リアクションの重複タスク作成防止（2025/01/29）
 - **問題解決**: 1つの絵文字リアクションで2つのタスクが作成される重複処理を完全防止

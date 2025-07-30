@@ -19,6 +19,8 @@
     "db:status": "npx supabase status",
     "db:reset": "npx supabase db reset",
     "db:migrate": "npx supabase db push",
+    "db:ensure-local": "npx supabase db reset --local --debug",
+    "db:migrate-local": "npx supabase migration up --local --debug",
     "db:link": "npx supabase link",
     "db:pull": "npx supabase db pull",
     "db:diff": "npx supabase db diff",

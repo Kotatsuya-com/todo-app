@@ -5,6 +5,7 @@ import { useTodoStore } from '@/store/todoStore'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { SlackIntegration } from '@/components/slack/SlackIntegration'
 import { EmojiSettings } from '@/components/settings/EmojiSettings'
+import { NotificationSettings } from '@/components/settings/NotificationSettings'
 import { authLogger } from '@/lib/client-logger'
 
 export default function SettingsPage() {
@@ -83,6 +84,9 @@ export default function SettingsPage() {
 
         {/* 絵文字設定は連携後のみ表示 */}
         {hasSlackConnection && <EmojiSettings />}
+
+        {/* 通知設定 */}
+        <NotificationSettings />
       </div>
     </div>
   )

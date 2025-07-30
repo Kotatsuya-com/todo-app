@@ -118,6 +118,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .from('users')
       .select(`
         slack_user_id,
+        enable_webhook_notifications,
         user_emoji_settings (
           today_emoji,
           tomorrow_emoji,
@@ -306,7 +307,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
 
       // 非同期でタスク処理を実行（Slackへの高速レスポンスのため）
-      processReactionEvent(event, webhook, userEmojiSettings, slackConnection, eventKey)
+      processReactionEvent(event, webhook, userEmojiSettings, slackConnection, eventKey, userWithSettings?.enable_webhook_notifications ?? true)
         .then((todoId) => {
           if (todoId) {
             webhookLogger.info({
@@ -360,7 +361,8 @@ async function processReactionEvent(
   webhook: any,
   emojiSettings: any,
   slackConnection: any,
-  eventKey: string
+  eventKey: string,
+  notificationsEnabled: boolean = true
 ): Promise<string | null> {
   try {
     const supabase = createClient(
@@ -473,8 +475,18 @@ async function processReactionEvent(
       todoId: newTodo.id,
       title: newTodo.title,
       deadline: newTodo.deadline,
-      importanceScore: newTodo.importance_score
-    }, 'Task created successfully')
+      importanceScore: newTodo.importance_score,
+      notificationsEnabled
+    }, 'Task created successfully via webhook')
+
+    // 通知有効化の場合、リアルタイム通知の準備情報をログ出力
+    if (notificationsEnabled) {
+      logger.debug({
+        todoId: newTodo.id,
+        userId: webhook.user_id,
+        action: 'notification_ready'
+      }, 'Task ready for real-time notification')
+    }
 
     // イベント処理完了を記録（重複防止用）
     const { error: recordError } = await supabase
