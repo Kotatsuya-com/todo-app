@@ -465,7 +465,7 @@ async function processReactionEvent(
       })
 
     if (createError) {
-      logger.error({ error: createError }, 'Failed to create todo via function, trying fallback')
+      logger.error({ error: createError, errorDetails: JSON.stringify(createError, null, 2) }, 'Failed to create todo via function, trying fallback')
       // フォールバック: 従来の方法を使用
       const { data: newTodo, error: fallbackError } = await supabase
         .from('todos')
@@ -503,8 +503,10 @@ async function processReactionEvent(
       title: newTodo.title,
       deadline: newTodo.deadline,
       importanceScore: newTodo.importance_score,
-      notificationsEnabled
-    }, 'Task created successfully via webhook')
+      notificationsEnabled,
+      creationMethod: 'database_function',
+      createdVia: newTodo.created_via
+    }, 'Task created successfully via webhook using database function')
 
     // 通知有効化の場合、リアルタイム通知の準備情報をログ出力
     if (notificationsEnabled) {

@@ -9,11 +9,16 @@ import { apiLogger } from '@/lib/client-logger'
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUser, fetchTodos, user } = useTodoStore()
 
-  // Webhook通知システムを有効化
-  apiLogger.debug({
-    hasUser: !!user,
-    userId: user?.id ? `${user.id.substring(0, 8)}...` : 'null'
-  }, 'AuthProvider: Initializing webhook notifications')
+  // Webhook通知システムを有効化（useEffect内に移動）
+  useEffect(() => {
+    if (user?.id) {
+      apiLogger.debug({
+        hasUser: !!user,
+        userId: user.id.substring(0, 8) + '...'
+      }, 'AuthProvider: Initializing webhook notifications')
+    }
+  }, [user])
+
   useWebhookNotifications({
     enabled: !!user,
     userId: user?.id

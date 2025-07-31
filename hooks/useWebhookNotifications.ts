@@ -54,8 +54,14 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
       try {
         // 既存のチャンネルがあれば削除
         if (channelRef.current) {
-          apiLogger.debug('useWebhookNotifications: Removing existing channel')
+          apiLogger.debug({ 
+            oldChannelName: channelRef.current.topic,
+            newChannelName: `webhook-notifications-${userId}`
+          }, 'useWebhookNotifications: Removing existing channel before creating new one')
           await supabase.removeChannel(channelRef.current)
+          channelRef.current = null
+          // チャンネル削除後に少し待機
+          await new Promise(resolve => setTimeout(resolve, 500))
           apiLogger.debug('useWebhookNotifications: Existing channel removed')
         }
 
