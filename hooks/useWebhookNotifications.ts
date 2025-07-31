@@ -74,7 +74,15 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
               filter: `user_id=eq.${userId}`
             },
             async (payload) => {
-              apiLogger.debug({ payload }, 'useWebhookNotifications: Realtime event received')
+              apiLogger.debug({ 
+                payload,
+                payloadKeys: Object.keys(payload),
+                newRecord: payload.new,
+                eventType: payload.eventType,
+                table: payload.table,
+                schema: payload.schema
+              }, 'useWebhookNotifications: Realtime event received - DETAILED DEBUG')
+              
               const newTodo = payload.new as Todo
               
               apiLogger.info({
@@ -82,8 +90,9 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
                 title: newTodo.title,
                 createdAt: newTodo.created_at,
                 createdVia: newTodo.created_via,
-                userId: userId.substring(0, 8) + '...'
-              }, 'useWebhookNotifications: New todo detected via realtime')
+                userId: userId.substring(0, 8) + '...',
+                fullPayload: JSON.stringify(payload, null, 2)
+              }, 'useWebhookNotifications: New todo detected via realtime - DETAILED ANALYSIS')
 
               // Slackウェブフック経由で作成されたタスクのみ通知
               if (newTodo.created_via !== 'slack_webhook') {
@@ -118,13 +127,34 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
               status,
               error: err, 
               userId: userId.substring(0, 8) + '...',
-              channelName 
-            }, 'useWebhookNotifications: Subscription status changed')
+              channelName,
+              subscriptionDetails: {
+                event: 'INSERT',
+                schema: 'public', 
+                table: 'todos',
+                filter: `user_id=eq.${userId}`
+              }
+            }, 'useWebhookNotifications: Subscription status changed - DETAILED DEBUG')
             
             if (status === 'SUBSCRIBED') {
-              apiLogger.info({ channelName }, 'useWebhookNotifications: Successfully subscribed to realtime channel')
+              apiLogger.info({ 
+                channelName,
+                filter: `user_id=eq.${userId}`,
+                timestamp: new Date().toISOString()
+              }, 'useWebhookNotifications: Successfully subscribed to realtime channel - READY FOR EVENTS')
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-              apiLogger.error({ status, error: err, channelName }, 'useWebhookNotifications: Subscription failed')
+              apiLogger.error({ 
+                status, 
+                error: err, 
+                channelName,
+                errorDetails: err ? JSON.stringify(err, null, 2) : 'No error details'
+              }, 'useWebhookNotifications: Subscription failed - DETAILED ERROR')
+            } else {
+              apiLogger.debug({
+                status,
+                channelName,
+                timestamp: new Date().toISOString()
+              }, 'useWebhookNotifications: Subscription status update')
             }
           })
 

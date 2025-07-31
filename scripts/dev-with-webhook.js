@@ -8,31 +8,43 @@ const path = require('path');
 let nextProcess;
 let ngrokUrl;
 
+function updateSupabaseConfig(ngrokUrl) {
+  const configPath = path.join(__dirname, '..', 'supabase', 'config.toml');
+  let configContent = fs.readFileSync(configPath, 'utf8');
+  
+  // Update site_url to ngrok URL for proper auth redirects
+  configContent = configContent.replace(
+    /site_url = "http:\/\/localhost:3000"/,
+    `site_url = "${ngrokUrl}"`
+  );
+  
+  // Add ngrok URL to additional_redirect_urls
+  configContent = configContent.replace(
+    /additional_redirect_urls = \[\]/,
+    `additional_redirect_urls = ["${ngrokUrl}"]`
+  );
+  
+  fs.writeFileSync(configPath, configContent);
+  console.log(`🔧 Supabase auth config updated for ngrok URL: ${ngrokUrl}`);
+}
+
+function saveRuntimeFiles(ngrokUrl) {
+  // Save URL to a file for reference and environment variable
+  const ngrokInfoPath = path.join(__dirname, '..', '.ngrok-url');
+  fs.writeFileSync(ngrokInfoPath, ngrokUrl);
+  
+  // Create runtime environment file for dynamic ngrok URL
+  const envRuntimePath = path.join(__dirname, '..', '.env.runtime');
+  fs.writeFileSync(envRuntimePath, `NEXT_PUBLIC_APP_URL=${ngrokUrl}\nAPP_URL=${ngrokUrl}`);
+  
+  console.log(`🔧 Runtime environment updated: ${ngrokUrl}`);
+}
+
 async function startDevelopment() {
   try {
     console.log('🚀 Starting development environment with webhook support...\n');
     
-    // Start Supabase first
-    console.log('📦 Starting local Supabase...');
-    const supabaseProcess = spawn('npm', ['run', 'db:start'], { 
-      stdio: 'inherit',
-      shell: true 
-    });
-    
-    // Wait a bit for Supabase to start
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
-    // Start Next.js development server
-    console.log('⚡ Starting Next.js development server...');
-    nextProcess = spawn('npm', ['run', 'dev:start'], {
-      stdio: 'inherit',
-      shell: true
-    });
-    
-    // Wait a bit for Next.js to start
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Start ngrok tunnel
+    // Step 1: Start ngrok tunnel first
     console.log('🌐 Starting ngrok tunnel...');
     
     // First try to kill any existing ngrok processes
@@ -59,6 +71,33 @@ async function startDevelopment() {
     }
     
     ngrokUrl = await ngrok.connect(ngrokOptions);
+    console.log(`✅ ngrok tunnel created: ${ngrokUrl}`);
+    
+    // Step 2: Update Supabase config with ngrok URL before starting
+    updateSupabaseConfig(ngrokUrl);
+    
+    // Step 3: Start Supabase with updated config (single startup)
+    console.log('📦 Starting local Supabase with ngrok configuration...');
+    const supabaseProcess = spawn('npm', ['run', 'db:start'], { 
+      stdio: 'inherit',
+      shell: true 
+    });
+    
+    // Wait for Supabase to start
+    await new Promise(resolve => setTimeout(resolve, 8000));
+    
+    // Step 4: Start Next.js development server
+    console.log('⚡ Starting Next.js development server...');
+    nextProcess = spawn('npm', ['run', 'dev:start'], {
+      stdio: 'inherit',
+      shell: true
+    });
+    
+    // Wait for Next.js to start
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Step 5: Save runtime files
+    saveRuntimeFiles(ngrokUrl);
     
     console.log('\n✅ Development environment ready!');
     console.log(`📍 Local URL: http://localhost:3000`);
@@ -78,54 +117,6 @@ async function startDevelopment() {
     console.log('\n💡 Each user gets their own unique webhook URL!');
     console.log('\n⚠️  Keep this terminal open to maintain the tunnel');
     console.log('   Press Ctrl+C to stop all services');
-    
-    // Save URL to a file for reference and environment variable
-    const ngrokInfoPath = path.join(__dirname, '..', '.ngrok-url');
-    fs.writeFileSync(ngrokInfoPath, ngrokUrl);
-    
-    // Create runtime environment file for dynamic ngrok URL
-    const envRuntimePath = path.join(__dirname, '..', '.env.runtime');
-    fs.writeFileSync(envRuntimePath, `NEXT_PUBLIC_APP_URL=${ngrokUrl}\nAPP_URL=${ngrokUrl}`);
-    
-    // Update Supabase config for ngrok URL
-    const configPath = path.join(__dirname, '..', 'supabase', 'config.toml');
-    let configContent = fs.readFileSync(configPath, 'utf8');
-    
-    // Update site_url to ngrok URL for proper auth redirects
-    configContent = configContent.replace(
-      /site_url = "http:\/\/localhost:3000"/,
-      `site_url = "${ngrokUrl}"`
-    );
-    
-    // Add ngrok URL to additional_redirect_urls
-    configContent = configContent.replace(
-      /additional_redirect_urls = \[\]/,
-      `additional_redirect_urls = ["${ngrokUrl}"]`
-    );
-    
-    fs.writeFileSync(configPath, configContent);
-    
-    console.log(`🔧 Runtime environment updated: ${ngrokUrl}`);
-    console.log(`🔧 Supabase auth config updated for ngrok URL`);
-    
-    // Restart Supabase to apply config changes
-    console.log('🔄 Restarting Supabase to apply auth config...');
-    const restartSupabase = spawn('npm', ['run', 'db:stop'], { 
-      stdio: 'inherit',
-      shell: true 
-    });
-    
-    restartSupabase.on('close', async () => {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const startSupabase = spawn('npm', ['run', 'db:start'], { 
-        stdio: 'inherit',
-        shell: true 
-      });
-      
-      startSupabase.on('close', () => {
-        console.log('✅ Supabase restarted with ngrok auth config');
-      });
-    });
     
   } catch (error) {
     console.error('❌ Failed to start development environment:', error.message);
@@ -166,6 +157,18 @@ async function cleanup() {
   if (ngrokUrl) {
     await ngrok.kill();
   }
+  
+  // Stop Supabase
+  console.log('🛑 Stopping Supabase...');
+  const stopSupabase = spawn('npm', ['run', 'db:stop'], { 
+    stdio: 'inherit',
+    shell: true 
+  });
+  
+  // Wait for Supabase to stop
+  await new Promise(resolve => {
+    stopSupabase.on('close', resolve);
+  });
   
   // Clean up the URL files
   const ngrokInfoPath = path.join(__dirname, '..', '.ngrok-url');

@@ -452,23 +452,49 @@ async function processReactionEvent(
       }
     }
 
-    // タスクを作成（urgencyフィールドは削除）
-    const { data: newTodo, error: createError } = await supabase
-      .from('todos')
-      .insert({
-        user_id: webhook.user_id,
-        title,
-        body: messageData.text,
-        deadline,
-        status: 'open',
-        importance_score,
-        created_via: 'slack_webhook'
+    // タスクを作成 - データベース関数を使用してリアルタイム通知に対応
+    const { data: newTodoArray, error: createError } = await supabase
+      .rpc('insert_todo_for_user', {
+        p_user_id: webhook.user_id,
+        p_title: title,
+        p_body: messageData.text,
+        p_deadline: deadline,
+        p_importance_score: importance_score,
+        p_status: 'open',
+        p_created_via: 'slack_webhook'
       })
-      .select()
-      .single()
 
     if (createError) {
-      logger.error({ error: createError }, 'Failed to create todo')
+      logger.error({ error: createError }, 'Failed to create todo via function, trying fallback')
+      // フォールバック: 従来の方法を使用
+      const { data: newTodo, error: fallbackError } = await supabase
+        .from('todos')
+        .insert({
+          user_id: webhook.user_id,
+          title,
+          body: messageData.text,
+          deadline,
+          status: 'open',
+          importance_score,
+          created_via: 'slack_webhook'
+        })
+        .select()
+        .single()
+
+      if (fallbackError) {
+        logger.error({ error: fallbackError }, 'Failed to create todo (fallback method)')
+        return null
+      }
+
+      logger.warn('Used fallback todo creation method - realtime notifications may not work')
+      return newTodo
+    }
+
+    // 関数は配列を返すので最初の要素を取得
+    const newTodo = Array.isArray(newTodoArray) ? newTodoArray[0] : newTodoArray
+
+    if (!newTodo) {
+      logger.error('Todo creation returned no data')
       return null
     }
 

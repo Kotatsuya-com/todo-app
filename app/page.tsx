@@ -9,7 +9,7 @@ import { Grid3x3, List, Filter } from 'lucide-react'
 import { getQuadrant, isOverdue } from '@/lib/utils'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Todo } from '@/types'
-import { uiLogger, authLogger } from '@/lib/client-logger'
+import { authLogger } from '@/lib/client-logger'
 
 export default function DashboardPage() {
   const { user, todos, loading, fetchTodos } = useTodoStore()
