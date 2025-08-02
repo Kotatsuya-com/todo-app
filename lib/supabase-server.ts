@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 
@@ -36,6 +37,20 @@ export function createServerSupabaseClient(request?: NextRequest) {
             // fallback for read-only cookies
           }
         }
+      }
+    }
+  )
+}
+
+// Service Role用クライアント（RLSバイパス、Webhook等で使用）
+export function createServiceSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
       }
     }
   )

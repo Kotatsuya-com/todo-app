@@ -51,8 +51,23 @@ export function getAppBaseUrl(request?: Request): string {
 
   // リクエストからオリジンを取得（フォールバック）
   if (request) {
-    const url = new URL(request.url)
-    return url.origin
+    try {
+      const url = new URL(request.url)
+      return url.origin
+    } catch (error) {
+      // Try to use nextUrl if url property is invalid
+      if (request.nextUrl) {
+        const { protocol, hostname, port } = request.nextUrl
+        if (hostname) {
+          let url = protocol ? `${protocol}//` : ''
+          url += hostname
+          if (port && port !== '80' && port !== '443') {
+            url += `:${port}`
+          }
+          return url || hostname
+        }
+      }
+    }
   }
 
   // 最終フォールバック
