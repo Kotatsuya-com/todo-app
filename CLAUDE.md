@@ -2,6 +2,40 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 📚 Documentation Structure
+
+This project uses a comprehensive documentation system organized in the `docs/` directory:
+
+```
+docs/
+├── setup/               # 🚀 Setup and Environment
+│   ├── SETUP.md         # Main setup guide (3 environments)
+│   ├── ENVIRONMENT.md   # Environment variables guide
+│   └── TROUBLESHOOTING.md # Common issues and solutions
+├── architecture/        # 🏗️ Architecture and Design
+│   ├── ARCHITECTURE.md  # Clean Architecture overview
+│   ├── DATABASE.md      # Database design (Supabase PostgreSQL)
+│   └── API.md           # Complete API specifications
+├── development/         # 👨‍💻 Development Guidelines
+│   ├── DEVELOPMENT.md   # Development rules and workflow
+│   ├── TESTING.md       # Testing strategy and patterns
+│   └── SECURITY.md      # Security practices
+├── features/            # ✨ Feature Documentation
+│   ├── SLACK.md         # Slack integration details
+│   └── UI_SPEC.md       # UI/UX specifications
+└── project/             # 📋 Project Management
+    ├── STRUCTURE.md     # Project structure and organization
+    └── CHANGELOG.md     # Feature history and updates
+```
+
+**IMPORTANT**: Always refer to the appropriate documentation before making changes:
+- For setup issues → `docs/setup/`
+- For architecture questions → `docs/architecture/`
+- For development guidelines → `docs/development/`
+- For feature specifications → `docs/features/`
+
+The main README.md provides navigation links to all documentation.
+
 ## Common Commands
 
 ### Development Environment
@@ -33,22 +67,123 @@ npm run test:watch       # Run Jest in watch mode
 npm run test:coverage    # Run tests with coverage report
 ```
 
-### Testing Individual Components
+### Testing Strategy (Clean Architecture)
+
+#### Test Priority and Structure
+1. **Entity Tests** (Highest Priority): Domain logic and business rules
+2. **Service Tests** (High Priority): Business use cases with mocked repositories
+3. **Repository Tests** (Medium Priority): Data access logic
+4. **API Tests** (Integration): HTTP handling with mocked services
+
+#### Testing Patterns
+
+**Entity Testing:**
+```typescript
+// __tests__/lib/entities/TodoEntity.test.ts
+describe('TodoEntity', () => {
+  it('should determine urgency correctly', () => {
+    const todo = new TodoEntity(mockTodoWithDeadlineToday)
+    expect(todo.isUrgent()).toBe(true)
+    expect(todo.getQuadrant()).toBe('urgent_important')
+  })
+})
+```
+
+**Service Testing:**
+```typescript
+// __tests__/lib/services/SlackService.test.ts
+describe('SlackService', () => {
+  let slackService: SlackService
+  let mockSlackRepo: MockSlackRepository
+  
+  beforeEach(() => {
+    mockSlackRepo = new MockSlackRepository([
+      webhookNotFoundResponse(),
+      eventQueuedResponse()
+    ])
+    slackService = new SlackService(mockSlackRepo, mockTodoRepo)
+  })
+  
+  it('should process webhook events correctly', async () => {
+    const result = await slackService.processWebhookEvent(webhookId, payload)
+    expect(result.success).toBe(true)
+  })
+})
+```
+
+**API Testing (Clean Architecture):**
+```typescript
+// Mock services, not Supabase clients
+jest.mock('@/lib/services/SlackService', () => ({
+  SlackService: jest.fn().mockImplementation(() => mockSlackService)
+}))
+
+it('should handle webhook events', async () => {
+  mockSlackService.setMockResults([eventQueuedResponse()])
+  const response = await POST(request, { params: { webhook_id } })
+  expect(response.status).toBe(200)
+})
+```
+
+#### Legacy Testing (To Be Migrated)
 - **Pages**: Navigate to `http://localhost:3000/{route}` where routes are `/`, `/compare`, `/report`, `/settings`
-- **API endpoints**: Use `/api/generate-title`, `/api/slack`, `/api/slack/events`
+- **Legacy API endpoints**: Use `/api/generate-title`, `/api/slack`, `/api/slack/connections`
 - **Database testing**: Use `npm run db:studio` to access Supabase Studio
-- **Unit tests**: Jest configuration with jsdom environment for React component testing
-- **Test patterns**: Tests should be placed in `__tests__/` directories or use `.test.ts` or `.spec.ts` suffixes
 - **Coverage**: Focus on testing lib utilities - see `jest.config.js` for coverage configuration
 
+#### Test File Organization
+```
+__tests__/
+├── lib/
+│   ├── entities/        # 🏛️ Domain layer tests
+│   ├── services/        # ⚙️ Service layer tests  
+│   └── repositories/    # 📊 Repository layer tests
+├── api/                 # 🌐 API integration tests
+└── mocks/
+    ├── services.ts      # Service layer mocks
+    └── repositories.ts  # Repository layer mocks
+```
+
 ## Architecture Overview
+
+**🚨 IMPORTANT: This project uses Clean Architecture pattern. All new implementations MUST follow Clean Architecture principles.**
 
 ### Tech Stack
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Radix UI
 - **Backend**: Supabase (PostgreSQL, Auth, Real-time)
-- **State Management**: Zustand with integrated business logic
+- **Architecture**: Clean Architecture (Domain, Repository, Service, API layers)
+- **State Management**: Zustand (being migrated to Service layer)
 - **External APIs**: OpenAI (title generation), Slack (message retrieval + webhooks)
 - **Development**: Docker (local Supabase), ngrok (webhook testing)
+
+### Clean Architecture Implementation
+
+#### Layer Structure
+```
+lib/entities/          # 🏛️ Domain Layer - Business objects & rules
+lib/repositories/      # 📊 Infrastructure Layer - Data access
+lib/services/          # ⚙️ Application Layer - Business logic & use cases
+app/api/              # 🌐 Presentation Layer - HTTP handlers
+```
+
+#### Development Rules (MANDATORY)
+
+**✅ NEW IMPLEMENTATIONS**:
+1. **ALWAYS use Clean Architecture structure**
+2. **Business logic goes in Service layer**
+3. **Data access goes in Repository layer**
+4. **APIs only handle HTTP concerns**
+5. **Write unit tests for Service and Entity layers**
+
+**🔄 LEGACY CODE MIGRATION**:
+- Existing APIs using direct Supabase calls will be gradually migrated
+- New features MUST use Clean Architecture version
+- When modifying existing APIs, consider migrating to Clean Architecture
+
+**❌ FORBIDDEN**:
+- Direct Supabase client usage in new APIs
+- Business logic in API routes
+- Complex mock chains in tests (use Service layer mocks instead)
 
 ### Core Architecture Patterns
 
@@ -64,14 +199,53 @@ npm run test:coverage    # Run tests with coverage report
 - **Deadline Management**: Automatic conversion from urgency levels to specific dates
 - **Async Operations**: All database operations with loading states and error handling
 
+#### Clean Architecture Example Implementation
+
+**Slack Events API (Clean Architecture version):**
+```typescript
+// 🌐 API Layer - HTTP concerns only
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  const payload = JSON.parse(await request.text())
+  const isValid = await verifySlackSignature(request, body)
+  
+  // Delegate to Service layer
+  const { slackService } = createServices()
+  const result = await slackService.processWebhookEvent(webhook_id, payload)
+  
+  return NextResponse.json(result.data, { status: result.statusCode })
+}
+
+// ⚙️ Service Layer - Business logic
+class SlackService {
+  async processWebhookEvent(webhookId, payload) {
+    const webhook = await this.slackRepo.findWebhookById(webhookId)
+    const user = await this.slackRepo.findUserWithSettings(webhook.user_id)
+    // Business logic here...
+    return { success: true, data: result }
+  }
+}
+
+// 📊 Repository Layer - Data access
+class SlackRepository {
+  async findWebhookById(webhookId) {
+    const result = await this.client.from('user_slack_webhooks')
+      .select('*').eq('webhook_id', webhookId).single()
+    return RepositoryUtils.handleSupabaseResult(result)
+  }
+}
+```
+
 #### API Architecture
 ```
+# Clean Architecture APIs (NEW)
+/api/slack/events/user/[webhook_id]/   # ✅ Clean Architecture implementation
+
+# Legacy APIs (TO BE MIGRATED)
 /api/generate-title/                    # OpenAI integration for AI-powered task titles
 /api/slack/                            # Slack message content retrieval (supports threads)
 /api/slack/auth/                       # Slack OAuth authentication flow
 /api/slack/connections/                # Slack connection management (CRUD)
 /api/slack/webhook/                    # User-specific webhook management
-/api/slack/events/user/[webhook_id]/   # User-specific Slack Event API webhooks
 /api/app-url/                          # Dynamic app URL detection for ngrok/production
 ```
 
@@ -225,11 +399,57 @@ CREATE TABLE slack_connections (
 4. Deploy: `npm run db:migrate`
 5. Update types: `npm run types:generate`
 
-#### Adding New Features
-- **UI Components**: Place in appropriate `components/` subdirectory
-- **API Endpoints**: Add to `app/api/` with consistent error handling
-- **State Management**: Extend `todoStore.ts` with new actions
-- **Database Changes**: Always use migrations for schema updates
+#### Adding New Features (Clean Architecture)
+
+**🚨 MANDATORY: All new features must use Clean Architecture**
+
+1. **Define Domain Entity** (`lib/entities/`):
+   ```typescript
+   export class NewEntity {
+     constructor(private data: NewData) {}
+     
+     // Business rules and validation here
+     validateBusinessRule(): boolean { /* ... */ }
+   }
+   ```
+
+2. **Create Repository Interface** (`lib/repositories/`):
+   ```typescript
+   export interface NewRepositoryInterface {
+     findById(id: string): Promise<RepositoryResult<NewEntity>>
+     create(data: NewData): Promise<RepositoryResult<NewEntity>>
+   }
+   ```
+
+3. **Implement Service** (`lib/services/`):
+   ```typescript
+   export class NewService {
+     constructor(private newRepo: NewRepositoryInterface) {}
+     
+     async businessOperation(params): Promise<ServiceResult<NewEntity>> {
+       // Business logic using repository
+     }
+   }
+   ```
+
+4. **Create API Handler** (`app/api/`):
+   ```typescript
+   export async function POST(request: NextRequest) {
+     const { newService } = createServices()
+     const result = await newService.businessOperation(params)
+     return NextResponse.json(result.data, { status: result.statusCode })
+   }
+   ```
+
+5. **Write Tests**:
+   - Entity unit tests
+   - Service unit tests with mocked repositories
+   - API integration tests with mocked services
+
+**❌ FORBIDDEN for new features**:
+- Direct Supabase usage in API routes
+- Business logic in API handlers
+- Zustand store extensions (use Service layer instead)
 
 #### Slack Development
 - **Testing Message Retrieval**: Use real Slack URLs in development
@@ -255,29 +475,54 @@ CREATE TABLE slack_connections (
 
 This architecture enables rapid development while maintaining production-grade security, performance, and scalability.
 
-## 📝 Recent Updates (January 2025)
+## 📝 Recent Updates (August 2025)
 
-### User-Specific Slack Webhook System
-- **New Architecture**: Each user gets individual webhook endpoints for Slack integration
+### 🏗️ Clean Architecture Implementation (NEW)
+
+**Major architectural overhaul to Clean Architecture pattern for improved maintainability and testability.**
+
+#### New Architecture Components
+- **Domain Layer** (`lib/entities/`): Business objects with validation and domain rules
+  - `UserEntity`, `SlackConnectionEntity`, `SlackWebhookEntity`, `TodoEntity`
+  - Pure business logic without external dependencies
+  
+- **Repository Layer** (`lib/repositories/`): Data access abstraction
+  - `SlackRepository`, `TodoRepository`, `BaseRepository`
+  - Unified error handling and Supabase client management
+  
+- **Service Layer** (`lib/services/`): Business use cases and logic
+  - `SlackService` with complete Slack webhook processing logic
+  - External API coordination (Slack, OpenAI)
+  
+- **API Layer Refactoring**: Thin HTTP handlers delegating to services
+  - **Migrated**: `/api/slack/events/user/[webhook_id]/` (Clean Architecture)
+  - **To Migrate**: All other APIs currently using direct Supabase calls
+
+#### Testing Infrastructure Overhaul
+- **Service Layer Mocks**: `MockSlackService` for simplified testing
+- **Repository Mocks**: Result-based testing approach eliminating complex Supabase mock chains
+- **100% Test Success Rate**: All 281 tests passing with new architecture
+- **Test Simplification**: Reduced test complexity from 30+ mock lines to single-line service mocks
+
+#### Development Rules & Guidelines
+- **MANDATORY**: All new features must use Clean Architecture
+- **FORBIDDEN**: Direct Supabase usage in new API routes
+- **MIGRATION PLAN**: Gradual migration of legacy APIs to Clean Architecture
+- **TESTING PRIORITY**: Service > Repository > Entity > API integration tests
+
+### Legacy Features (January 2025)
+
+#### User-Specific Slack Webhook System
 - **Database Schema**: Added `user_slack_webhooks` table with secure webhook management
 - **API Endpoints**: New `/api/slack/webhook/` for webhook CRUD operations
 - **Security Enhancement**: Unique webhook IDs and secrets for each user connection
-- **URL Pattern**: User-specific webhook URLs: `/api/slack/events/user/[webhook_id]`
 
-### Enhanced Slack Integration
+#### Enhanced Slack Integration
 - **OAuth Flow**: Complete user-specific Slack workspace authentication
-- **Webhook Manager**: New `WebhookManager` component for UI-based webhook management
 - **Connection Management**: Full CRUD for Slack workspace connections
 - **Dynamic URLs**: Automatic app URL detection for ngrok/production environments
 
-### Database Improvements
-- **New Migration**: `20250730175158_add_created_via_to_todos.sql` adds task creation source tracking
+#### Database & Performance Improvements
 - **Task Source Tracking**: `created_via` column distinguishes manual vs Slack webhook task creation
-- **Base64URL Encoding**: Improved webhook ID generation with URL-safe characters
 - **RLS Policies**: Row Level Security for all new Slack-related tables
 - **Performance Indexes**: Optimized database indexes for webhook operations and task queries
-
-### Development Workflow Enhancements
-- **Improved ngrok Integration**: Better handling of ngrok tunnels for webhook development
-- **Error Handling**: Enhanced error messages and logging for Slack operations
-- **Testing Support**: Easier testing of user-specific webhook functionality
