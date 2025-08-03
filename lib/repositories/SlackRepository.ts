@@ -23,7 +23,11 @@ export interface SlackRepositoryInterface {
   findConnectionById(_id: string): Promise<RepositoryResult<SlackConnection>>
   findConnectionsByUserId(_userId: string): Promise<RepositoryListResult<SlackConnection>>
   createConnection(_connection: Omit<SlackConnection, 'id' | 'created_at'>): Promise<RepositoryResult<SlackConnection>>
+  upsertConnection(_connection: Omit<SlackConnection, 'id' | 'created_at'>): Promise<RepositoryResult<SlackConnection>>
   deleteConnection(_id: string, _userId: string): Promise<RepositoryResult<void>>
+
+  // User Management
+  updateUserSlackId(_userId: string, _slackUserId: string): Promise<RepositoryResult<void>>
 
   // Slack Webhooks
   findWebhookById(_webhookId: string): Promise<RepositoryResult<SlackWebhook>>
@@ -86,6 +90,32 @@ export class SlackRepository implements SlackRepositoryInterface, BaseRepository
       .delete()
       .eq('id', id)
       .eq('user_id', userId)
+
+    if (result.error) {
+      return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
+    }
+    return RepositoryUtils.success(undefined)
+  }
+
+  async upsertConnection(_connection: Omit<SlackConnection, 'id' | 'created_at'>): Promise<RepositoryResult<SlackConnection>> {
+    const result = await this.client
+      .from('slack_connections')
+      .upsert(_connection, {
+        onConflict: 'user_id,workspace_id'
+      })
+      .select()
+      .single()
+
+    return RepositoryUtils.handleSupabaseResult(result)
+  }
+
+  // User Management
+  async updateUserSlackId(_userId: string, _slackUserId: string): Promise<RepositoryResult<void>> {
+    const result = await this.client
+      .from('users')
+      .update({ slack_user_id: _slackUserId })
+      .eq('id', _userId)
+      .select('slack_user_id')
 
     if (result.error) {
       return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
