@@ -14,6 +14,7 @@ import { SlackAuthService } from '@/lib/services/SlackAuthService'
 import { SlackMessageService } from '@/lib/services/SlackMessageService'
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
+import { TitleGenerationService } from '@/lib/services/TitleGenerationService'
 
 /**
  * サービス層のインスタンスを作成するファクトリー
@@ -35,6 +36,7 @@ export function createServices() {
   const slackMessageService = new SlackMessageService(slackRepo)
   const emojiSettingsService = new EmojiSettingsService(emojiSettingsRepo)
   const notificationSettingsService = new NotificationSettingsService(notificationSettingsRepo)
+  const titleGenerationService = new TitleGenerationService()
 
   return {
     // Services
@@ -44,6 +46,7 @@ export function createServices() {
     slackMessageService,
     emojiSettingsService,
     notificationSettingsService,
+    titleGenerationService,
 
     // Repositories (必要に応じて直接アクセス)
     slackRepo,
@@ -85,4 +88,8 @@ export function createSlackAuthService() {
   const context = new SupabaseRepositoryContext()
   const slackRepo = new SlackRepository(context)
   return new SlackAuthService(slackRepo)
+}
+
+export function createTitleGenerationService() {
+  return new TitleGenerationService()
 }

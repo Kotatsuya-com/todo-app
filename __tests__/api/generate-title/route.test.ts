@@ -3,33 +3,54 @@
  */
 
 import { POST } from '@/app/api/generate-title/route'
+import { TitleGenerationService } from '@/lib/services/TitleGenerationService'
+import { createServices } from '@/lib/services/ServiceFactory'
 import { 
   createMockNextRequest,
-  createMockOpenAIResponse,
   setupTestEnvironment,
   cleanupTestEnvironment,
 } from '@/__tests__/mocks'
 
-// OpenAI のモック
-jest.mock('@/lib/openai-title', () => ({
-  generateTaskTitle: jest.fn()
+// Mock dependencies
+jest.mock('@/lib/services/ServiceFactory')
+jest.mock('@/lib/logger', () => ({
+  apiLogger: {
+    error: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+  },
 }))
 
-const { generateTaskTitle } = require('@/lib/openai-title')
+const mockCreateServices = createServices as jest.MockedFunction<typeof createServices>
 
-describe('/api/generate-title/route.ts - POST', () => {
+describe('/api/generate-title/route.ts - Clean Architecture', () => {
+  let mockTitleGenerationService: jest.Mocked<TitleGenerationService>
+
   beforeEach(() => {
     setupTestEnvironment()
     cleanupTestEnvironment()
-    generateTaskTitle.mockClear()
+
+    // Create mock service
+    mockTitleGenerationService = {
+      generateTitle: jest.fn(),
+      generateTitlesBatch: jest.fn(),
+      healthCheck: jest.fn(),
+    } as any
+
+    // Mock createServices to return our mock service
+    mockCreateServices.mockReturnValue({
+      titleGenerationService: mockTitleGenerationService,
+    } as any)
   })
 
   afterEach(() => {
     cleanupTestEnvironment()
+    jest.clearAllMocks()
   })
 
-  describe('入力検証', () => {
-    it('textが提供されていない場合、400エラーを返す', async () => {
+  describe('Input validation', () => {
+    it('should return 400 when content is missing', async () => {
       const request = createMockNextRequest({
         method: 'POST',
         body: {},
@@ -40,9 +61,10 @@ describe('/api/generate-title/route.ts - POST', () => {
 
       expect(response.status).toBe(400)
       expect(data.error).toBe('Content is required')
+      expect(mockTitleGenerationService.generateTitle).not.toHaveBeenCalled()
     })
 
-    it('textが文字列でない場合、400エラーを返す', async () => {
+    it('should return 400 when content is not a string', async () => {
       const request = createMockNextRequest({
         method: 'POST',
         body: { content: 123 },
@@ -53,9 +75,10 @@ describe('/api/generate-title/route.ts - POST', () => {
 
       expect(response.status).toBe(400)
       expect(data.error).toBe('Content is required')
+      expect(mockTitleGenerationService.generateTitle).not.toHaveBeenCalled()
     })
 
-    it('textが空文字列の場合、400エラーを返す', async () => {
+    it('should return 400 when content is empty string', async () => {
       const request = createMockNextRequest({
         method: 'POST',
         body: { content: '' },
@@ -66,197 +89,326 @@ describe('/api/generate-title/route.ts - POST', () => {
 
       expect(response.status).toBe(400)
       expect(data.error).toBe('Content is required')
+      expect(mockTitleGenerationService.generateTitle).not.toHaveBeenCalled()
     })
 
-    it('textが長すぎる場合、正常に処理される', async () => {
-      const longText = 'a'.repeat(2001) // 2000文字を超える
-      generateTaskTitle.mockResolvedValue('Very Long Text Title')
-
+    it('should return 400 when content is null', async () => {
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: longText },
+        body: { content: null },
       })
 
       const response = await POST(request as any)
       const data = await response.json()
 
-      expect(response.status).toBe(200)
-      expect(data.title).toBe('Very Long Text Title')
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Content is required')
+      expect(mockTitleGenerationService.generateTitle).not.toHaveBeenCalled()
     })
   })
 
-  describe('OpenAI API連携', () => {
-    it('正常なテキストでタイトルを生成する', async () => {
-      const generatedTitle = 'Generated Task Title'
-      generateTaskTitle.mockResolvedValue(generatedTitle)
+  describe('Service integration', () => {
+    it('should generate title successfully for valid content', async () => {
+      const content = 'プロジェクトの企画書を作成する'
+      const mockResponse = {
+        title: '企画書作成',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'medium',
+          temperature: 0.7
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: 'This is a task description that needs a title' },
+        body: { content },
       })
 
       const response = await POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data.title).toBe(generatedTitle)
+      expect(data.title).toBe('企画書作成')
+      expect(mockTitleGenerationService.generateTitle).toHaveBeenCalledWith(content)
     })
 
-    it('OpenAI APIに正しいパラメータを送信する', async () => {
-      const inputText = 'Create a meeting agenda for the quarterly review'
-      generateTaskTitle.mockResolvedValue('Quarterly Review Meeting Agenda')
+    it('should handle service validation errors (400)', async () => {
+      const content = 'a'.repeat(2001) // Too long content
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: false,
+        error: 'Content cannot exceed 2000 characters',
+        statusCode: 400
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: inputText },
+        body: { content },
+      })
+
+      const response = await POST(request as any)
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error).toBe('Content cannot exceed 2000 characters')
+    })
+
+    it('should handle service rate limit errors (429)', async () => {
+      const content = 'valid content'
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: false,
+        error: 'AI service rate limit exceeded',
+        statusCode: 429
+      })
+
+      const request = createMockNextRequest({
+        method: 'POST',
+        body: { content },
+      })
+
+      const response = await POST(request as any)
+      const data = await response.json()
+
+      expect(response.status).toBe(429)
+      expect(data.error).toBe('AI service rate limit exceeded')
+    })
+
+    it('should handle service server errors (500)', async () => {
+      const content = 'valid content'
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: false,
+        error: 'Internal server error during title generation',
+        statusCode: 500
+      })
+
+      const request = createMockNextRequest({
+        method: 'POST',
+        body: { content },
+      })
+
+      const response = await POST(request as any)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.error).toBe('Internal server error during title generation')
+    })
+
+    it('should handle service errors without status code', async () => {
+      const content = 'valid content'
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: false,
+        error: 'Unknown service error'
+      })
+
+      const request = createMockNextRequest({
+        method: 'POST',
+        body: { content },
+      })
+
+      const response = await POST(request as any)
+      const data = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(data.error).toBe('Unknown service error')
+    })
+  })
+
+  describe('Service Factory integration', () => {
+    it('should create services correctly', async () => {
+      const content = 'test content'
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: { title: 'Test Title', metadata: { model: 'gpt-4o-mini', contentLength: 12, complexity: 'simple', temperature: 0.3 } }
+      })
+
+      const request = createMockNextRequest({
+        method: 'POST',
+        body: { content },
       })
 
       await POST(request as any)
 
-      expect(generateTaskTitle).toHaveBeenCalledWith(inputText)
+      expect(mockCreateServices).toHaveBeenCalledTimes(1)
+      expect(mockCreateServices).toHaveBeenCalledWith()
     })
 
-    it('OpenAI APIエラー（HTTPエラー）の場合、500エラーを返す', async () => {
-      generateTaskTitle.mockRejectedValue(new Error('Rate limit exceeded'))
+    it('should use titleGenerationService from factory', async () => {
+      const content = 'test content'
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: { title: 'Test Title', metadata: { model: 'gpt-4o-mini', contentLength: 12, complexity: 'simple', temperature: 0.3 } }
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: 'Test task description' },
+        body: { content },
       })
 
-      const response = await POST(request as any)
-      const data = await response.json()
+      await POST(request as any)
 
-      expect(response.status).toBe(500)
-      expect(data.error).toBe('Failed to generate title')
-    })
-
-    it('OpenAI APIレスポンス形式エラーの場合、500エラーを返す', async () => {
-      generateTaskTitle.mockRejectedValue(new Error('Invalid response format'))
-
-      const request = createMockNextRequest({
-        method: 'POST',
-        body: { content: 'Test task description' },
-      })
-
-      const response = await POST(request as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(500)
-      expect(data.error).toBe('Failed to generate title')
-    })
-
-    it('OpenAI APIレスポンスにcontentがない場合、500エラーを返す', async () => {
-      generateTaskTitle.mockRejectedValue(new Error('No content in response'))
-
-      const request = createMockNextRequest({
-        method: 'POST',
-        body: { content: 'Test task description' },
-      })
-
-      const response = await POST(request as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(500)
-      expect(data.error).toBe('Failed to generate title')
-    })
-
-    it('ネットワークエラーの場合、500エラーを返す', async () => {
-      generateTaskTitle.mockRejectedValue(new Error('Network error'))
-
-      const request = createMockNextRequest({
-        method: 'POST',
-        body: { content: 'Test task description' },
-      })
-
-      const response = await POST(request as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(500)
-      expect(data.error).toBe('Failed to generate title')
+      // Verify that the service from the factory was used
+      expect(mockTitleGenerationService.generateTitle).toHaveBeenCalledWith(content)
     })
   })
 
-  describe('文字数制限テスト', () => {
-    it('2000文字ちょうどのテキストを受け入れる', async () => {
-      const maxLengthText = 'a'.repeat(2000)
-      generateTaskTitle.mockResolvedValue('Long Text Summary')
+  describe('Content types and complexity', () => {
+    it('should handle simple Japanese content', async () => {
+      const content = 'タスク'
+      const mockResponse = {
+        title: 'タスク',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'simple',
+          temperature: 0.3
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: maxLengthText },
+        body: { content },
       })
 
       const response = await POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data.title).toBe('Long Text Summary')
+      expect(data.title).toBe('タスク')
     })
 
-    it('1文字のテキストを受け入れる', async () => {
-      const shortText = 'a'
-      generateTaskTitle.mockResolvedValue('A')
+    it('should handle English content', async () => {
+      const content = 'Create a meeting agenda for the quarterly review'
+      const mockResponse = {
+        title: 'Quarterly Review Agenda',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'medium',
+          temperature: 0.7
+        }
+      }
 
-      const request = createMockNextRequest({
-        method: 'POST',
-        body: { content: shortText },
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
       })
 
-      const response = await POST(request as any)
-
-      expect(response.status).toBe(200)
-    })
-  })
-
-  describe('特殊文字・多言語テキスト', () => {
-    it('日本語テキストを正しく処理する', async () => {
-      const japaneseText = '会議の議題を作成する必要があります'
-      generateTaskTitle.mockResolvedValue('会議議題作成')
-
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: japaneseText },
+        body: { content },
       })
 
       const response = await POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data.title).toBe('会議議題作成')
+      expect(data.title).toBe('Quarterly Review Agenda')
     })
 
-    it('絵文字を含むテキストを正しく処理する', async () => {
-      const emojiText = '🎉 Plan a birthday party for next week 🎂'
-      generateTaskTitle.mockResolvedValue('Plan Birthday Party')
+    it('should handle content with special characters', async () => {
+      const content = 'Task with @symbols and #hashtags & special chars!'
+      const mockResponse = {
+        title: 'Special Task',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'medium',
+          temperature: 0.7
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: emojiText },
+        body: { content },
       })
 
       const response = await POST(request as any)
+      const data = await response.json()
 
       expect(response.status).toBe(200)
+      expect(data.title).toBe('Special Task')
     })
 
-    it('改行を含むテキストを正しく処理する', async () => {
-      const multilineText = 'Line 1\nLine 2\nLine 3'
-      generateTaskTitle.mockResolvedValue('Multi-line Task')
+    it('should handle content with emojis', async () => {
+      const content = '🎉 Plan a birthday party for next week 🎂'
+      const mockResponse = {
+        title: '🎂 Birthday Party',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'simple',
+          temperature: 0.3
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: multilineText },
+        body: { content },
       })
 
       const response = await POST(request as any)
+      const data = await response.json()
 
       expect(response.status).toBe(200)
+      expect(data.title).toBe('🎂 Birthday Party')
+    })
+
+    it('should handle multiline content', async () => {
+      const content = 'Line 1\nLine 2\nLine 3'
+      const mockResponse = {
+        title: 'Multi-line Task',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'simple',
+          temperature: 0.3
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
+
+      const request = createMockNextRequest({
+        method: 'POST',
+        body: { content },
+      })
+
+      const response = await POST(request as any)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.title).toBe('Multi-line Task')
     })
   })
 
-  describe('JSON解析エラー', () => {
-    it('不正なJSONの場合、500エラーを返す', async () => {
+  describe('Error handling and edge cases', () => {
+    it('should handle JSON parsing errors gracefully', async () => {
       const request = createMockNextRequest({
         method: 'POST',
         body: { content: 'test' },
@@ -270,39 +422,101 @@ describe('/api/generate-title/route.ts - POST', () => {
       expect(response.status).toBe(500)
       expect(data.error).toBe('Failed to generate title')
     })
-  })
 
-  describe('環境変数チェック', () => {
-    it('OpenAI APIキーが設定されていない場合でも正常に動作する', async () => {
-      // 環境変数を一時的に削除
-      const originalApiKey = process.env.OPENAI_API_KEY
-      delete process.env.OPENAI_API_KEY
-
-      generateTaskTitle.mockResolvedValue('Generated Title')
+    it('should handle service exceptions gracefully', async () => {
+      const content = 'valid content'
+      mockTitleGenerationService.generateTitle.mockRejectedValue(new Error('Service exception'))
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: 'Test task' },
+        body: { content },
       })
 
       const response = await POST(request as any)
+      const data = await response.json()
 
-      // APIキーを復元
-      process.env.OPENAI_API_KEY = originalApiKey
-
-      // 処理は続行される
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(500)
+      expect(data.error).toBe('Failed to generate title')
     })
-  })
 
-  describe('レスポンス形式', () => {
-    it('正常レスポンスが期待される形式を返す', async () => {
-      const generatedTitle = 'Task Title'
-      generateTaskTitle.mockResolvedValue(generatedTitle)
+    it('should maintain consistent response format', async () => {
+      const errorScenarios = [
+        async () => {
+          const request = createMockNextRequest({ method: 'POST', body: {} })
+          return await POST(request as any)
+        },
+        async () => {
+          mockTitleGenerationService.generateTitle.mockResolvedValue({
+            success: false,
+            error: 'Service error',
+            statusCode: 400
+          })
+          const request = createMockNextRequest({ method: 'POST', body: { content: 'test' } })
+          return await POST(request as any)
+        }
+      ]
+
+      for (const scenario of errorScenarios) {
+        const response = await scenario()
+        const data = await response.json()
+        
+        expect(typeof response.status).toBe('number')
+        expect(typeof data.error).toBe('string')
+        expect(data.error.length).toBeGreaterThan(0)
+      }
+    })
+
+    it('should handle long content gracefully', async () => {
+      const longContent = 'a'.repeat(1999) // Just under the limit
+      const mockResponse = {
+        title: 'Long Content Summary',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: longContent.length,
+          complexity: 'complex',
+          temperature: 0.9
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { content: 'Task description' },
+        body: { content: longContent },
+      })
+
+      const response = await POST(request as any)
+      const data = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(data.title).toBe('Long Content Summary')
+    })
+  })
+
+  describe('Response format', () => {
+    it('should return correct success response format', async () => {
+      const content = 'test content'
+      const mockResponse = {
+        title: 'Test Title',
+        metadata: {
+          model: 'gpt-4o-mini',
+          contentLength: content.length,
+          complexity: 'simple',
+          temperature: 0.3
+        }
+      }
+
+      mockTitleGenerationService.generateTitle.mockResolvedValue({
+        success: true,
+        data: mockResponse
+      })
+
+      const request = createMockNextRequest({
+        method: 'POST',
+        body: { content },
       })
 
       const response = await POST(request as any)
@@ -310,10 +524,12 @@ describe('/api/generate-title/route.ts - POST', () => {
 
       expect(data).toHaveProperty('title')
       expect(typeof data.title).toBe('string')
-      expect(data.title).toBe(generatedTitle)
+      expect(data.title).toBe('Test Title')
+      // Note: API only returns title, not metadata
+      expect(data).not.toHaveProperty('metadata')
     })
 
-    it('エラーレスポンスが期待される形式を返す', async () => {
+    it('should return correct error response format', async () => {
       const request = createMockNextRequest({
         method: 'POST',
         body: {},
@@ -324,6 +540,7 @@ describe('/api/generate-title/route.ts - POST', () => {
 
       expect(data).toHaveProperty('error')
       expect(typeof data.error).toBe('string')
+      expect(data).not.toHaveProperty('title')
     })
   })
 })
