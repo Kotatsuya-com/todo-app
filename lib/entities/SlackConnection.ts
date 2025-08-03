@@ -65,6 +65,14 @@ export class SlackConnectionEntity {
     return this._connection.team_name
   }
 
+  get createdAt(): string {
+    return this._connection.created_at
+  }
+
+  get scope(): string {
+    return this._connection.scope
+  }
+
   isValidWorkspaceId(): boolean {
     return /^T[A-Z0-9]{8,}$/.test(this._connection.workspace_id)
   }
@@ -72,6 +80,59 @@ export class SlackConnectionEntity {
   hasValidScope(requiredScopes: string[]): boolean {
     const connectionScopes = this._connection.scope.split(',').map(s => s.trim())
     return requiredScopes.every(scope => connectionScopes.includes(scope))
+  }
+
+  /**
+   * ユーザーが接続の所有者かどうかを確認
+   */
+  isOwnedBy(userId: string): boolean {
+    return this._connection.user_id === userId
+  }
+
+  /**
+   * 接続が最近作成されたかどうかを確認（24時間以内）
+   */
+  isRecentlyCreated(): boolean {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const createdDate = new Date(this._connection.created_at)
+    return createdDate > oneDayAgo
+  }
+
+  /**
+   * 接続の年齢を日数で取得
+   */
+  getAgeInDays(): number {
+    const now = new Date()
+    const created = new Date(this._connection.created_at)
+    const diffTime = Math.abs(now.getTime() - created.getTime())
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  /**
+   * 接続の表示用サマリーを取得
+   */
+  getDisplaySummary(): {
+    displayName: string
+    workspaceName: string
+    teamName: string
+    ageInDays: number
+    isValid: boolean
+    } {
+    return {
+      displayName: `${this._connection.workspace_name} (${this._connection.team_name})`,
+      workspaceName: this._connection.workspace_name,
+      teamName: this._connection.team_name,
+      ageInDays: this.getAgeInDays(),
+      isValid: this.isValidWorkspaceId()
+    }
+  }
+
+  /**
+   * 基本的なスコープが含まれているかチェック
+   */
+  hasBasicSlackScopes(): boolean {
+    const basicScopes = ['channels:read', 'chat:write']
+    return this.hasValidScope(basicScopes)
   }
 
   toPlainObject(): SlackConnection {

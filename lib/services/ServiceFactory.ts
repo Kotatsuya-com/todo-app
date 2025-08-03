@@ -9,6 +9,7 @@ import { TodoRepository } from '@/lib/repositories/TodoRepository'
 import { EmojiSettingsRepository } from '@/lib/repositories/EmojiSettingsRepository'
 import { NotificationSettingsRepository } from '@/lib/repositories/NotificationSettingsRepository'
 import { SlackService } from '@/lib/services/SlackService'
+import { SlackConnectionService } from '@/lib/services/SlackConnectionService'
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 
@@ -27,12 +28,14 @@ export function createServices() {
 
   // Service Layer
   const slackService = new SlackService(slackRepo, todoRepo)
+  const slackConnectionService = new SlackConnectionService(slackRepo)
   const emojiSettingsService = new EmojiSettingsService(emojiSettingsRepo)
   const notificationSettingsService = new NotificationSettingsService(notificationSettingsRepo)
 
   return {
     // Services
     slackService,
+    slackConnectionService,
     emojiSettingsService,
     notificationSettingsService,
 
@@ -64,4 +67,10 @@ export function createNotificationSettingsService() {
   const context = new SupabaseRepositoryContext()
   const notificationSettingsRepo = new NotificationSettingsRepository(context)
   return new NotificationSettingsService(notificationSettingsRepo)
+}
+
+export function createSlackConnectionService() {
+  const context = new SupabaseRepositoryContext()
+  const slackRepo = new SlackRepository(context)
+  return new SlackConnectionService(slackRepo)
 }

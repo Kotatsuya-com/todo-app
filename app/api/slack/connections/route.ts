@@ -1,65 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { slackLogger } from '@/lib/logger'
+import { requireAuthentication } from '@/lib/auth/authentication'
+import { createServices } from '@/lib/services/ServiceFactory'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient(request)
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    // 認証処理
+    const userId = await requireAuthentication(request)
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // サービス層で処理
+    const { slackConnectionService } = createServices()
+    const result = await slackConnectionService.getUserConnections(userId)
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
     }
 
-    const { data: connections, error } = await supabase
-      .from('slack_connections')
-      .select('id, workspace_id, workspace_name, team_name, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    return NextResponse.json({ connections: result.data?.connections })
 
-    if (error) {
-      slackLogger.error({ error }, 'Failed to fetch Slack connections')
-      return NextResponse.json({ error: 'Failed to fetch connections' }, { status: 500 })
+  } catch (error: any) {
+    // 認証エラーの場合は401を返す
+    if (error.message && error.message.includes('Authentication')) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
     }
-
-    return NextResponse.json({ connections })
-
-  } catch (error) {
-    slackLogger.error({ error }, 'Slack connections API error')
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+    const statusCode = error.statusCode || 500
+    const message = error.message || 'Server error'
+    return NextResponse.json({ error: message }, { status: statusCode })
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient(request)
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    // 認証処理
+    const userId = await requireAuthentication(request)
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    // リクエストボディの取得
     const { connectionId } = await request.json()
 
     if (!connectionId) {
       return NextResponse.json({ error: 'Connection ID is required' }, { status: 400 })
     }
 
-    const { error } = await supabase
-      .from('slack_connections')
-      .delete()
-      .eq('id', connectionId)
-      .eq('user_id', user.id)
+    // サービス層で処理
+    const { slackConnectionService } = createServices()
+    const result = await slackConnectionService.deleteUserConnection(connectionId, userId)
 
-    if (error) {
-      slackLogger.error({ error, connectionId }, 'Failed to delete Slack connection')
-      return NextResponse.json({ error: 'Failed to delete connection' }, { status: 500 })
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
     }
 
     return NextResponse.json({ success: true })
 
-  } catch (error) {
-    slackLogger.error({ error }, 'Slack connection delete API error')
-    return NextResponse.json({ error: 'Server error' }, { status: 500 })
+  } catch (error: any) {
+    // 認証エラーの場合は401を返す
+    if (error.message && error.message.includes('Authentication')) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    const statusCode = error.statusCode || 500
+    const message = error.message || 'Server error'
+    return NextResponse.json({ error: message }, { status: statusCode })
   }
 }
