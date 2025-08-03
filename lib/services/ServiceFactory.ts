@@ -11,6 +11,7 @@ import { NotificationSettingsRepository } from '@/lib/repositories/NotificationS
 import { SlackService } from '@/lib/services/SlackService'
 import { SlackConnectionService } from '@/lib/services/SlackConnectionService'
 import { SlackAuthService } from '@/lib/services/SlackAuthService'
+import { SlackMessageService } from '@/lib/services/SlackMessageService'
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 
@@ -31,6 +32,7 @@ export function createServices() {
   const slackService = new SlackService(slackRepo, todoRepo)
   const slackConnectionService = new SlackConnectionService(slackRepo)
   const slackAuthService = new SlackAuthService(slackRepo)
+  const slackMessageService = new SlackMessageService(slackRepo)
   const emojiSettingsService = new EmojiSettingsService(emojiSettingsRepo)
   const notificationSettingsService = new NotificationSettingsService(notificationSettingsRepo)
 
@@ -39,6 +41,7 @@ export function createServices() {
     slackService,
     slackConnectionService,
     slackAuthService,
+    slackMessageService,
     emojiSettingsService,
     notificationSettingsService,
 
