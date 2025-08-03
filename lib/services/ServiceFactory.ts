@@ -16,6 +16,7 @@ import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 import { TitleGenerationService } from '@/lib/services/TitleGenerationService'
 import { UrlDetectionService } from '@/lib/services/UrlDetectionService'
+import { SlackDisconnectionService } from '@/lib/services/SlackDisconnectionService'
 
 /**
  * サービス層のインスタンスを作成するファクトリー
@@ -39,6 +40,7 @@ export function createServices() {
   const notificationSettingsService = new NotificationSettingsService(notificationSettingsRepo)
   const titleGenerationService = new TitleGenerationService()
   const urlDetectionService = new UrlDetectionService()
+  const slackDisconnectionService = new SlackDisconnectionService()
 
   return {
     // Services
@@ -50,6 +52,7 @@ export function createServices() {
     notificationSettingsService,
     titleGenerationService,
     urlDetectionService,
+    slackDisconnectionService,
 
     // Repositories (必要に応じて直接アクセス)
     slackRepo,
@@ -99,4 +102,8 @@ export function createTitleGenerationService() {
 
 export function createUrlDetectionService() {
   return new UrlDetectionService()
+}
+
+export function createSlackDisconnectionService() {
+  return new SlackDisconnectionService()
 }
