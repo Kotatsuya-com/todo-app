@@ -7,8 +7,10 @@ import { SupabaseRepositoryContext } from '@/lib/repositories/BaseRepository'
 import { SlackRepository } from '@/lib/repositories/SlackRepository'
 import { TodoRepository } from '@/lib/repositories/TodoRepository'
 import { EmojiSettingsRepository } from '@/lib/repositories/EmojiSettingsRepository'
+import { NotificationSettingsRepository } from '@/lib/repositories/NotificationSettingsRepository'
 import { SlackService } from '@/lib/services/SlackService'
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
+import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 
 /**
  * サービス層のインスタンスを作成するファクトリー
@@ -21,20 +23,24 @@ export function createServices() {
   const slackRepo = new SlackRepository(context)
   const todoRepo = new TodoRepository(context)
   const emojiSettingsRepo = new EmojiSettingsRepository(context)
+  const notificationSettingsRepo = new NotificationSettingsRepository(context)
 
   // Service Layer
   const slackService = new SlackService(slackRepo, todoRepo)
   const emojiSettingsService = new EmojiSettingsService(emojiSettingsRepo)
+  const notificationSettingsService = new NotificationSettingsService(notificationSettingsRepo)
 
   return {
     // Services
     slackService,
     emojiSettingsService,
+    notificationSettingsService,
 
     // Repositories (必要に応じて直接アクセス)
     slackRepo,
     todoRepo,
-    emojiSettingsRepo
+    emojiSettingsRepo,
+    notificationSettingsRepo
   }
 }
 
@@ -52,4 +58,10 @@ export function createSlackService() {
   const slackRepo = new SlackRepository(context)
   const todoRepo = new TodoRepository(context)
   return new SlackService(slackRepo, todoRepo)
+}
+
+export function createNotificationSettingsService() {
+  const context = new SupabaseRepositoryContext()
+  const notificationSettingsRepo = new NotificationSettingsRepository(context)
+  return new NotificationSettingsService(notificationSettingsRepo)
 }
