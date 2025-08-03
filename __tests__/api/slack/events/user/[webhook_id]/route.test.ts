@@ -4,36 +4,48 @@
 
 import { POST } from '@/app/api/slack/events/user/[webhook_id]/route'
 import {
-  mockSupabaseSuccess,
-  mockSupabaseError,
-  mockSupabaseNotFound,
-  createSlackEventsSupabaseClient,
-  mockWebhookQuery,
-  mockUserWithSettingsQuery,
-  mockSlackConnectionQuery,
-  mockEventDuplicationQuery,
-  mockTodoCreationQuery,
-  mockEventRecordQuery,
   createSlackEventRequest,
 } from '@/__tests__/mocks/supabase-helpers'
 import {
-  mockSlackWebhook,
-  mockEmojiSettings,
-  mockSlackConnection,
   mockSlackReactionEvent,
   mockSlackEventPayload,
-  mockTodo,
   setupTestEnvironment,
   cleanupTestEnvironment,
 } from '@/__tests__/mocks'
+import {
+  MockSlackService,
+  webhookNotFoundResponse,
+  eventAlreadyProcessedResponse,
+  userMismatchResponse,
+  slackUserIdNotConfiguredResponse,
+  emojiNotConfiguredResponse,
+  eventQueuedResponse,
+} from '@/__tests__/mocks/services'
+
+// サービス層のモック
+const mockSlackService = new MockSlackService()
 
 // モック設定
-jest.mock('@/lib/supabase-server')
-jest.mock('@/lib/slack-message')
-jest.mock('@/lib/openai-title')
+jest.mock('@/lib/services/SlackService', () => ({
+  SlackService: jest.fn().mockImplementation(() => mockSlackService)
+}))
+
+jest.mock('@/lib/repositories/SlackRepository', () => ({
+  SlackRepository: jest.fn().mockImplementation(() => ({}))
+}))
+
+jest.mock('@/lib/repositories/TodoRepository', () => ({
+  TodoRepository: jest.fn().mockImplementation(() => ({}))
+}))
+
+jest.mock('@/lib/repositories/BaseRepository', () => ({
+  SupabaseRepositoryContext: jest.fn().mockImplementation(() => ({}))
+}))
+
 jest.mock('@/lib/slack-signature', () => ({
   verifySlackSignature: jest.fn().mockResolvedValue(true), // 署名検証を常にパスするようモック
 }))
+
 jest.mock('@/lib/logger', () => ({
   webhookLogger: {
     error: jest.fn(),
@@ -49,17 +61,8 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-const mockCreateServiceSupabaseClient = jest.fn()
-const mockGetSlackMessage = jest.fn()
-const mockGenerateTaskTitle = jest.fn()
-
-require('@/lib/supabase-server').createServiceSupabaseClient = mockCreateServiceSupabaseClient
-require('@/lib/slack-message').getSlackMessage = mockGetSlackMessage
-require('@/lib/openai-title').generateTaskTitle = mockGenerateTaskTitle
-
-describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプローチ', () => {
+describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach', () => {
   const webhookId = 'test-webhook-id'
-  let mockSupabaseClient: any
 
   beforeEach(() => {
     setupTestEnvironment()
@@ -68,11 +71,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
     // Slack署名検証用の環境変数設定
     process.env.SLACK_SIGNING_SECRET = 'test-signing-secret'
     
-    // 外部API呼び出しのデフォルトモック
-    mockGetSlackMessage.mockResolvedValue({
-      message: { text: 'Test Slack message', user: 'U1234567890', ts: '1234567890.123456' }
-    })
-    mockGenerateTaskTitle.mockResolvedValue('Generated Task Title')
+    // モックサービスをリセット
+    mockSlackService.setMockResults([])
   })
 
   afterEach(() => {
@@ -81,14 +81,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
 
   describe('Webhook検証と検証 - 失敗ケース修正', () => {
     it('非アクティブなWebhookの場合、404エラーを返す', async () => {
-      // 実際の実装：is_active: trueでクエリするため、非アクティブなWebhookは見つからない
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockSupabaseNotFound(),  // 2. アクティブWebhook検索 → 見つからない
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層でWebhook not foundを返すように設定
+      mockSlackService.setMockResults([webhookNotFoundResponse()])
 
       const request = createSlackEventRequest(mockSlackEventPayload, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })
@@ -99,13 +93,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
     })
 
     it('存在しないWebhookの場合、404エラーを返す', async () => {
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockSupabaseNotFound(),  // 2. Webhook検索 → 見つからない
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層でWebhook not foundを返すように設定
+      mockSlackService.setMockResults([webhookNotFoundResponse()])
 
       const request = createSlackEventRequest(mockSlackEventPayload, { 
         webhookId: 'nonexistent-webhook-id' 
@@ -120,11 +109,6 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
 
   describe('ユーザー検証 - 失敗ケース修正', () => {
     it('異なるユーザーからのリアクションを無視する（200で成功レスポンス）', async () => {
-      const userWithSettings = {
-        slack_user_id: 'U1234567890', // Webhook所有者のSlack User ID
-        enable_webhook_notifications: true,
-      }
-
       const differentUserEvent = {
         ...mockSlackEventPayload,
         event: {
@@ -133,17 +117,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
         },
       }
 
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-        mockUserWithSettingsQuery(userWithSettings, mockEmojiSettings), // 3. ユーザー+設定取得
-        mockSupabaseSuccess({ slack_user_id: 'U1234567890' }), // 4. 追加Slack User ID確認
-        mockSlackConnectionQuery(mockSlackConnection), // 5. Slack接続情報取得
-        // ユーザー検証で異なるユーザーのため、ここで処理終了
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層でユーザーミスマッチレスポンスを返すように設定
+      mockSlackService.setMockResults([userMismatchResponse()])
 
       const request = createSlackEventRequest(differentUserEvent, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })
@@ -154,21 +129,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
     })
 
     it('Slack User IDが設定されていない場合、400エラーを返す', async () => {
-      const userWithoutSlackId = {
-        slack_user_id: null, // Slack User IDが未設定
-        enable_webhook_notifications: true,
-      }
-
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-        mockUserWithSettingsQuery(userWithoutSlackId, mockEmojiSettings), // 3. ユーザー+設定取得
-        mockSupabaseSuccess({ slack_user_id: null }), // 4. 追加Slack User ID確認 → null
-        mockSlackConnectionQuery(mockSlackConnection), // 5. Slack接続情報取得
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層でSlack User ID未設定エラーを返すように設定
+      mockSlackService.setMockResults([slackUserIdNotConfiguredResponse()])
 
       const request = createSlackEventRequest(mockSlackEventPayload, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })
@@ -181,29 +143,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
 
   describe('イベント重複チェック - 失敗ケース修正', () => {
     it('重複イベントの場合、既存のTodo IDを返す（200で成功レスポンス）', async () => {
-      const userWithSettings = {
-        slack_user_id: 'U1234567890',
-        enable_webhook_notifications: true,
-      }
-
-      const existingEvent = {
-        id: 'existing-event-id',
-        todo_id: 'existing-todo-id',
-        processed_at: '2023-01-01T00:00:00Z',
-      }
-
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-        mockUserWithSettingsQuery(userWithSettings, mockEmojiSettings), // 3. ユーザー+設定取得
-        mockSupabaseSuccess({ slack_user_id: 'U1234567890' }), // 4. 追加Slack User ID確認
-        mockSlackConnectionQuery(mockSlackConnection), // 5. Slack接続情報取得
-        mockEventDuplicationQuery(existingEvent), // 6. 重複チェック → 既存イベント発見
-        // 重複のため、ここで処理終了
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層で重複イベントレスポンスを返すように設定
+      mockSlackService.setMockResults([eventAlreadyProcessedResponse('existing-todo-id')])
 
       const request = createSlackEventRequest(mockSlackEventPayload, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })
@@ -217,23 +158,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
 
   describe('正常な処理フロー', () => {
     it('新しいイベントを正常にキューに追加する', async () => {
-      const userWithSettings = {
-        slack_user_id: 'U1234567890',
-        enable_webhook_notifications: true,
-      }
-
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-        mockUserWithSettingsQuery(userWithSettings, mockEmojiSettings), // 3. ユーザー+設定取得
-        mockSupabaseSuccess({ slack_user_id: 'U1234567890' }), // 4. 追加Slack User ID確認
-        mockSlackConnectionQuery(mockSlackConnection), // 5. Slack接続情報取得
-        mockEventDuplicationQuery(null), // 6. 重複チェック → 新規イベント
-        // 実際の処理は非同期で行われるため、ここで終了
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層で正常処理レスポンスを返すように設定
+      mockSlackService.setMockResults([eventQueuedResponse()])
 
       const request = createSlackEventRequest(mockSlackEventPayload, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })
@@ -244,11 +170,6 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
     })
 
     it('設定されていない絵文字のリアクションを無視する', async () => {
-      const userWithSettings = {
-        slack_user_id: 'U1234567890',
-        enable_webhook_notifications: true,
-      }
-
       // 設定されていない絵文字のイベント
       const unconfiguredEmojiEvent = {
         ...mockSlackEventPayload,
@@ -258,18 +179,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
         },
       }
 
-      const queryResults = [
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-        mockUserWithSettingsQuery(userWithSettings, mockEmojiSettings), // 3. ユーザー+設定取得
-        mockSupabaseSuccess({ slack_user_id: 'U1234567890' }), // 4. 追加Slack User ID確認
-        mockSlackConnectionQuery(mockSlackConnection), // 5. Slack接続情報取得
-        mockEventDuplicationQuery(null), // 6. 重複チェック → 新規イベント
-        // 絵文字が設定されていないため、ここで処理終了
-      ]
-      
-      mockSupabaseClient = createSlackEventsSupabaseClient(queryResults)
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // サービス層で絵文字未設定レスポンスを返すように設定
+      mockSlackService.setMockResults([emojiNotConfiguredResponse()])
 
       const request = createSlackEventRequest(unconfiguredEmojiEvent, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })
@@ -282,14 +193,7 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
 
   describe('URL Verification', () => {
     it('JSONパースエラーの場合、400エラーを返す（有効なWebhookで）', async () => {
-      // 実装では Webhook検証 → JSON解析 の順序のため、有効なWebhookが必要
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-      ])
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
-
-      // 不正なJSONを送信（有効なWebhookで）
+      // 不正なJSONを送信（署名検証はパスする）
       const invalidRequest = {
         method: 'POST',
         url: `http://localhost:3000/api/slack/events/user/${webhookId}`,
@@ -307,19 +211,12 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - 結果ベースアプ�
       expect(data.error).toBe('Invalid JSON')
     })
 
-
     it('URL Verificationチャレンジに応答する', async () => {
       const challengePayload = {
         type: 'url_verification',
         challenge: 'test_challenge_string',
         token: 'verification_token',
       }
-
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess([]), // 1. デバッグ用全Webhook取得
-        mockWebhookQuery(mockSlackWebhook, true), // 2. アクティブWebhook取得
-      ])
-      mockCreateServiceSupabaseClient.mockReturnValue(mockSupabaseClient)
 
       const request = createSlackEventRequest(challengePayload, { webhookId })
       const response = await POST(request as any, { params: { webhook_id: webhookId } })

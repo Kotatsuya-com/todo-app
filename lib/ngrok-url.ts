@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { NextRequest } from 'next/server'
 import { apiLogger } from './logger'
 
 /**
@@ -37,7 +38,7 @@ export function getNgrokUrl(): string | null {
 /**
  * アプリケーションのベースURLを取得（開発/本番環境対応）
  */
-export function getAppBaseUrl(request?: Request): string {
+export function getAppBaseUrl(request?: NextRequest): string {
   // 開発環境: ngrok URLがあれば使用
   const ngrokUrl = getNgrokUrl()
   if (ngrokUrl) {

@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceSupabaseClient } from '@/lib/supabase-server'
-import { getSlackMessage } from '@/lib/slack-message'
-import { generateTaskTitle } from '@/lib/openai-title'
-import { SlackEventPayload, SlackReactionEvent } from '@/types'
+import { SlackEventPayload } from '@/types'
 import { webhookLogger } from '@/lib/logger'
 import { verifySlackSignature } from '@/lib/slack-signature'
-
-// デフォルト絵文字設定（ユーザー設定がない場合のフォールバック）
-const DEFAULT_EMOJI_SETTINGS = {
-  today_emoji: 'fire',
-  tomorrow_emoji: 'calendar',
-  later_emoji: 'memo'
-}
+import { SlackService } from '@/lib/services/SlackService'
+import { SlackRepository } from '@/lib/repositories/SlackRepository'
+import { TodoRepository } from '@/lib/repositories/TodoRepository'
+import { SupabaseRepositoryContext } from '@/lib/repositories/BaseRepository'
 
 interface RouteParams {
   params: {
@@ -19,6 +13,15 @@ interface RouteParams {
   }
 }
 
+// サービス層のインスタンス作成
+const createServices = () => {
+  const context = new SupabaseRepositoryContext()
+  const slackRepo = new SlackRepository(context)
+  const todoRepo = new TodoRepository(context)
+  const slackService = new SlackService(slackRepo, todoRepo)
+
+  return { slackService }
+}
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -26,86 +29,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.text()
     const logger = webhookLogger.child({ webhookId: webhook_id })
     logger.info({ bodyPreview: body.substring(0, 200) }, 'Webhook event received')
-
-    // webhook設定を取得 - service_roleキーを使用してRLSをバイパス
-    const supabase = createServiceSupabaseClient()
-    logger.debug({ webhookId: webhook_id }, 'Looking for webhook in database')
-
-    // まず全てのwebhookを確認
-    const { data: allWebhooks } = await supabase
-      .from('user_slack_webhooks')
-      .select('webhook_id, is_active, user_id')
-
-    logger.debug({ webhookCount: allWebhooks?.length || 0 }, 'All webhooks in database')
-
-    // webhookの基本情報を取得
-    const { data: webhook, error: webhookError } = await supabase
-      .from('user_slack_webhooks')
-      .select('id, user_id, webhook_secret, is_active, event_count, slack_connection_id')
-      .eq('webhook_id', webhook_id)
-      .eq('is_active', true)
-      .single()
-
-    if (webhookError || !webhook) {
-      logger.error({ error: webhookError?.message }, 'Webhook not found or inactive')
-      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 })
-    }
-
-    // ユーザー情報と絵文字設定を取得（強制的に最新データを取得）
-    logger.debug({
-      webhookUserId: webhook.user_id,
-      action: 'fetching_user_data'
-    }, 'Fetching user data and emoji settings')
-
-    const { data: userWithSettings, error: userFetchError } = await supabase
-      .from('users')
-      .select(`
-        slack_user_id,
-        enable_webhook_notifications,
-        user_emoji_settings (
-          today_emoji,
-          tomorrow_emoji,
-          later_emoji
-        )
-      `)
-      .eq('id', webhook.user_id)
-      .single()
-
-    if (userFetchError) {
-      logger.error({
-        error: userFetchError,
-        webhookUserId: webhook.user_id
-      }, 'Failed to fetch user data')
-    }
-
-    // 追加で直接ユーザーテーブルからSlack User IDだけを取得して確認
-    const { data: userSlackIdData, error: slackIdError } = await supabase
-      .from('users')
-      .select('slack_user_id')
-      .eq('id', webhook.user_id)
-      .single()
-
-    logger.debug({
-      webhookUserId: webhook.user_id,
-      userWithSettingsSlackId: userWithSettings?.slack_user_id,
-      directQuerySlackId: userSlackIdData?.slack_user_id,
-      userFetchError: userFetchError?.message,
-      slackIdError: slackIdError?.message
-    }, 'User Slack ID lookup results comparison')
-
-    // Slack接続情報を取得
-    const { data: slackConnection } = await supabase
-      .from('slack_connections')
-      .select('access_token, workspace_id, workspace_name')
-      .eq('id', webhook.slack_connection_id)
-      .single()
-
-    logger.debug({
-      webhookFound: true,
-      userId: webhook.user_id,
-      userSlackId: userWithSettings?.slack_user_id,
-      hasSlackConnection: !!slackConnection
-    }, 'Webhook and related data query result')
 
     let payload: SlackEventPayload
     try {
@@ -122,374 +45,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 署名検証（セキュリティ）
-    const isValidSignature = await verifySlackSignature(
-      request,
-      body
-    )
+    const isValidSignature = await verifySlackSignature(request, body)
 
     if (!isValidSignature) {
       logger.error('Invalid Slack signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    // イベント処理
-    if (payload.type === 'event_callback' && payload.event.type === 'reaction_added') {
-      const event = payload.event
+    // サービス層でイベント処理
+    const { slackService } = createServices()
+    const result = await slackService.processWebhookEvent(webhook_id, payload)
 
-      logger.info({
-        reaction: event.reaction,
-        user: event.user,
-        channel: event.item.channel,
-        ts: event.item.ts
-      }, 'Processing reaction_added event')
-
-      // ユーザー検証：リアクションしたユーザーが連携を行ったユーザー本人かチェック
-      // 複数ソースからSlack User IDを取得
-      const userSlackId = userWithSettings?.slack_user_id || userSlackIdData?.slack_user_id
-
-      logger.info({
-        webhookUserId: webhook.user_id,
-        reactionUser: event.user,
-        configuredSlackUserId: userSlackId,
-        hasUserWithSettings: !!userWithSettings,
-        hasDirectQuery: !!userSlackIdData,
-        dataSourceUsed: userWithSettings?.slack_user_id ? 'userWithSettings' : 'directQuery'
-      }, 'User verification data for reaction')
-
-      if (!userSlackId) {
-        logger.warn({
-          webhookUserId: webhook.user_id,
-          reactionUser: event.user,
-          userFetchError: userFetchError?.message,
-          slackIdError: slackIdError?.message,
-          userWithSettings: !!userWithSettings,
-          userSlackIdData: !!userSlackIdData
-        }, 'User has not configured Slack User ID - cannot verify reaction ownership')
-        return NextResponse.json({
-          error: 'Slack User ID not configured. Please set your Slack User ID in the settings.'
-        }, { status: 400 })
-      }
-
-      if (event.user !== userSlackId) {
-        logger.debug({
-          webhookUserId: webhook.user_id,
-          expectedSlackUser: userSlackId,
-          actualReactionUser: event.user,
-          userMismatch: true
-        }, 'Reaction from different user - ignoring (not the webhook owner)')
-        return NextResponse.json({
-          message: 'Reaction ignored - only the webhook owner can create tasks'
-        })
-      }
-
-      logger.debug({
-        verifiedUser: event.user,
-        webhookUserId: webhook.user_id
-      }, 'User verification successful')
-
-      // イベント重複チェック
-      const eventKey = `${event.item.channel}:${event.item.ts}:${event.reaction}:${event.user}`
-      logger.debug({
-        eventKey,
-        channel: event.item.channel,
-        messageTs: event.item.ts,
-        reaction: event.reaction,
-        user: event.user
-      }, 'Checking for duplicate event')
-
-      const { data: existingEvent } = await supabase
-        .from('slack_event_processed')
-        .select('id, todo_id, processed_at')
-        .eq('event_key', eventKey)
-        .single()
-
-      if (existingEvent) {
-        logger.info({
-          eventKey,
-          existingTodoId: existingEvent.todo_id,
-          processedAt: existingEvent.processed_at,
-          duplicateDetected: true
-        }, 'Duplicate event detected - skipping processing')
-
-        return NextResponse.json({
-          message: 'Event already processed',
-          existingTodoId: existingEvent.todo_id
-        })
-      }
-
-      logger.debug({ eventKey }, 'Event is new - proceeding with processing')
-
-      // ユーザーの絵文字設定を取得（設定が存在しない場合はデフォルト値を使用）
-      let userEmojiSettings = DEFAULT_EMOJI_SETTINGS
-
-      if (userWithSettings?.user_emoji_settings && Array.isArray(userWithSettings.user_emoji_settings) && userWithSettings.user_emoji_settings.length > 0) {
-        userEmojiSettings = userWithSettings.user_emoji_settings[0]
-      } else if (userWithSettings?.user_emoji_settings && !Array.isArray(userWithSettings.user_emoji_settings)) {
-        userEmojiSettings = userWithSettings.user_emoji_settings
-      }
-
-      const taskEmojis = [
-        userEmojiSettings.today_emoji,
-        userEmojiSettings.tomorrow_emoji,
-        userEmojiSettings.later_emoji
-      ]
-
-      logger.debug({
-        userEmojiSettings,
-        taskEmojis,
-        reaction: event.reaction
-      }, 'Using emoji settings for task creation')
-
-      // 対象絵文字かチェック
-      if (!taskEmojis.includes(event.reaction)) {
-        logger.debug({
-          reaction: event.reaction,
-          configuredEmojis: taskEmojis
-        }, 'Ignoring non-configured emoji')
-        return NextResponse.json({ message: 'Emoji not configured for task creation' })
-      }
-
-      // 非同期でタスク処理を実行（Slackへの高速レスポンスのため）
-      processReactionEvent(event, webhook, userEmojiSettings, slackConnection, eventKey, userWithSettings?.enable_webhook_notifications ?? true)
-        .then((todoId) => {
-          if (todoId) {
-            webhookLogger.info({
-              eventKey,
-              todoId,
-              webhook_id: webhook.id
-            }, 'Background task processing completed')
-          }
-        })
-        .catch((error) => {
-          webhookLogger.error({
-            error,
-            eventKey,
-            webhook_id: webhook.id
-          }, 'Background task processing failed')
-        })
-
-      // 即座にSlackにレスポンスを返す（3秒制限内）
-      logger.info({
-        eventKey,
-        backgroundProcessing: true
-      }, 'Event queued for background processing')
+    if (!result.success) {
+      logger.error({ error: result.error }, 'Webhook processing failed')
+      return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
     }
 
-    // イベント統計更新（非同期で実行しつつエラーはログのみ）
-    supabase
-      .from('user_slack_webhooks')
-      .update({
-        last_event_at: new Date().toISOString(),
-        event_count: webhook.event_count + 1
-      })
-      .eq('id', webhook.id)
-      .then(({ error }) => {
-        if (error) {
-          webhookLogger.warn({ error, webhook_id: webhook.id }, 'Failed to update webhook stats')
-        } else {
-          webhookLogger.debug({ webhook_id: webhook.id }, 'Webhook stats updated')
-        }
-      })
-
-    return NextResponse.json({ message: 'Event received and queued for processing' })
+    logger.info({ result: result.data }, 'Webhook processing completed')
+    return NextResponse.json(result.data)
 
   } catch (error) {
     webhookLogger.error({ error }, 'Slack event processing error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-async function processReactionEvent(
-  event: SlackReactionEvent,
-  webhook: any,
-  emojiSettings: any,
-  slackConnection: any,
-  eventKey: string,
-  notificationsEnabled: boolean = true
-): Promise<string | null> {
-  try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
-    // Slack接続からアクセストークンを取得
-    if (!slackConnection) {
-      webhookLogger.error({ webhookId: webhook.id }, 'No Slack connection found for webhook')
-      return null
-    }
-    const slackToken = slackConnection.access_token
-
-    const logger = webhookLogger.child({
-      userId: webhook.user_id,
-      channel: event.item.channel,
-      messageTs: event.item.ts
-    })
-    logger.debug('Fetching Slack message')
-
-    // メッセージ内容を取得
-    const messageData = await getSlackMessage(event.item.channel, event.item.ts, slackToken)
-
-    if (!messageData) {
-      logger.warn('No message data found for reaction')
-      return null
-    }
-
-    if (!messageData.text) {
-      logger.warn({ messageUser: messageData.user }, 'Message found but no text content')
-      return null
-    }
-
-    logger.debug('Message content retrieved successfully')
-
-    // タイトルを自動生成
-    let title: string
-    try {
-      title = await generateTaskTitle(messageData.text)
-      logger.debug({ title }, 'Generated title from AI')
-    } catch (titleError) {
-      title = `Slack reaction: ${event.reaction}`
-      logger.warn({ error: titleError, fallbackTitle: title }, 'Title generation failed, using fallback')
-    }
-
-    // 緊急度を絵文字から決定
-    let urgency: 'today' | 'tomorrow' | 'later' = 'later'
-    if (event.reaction === emojiSettings.today_emoji) {
-      urgency = 'today'
-    } else if (event.reaction === emojiSettings.tomorrow_emoji) {
-      urgency = 'tomorrow'
-    } else if (event.reaction === emojiSettings.later_emoji) {
-      urgency = 'later'
-    }
-    // 期限を設定
-    let deadline: string | null = null
-    const today = new Date()
-    if (urgency === 'today') {
-      deadline = today.toISOString().split('T')[0]
-    } else if (urgency === 'tomorrow') {
-      const tomorrow = new Date(today)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      deadline = tomorrow.toISOString().split('T')[0]
-    }
-
-    // 初期重要度スコアを設定（READMEの仕様に基づく）
-    let importance_score = 0.5
-    if (deadline) {
-      const deadlineDate = new Date(deadline)
-      const todayDate = new Date(today.toISOString().split('T')[0])
-
-      if (deadlineDate < todayDate) {
-        // 期限切れ
-        importance_score = 0.7
-      } else if (deadlineDate.getTime() === todayDate.getTime()) {
-        // 今日期限
-        importance_score = 0.6
-      } else {
-        // その他（0.3-0.7のランダム値）
-        importance_score = 0.3 + Math.random() * 0.4
-      }
-    }
-
-    // タスクを作成 - データベース関数を使用してリアルタイム通知に対応
-    const { data: newTodoArray, error: createError } = await supabase
-      .rpc('insert_todo_for_user', {
-        p_user_id: webhook.user_id,
-        p_title: title,
-        p_body: messageData.text,
-        p_deadline: deadline,
-        p_importance_score: importance_score,
-        p_status: 'open',
-        p_created_via: 'slack_webhook'
-      })
-
-    if (createError) {
-      logger.error({ error: createError, errorDetails: JSON.stringify(createError, null, 2) }, 'Failed to create todo via function, trying fallback')
-      // フォールバック: 従来の方法を使用
-      const { data: newTodo, error: fallbackError } = await supabase
-        .from('todos')
-        .insert({
-          user_id: webhook.user_id,
-          title,
-          body: messageData.text,
-          deadline,
-          status: 'open',
-          importance_score,
-          created_via: 'slack_webhook'
-        })
-        .select()
-        .single()
-
-      if (fallbackError) {
-        logger.error({ error: fallbackError }, 'Failed to create todo (fallback method)')
-        return null
-      }
-
-      logger.warn('Used fallback todo creation method - realtime notifications may not work')
-      return newTodo
-    }
-
-    // 関数は配列を返すので最初の要素を取得
-    const newTodo = Array.isArray(newTodoArray) ? newTodoArray[0] : newTodoArray
-
-    if (!newTodo) {
-      logger.error('Todo creation returned no data')
-      return null
-    }
-
-    logger.info({
-      todoId: newTodo.id,
-      title: newTodo.title,
-      deadline: newTodo.deadline,
-      importanceScore: newTodo.importance_score,
-      notificationsEnabled,
-      creationMethod: 'database_function',
-      createdVia: newTodo.created_via
-    }, 'Task created successfully via webhook using database function')
-
-    // 通知有効化の場合、リアルタイム通知の準備情報をログ出力
-    if (notificationsEnabled) {
-      logger.debug({
-        todoId: newTodo.id,
-        userId: webhook.user_id,
-        action: 'notification_ready'
-      }, 'Task ready for real-time notification')
-    }
-
-    // イベント処理完了を記録（重複防止用）
-    const { error: recordError } = await supabase
-      .from('slack_event_processed')
-      .insert({
-        event_key: eventKey,
-        user_id: webhook.user_id,
-        channel_id: event.item.channel,
-        message_ts: event.item.ts,
-        reaction: event.reaction,
-        todo_id: newTodo.id
-      })
-
-    if (recordError) {
-      logger.warn({
-        error: recordError,
-        eventKey,
-        todoId: newTodo.id
-      }, 'Failed to record processed event - may allow duplicates')
-    } else {
-      logger.debug({
-        eventKey,
-        todoId: newTodo.id
-      }, 'Event processing recorded successfully')
-    }
-
-    return newTodo.id
-
-  } catch (error) {
-    webhookLogger.error({ error }, 'Error processing reaction event')
-    throw error
   }
 }
 

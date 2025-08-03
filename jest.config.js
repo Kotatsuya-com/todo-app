@@ -20,10 +20,20 @@ const customJestConfig = {
   
   // Test file patterns
   testMatch: [
-    '**/__tests__/**/!(mocks)/*.(js|jsx|ts|tsx)',
+    '**/__tests__/**/!(mocks|fixtures|helpers)/*.(js|jsx|ts|tsx)',
     '**/__tests__/**/*.test.(js|jsx|ts|tsx)',
     '**/__tests__/**/*.spec.(js|jsx|ts|tsx)',
     '**/*.(test|spec).(js|jsx|ts|tsx)'
+  ],
+  
+  // Ignore helper and fixture files
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/__tests__/fixtures/',
+    '/__tests__/helpers/',
+    '/__tests__/mocks/',
+    '\\.fixture\\.(ts|js)$',
+    '\\.helper\\.(ts|js)$'
   ],
   
   // Coverage configuration
@@ -39,6 +49,11 @@ const customJestConfig = {
       tsconfig: 'tsconfig.json',
     }],
   },
+  
+  // Transform ESM modules
+  transformIgnorePatterns: [
+    'node_modules/(?!(isows|@supabase)/)',
+  ],
   
   // Module file extensions
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
