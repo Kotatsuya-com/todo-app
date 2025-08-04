@@ -68,7 +68,10 @@ export class SlackDisconnectionService {
       // 2. ユーザーのSlack接続を取得
       const connectionsResult = await this.fetchUserConnections(request, userId)
       if (!connectionsResult.success) {
-        return connectionsResult
+        return {
+          success: false,
+          error: connectionsResult.error
+        }
       }
 
       const connections = connectionsResult.data!
@@ -114,13 +117,19 @@ export class SlackDisconnectionService {
       // 5. 切断処理の実行
       const disconnectionResult = await this.executeDisconnection(request, summary, userId)
       if (!disconnectionResult.success) {
-        return disconnectionResult
+        return {
+          success: false,
+          error: disconnectionResult.error
+        }
       }
 
       // 6. 切断確認の検証
       const verificationResult = await this.verifyDisconnection(request, userId)
       if (!verificationResult.success) {
-        return verificationResult
+        return {
+          success: false,
+          error: verificationResult.error
+        }
       }
 
       const verification = verificationResult.data!
@@ -377,24 +386,16 @@ export class SlackDisconnectionService {
     databaseConnected: boolean
     serviceInfo: any
   }>> {
-    try {
-      // 基本的なサービス状態チェック
-      return {
-        success: true,
-        data: {
-          status: 'healthy',
-          databaseConnected: true, // 実際のDBチェックは省略
-          serviceInfo: {
-            serviceName: 'SlackDisconnectionService',
-            supportedOperations: ['disconnect', 'verify', 'authenticate']
-          }
+    // 基本的なサービス状態チェック
+    return {
+      success: true,
+      data: {
+        status: 'healthy',
+        databaseConnected: true, // 実際のDBチェックは省略
+        serviceInfo: {
+          serviceName: 'SlackDisconnectionService',
+          supportedOperations: ['disconnect', 'verify', 'authenticate']
         }
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        error: 'Service unavailable',
-        statusCode: 503
       }
     }
   }

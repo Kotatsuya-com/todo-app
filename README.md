@@ -30,12 +30,23 @@ Next.js + Supabase + OpenAI APIを使用した革新的なタスク管理アプ�
 
 このプロジェクトは**Clean Architecture**パターンを採用し、保守性・テスタビリティ・再利用性を重視した設計になっています。
 
+**🎉 2025年8月: フロントエンドClean Architecture移行完了**
+
 ```
+# バックエンド（Clean Architecture - 完了）
 app/api/               # Presentation Layer (HTTP handlers)
 lib/services/          # Application Layer (use cases & business logic)
 lib/repositories/      # Infrastructure Layer (data access)
 lib/entities/          # Domain Layer (business objects & rules)
-components/            # UI Layer (view components)
+
+# フロントエンド（Clean Architecture - 完了）
+src/
+├── domain/            # ドメイン層（エンティティ、ユースケース、リポジトリ抽象）
+├── infrastructure/    # インフラ層（リポジトリ実装、DI）
+└── presentation/      # プレゼンテーション層（フック、ページ、プロバイダー）
+
+# UIコンポーネント
+components/            # 再利用可能UIコンポーネント
 ```
 
 ## 🚀 クイックスタート
@@ -121,7 +132,7 @@ npm run seed:dev         # 開発用シードデータ投入
 |---------|------|
 | フロントエンド | Next.js 14 (App Router), TypeScript, Tailwind CSS, Radix UI |
 | バックエンド | Supabase (PostgreSQL, Auth, Realtime) |
-| 状態管理 | Zustand |
+| 状態管理 | Clean Architecture Hooks (Zustand移行完了) |
 | 認証 | @supabase/ssr |
 | ホスティング | Vercel |
 | 外部API | OpenAI API, Slack Web API |
@@ -129,12 +140,19 @@ npm run seed:dev         # 開発用シードデータ投入
 
 ## 🤝 開発ルール
 
-このプロジェクトは**Clean Architecture**を採用しています。新規開発時は以下のルールに従ってください：
+このプロジェクトは**Clean Architecture**を採用し、**フロントエンド・バックエンド共に移行完了**しています：
 
+### バックエンド（完了）
 1. ✅ **必ずClean Architecture構造で実装**
 2. ✅ **ビジネスロジックはService層に集約**
 3. ✅ **データアクセスはRepository層で抽象化**
 4. ✅ **APIはHTTP処理のみに専念**
+
+### フロントエンド（完了）
+1. ✅ **ドメイン層**: エンティティとユースケースでビジネスロジック実装
+2. ✅ **インフラ層**: Supabaseリポジトリ実装と依存性注入
+3. ✅ **プレゼンテーション層**: カスタムフックでUI論理分離
+4. ✅ **TypeScript厳格**: 完全な型安全性を実現
 
 詳細は [開発ガイド](./docs/development/DEVELOPMENT.md) を参照してください。
 
@@ -149,6 +167,12 @@ npm run seed:dev         # 開発用シードデータ投入
 詳細は [セキュリティガイド](./docs/development/SECURITY.md) を参照してください。
 
 ## 📊 最近の主要アップデート
+
+### 2025年8月
+- 🏗️ **フロントエンドClean Architecture完全移行** - 全フロントエンドコンポーネントの移行完了
+- 🎯 **カスタムフック実装** - useAuth、useTodoForm、useSettings等の完全実装
+- 🔧 **TypeScript厳格化** - 完全な型安全性とビルドエラー0件達成
+- ⚡ **保守性向上** - ドメイン・インフラ・プレゼンテーション層の完全分離
 
 ### 2025年1月
 - 🔔 **リアルタイムWebhook通知システム** - Slackリアクション作成時の即座通知

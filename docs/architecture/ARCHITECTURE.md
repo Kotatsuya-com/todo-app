@@ -4,17 +4,30 @@
 
 このプロジェクトは**Clean Architecture**パターンを採用し、ビジネスロジックとインフラストラクチャを分離することで、保守性・テスタビリティ・再利用性を向上させています。
 
+**🎉 2025年8月: フロントエンド・バックエンド完全移行完了**
+
 ## 📐 アーキテクチャ構造
 
 ```
+# バックエンドClean Architecture（完了）
 app/api/               # Presentation Layer (HTTP handlers)
 lib/services/          # Application Layer (use cases & business logic)
 lib/repositories/      # Infrastructure Layer (data access)
 lib/entities/          # Domain Layer (business objects & rules)
+
+# フロントエンドClean Architecture（完了）
+src/
+├── domain/            # Domain Layer (entities, use cases, abstractions)
+├── infrastructure/    # Infrastructure Layer (repositories, DI)
+└── presentation/      # Presentation Layer (hooks, pages, providers)
+
+# UIコンポーネント
 components/            # UI Layer (view components)
 ```
 
-### 🏛️ Domain Layer (`lib/entities/`)
+### 🏛️ Domain Layer
+
+#### バックエンド (`lib/entities/`)
 
 **責務**: ビジネスルールとドメインロジック
 
@@ -28,11 +41,21 @@ components/            # UI Layer (view components)
 - `SlackConnectionEntity`: Slack接続の管理
 - `SlackWebhookEntity`: Webhookの状態変更
 
+#### フロントエンド (`src/domain/`)
+
+**責務**: フロントエンドビジネスロジックとドメインルール
+
+**構造**:
+- `entities/`: ドメインエンティティ（Todo.ts, User.ts）
+- `repositories/`: リポジトリ抽象インターフェース
+- `use-cases/`: ビジネスユースケース（TodoUseCases.ts, AuthUseCases.ts）
+
 **実装例**:
 ```typescript
+// src/domain/entities/Todo.ts
 export class TodoEntity {
-  constructor(private todo: Todo) {}
-
+  constructor(private todo: TodoData) {}
+  
   getQuadrant(): TodoQuadrant {
     const urgent = this.isUrgent()
     const important = this.isImportant()
@@ -42,19 +65,22 @@ export class TodoEntity {
     if (urgent && !important) return 'urgent_not_important'
     return 'not_urgent_not_important'
   }
+}
 
-  isUrgent(): boolean {
-    if (!this.todo.deadline) return false
-    return new Date(this.todo.deadline) <= new Date()
-  }
-
-  isImportant(): boolean {
-    return this.todo.importance_score >= 0.4
+// src/domain/use-cases/TodoUseCases.ts
+export class TodoUseCases {
+  constructor(private todoRepo: TodoRepositoryInterface) {}
+  
+  async createTodo(params: CreateTodoParams): Promise<UseCaseResult<TodoEntity>> {
+    // ビジネスロジック実装
   }
 }
 ```
 
-### 📊 Infrastructure Layer (`lib/repositories/`)
+
+### 📊 Infrastructure Layer
+
+#### バックエンド (`lib/repositories/`)
 
 **責務**: データアクセスの抽象化
 
@@ -68,24 +94,44 @@ export class TodoEntity {
 - `SlackRepository`: Slack関連データアクセス
 - `EmojiSettingsRepository`: 絵文字設定データアクセス
 
+#### フロントエンド (`src/infrastructure/`)
+
+**責務**: データアクセス実装と依存性管理
+
+**構造**:
+- `repositories/`: Supabaseリポジトリ実装（SupabaseTodoRepository.ts等）
+- `di/`: 依存性注入ファクトリー（ServiceFactory.ts）
+
 **実装例**:
 ```typescript
-export class SlackRepository implements SlackRepositoryInterface {
-  constructor(private client: SupabaseClient) {}
-
-  async findWebhookById(webhookId: string): Promise<RepositoryResult<SlackWebhook>> {
-    const result = await this.client
-      .from('user_slack_webhooks')
+// src/infrastructure/repositories/SupabaseTodoRepository.ts
+export class SupabaseTodoRepository implements TodoRepositoryInterface {
+  constructor(private supabase: SupabaseClient) {}
+  
+  async findById(id: string): Promise<RepositoryResult<TodoEntity>> {
+    const { data, error } = await this.supabase
+      .from('todos')
       .select('*')
-      .eq('webhook_id', webhookId)
+      .eq('id', id)
       .single()
     
-    return RepositoryUtils.handleSupabaseResult(result)
+    if (error) return { success: false, error: error.message }
+    return { success: true, data: new TodoEntity(data) }
   }
+}
+
+// src/infrastructure/di/ServiceFactory.ts
+export const createTodoUseCases = (): TodoUseCases => {
+  const supabase = createClient()
+  const todoRepo = new SupabaseTodoRepository(supabase)
+  return new TodoUseCases(todoRepo)
 }
 ```
 
-### ⚙️ Application Layer (`lib/services/`)
+
+### ⚙️ Application Layer
+
+#### バックエンド (`lib/services/`)
 
 **責務**: ビジネスユースケースの実装
 
@@ -99,31 +145,20 @@ export class SlackRepository implements SlackRepositoryInterface {
 - `EmojiSettingsService`: 絵文字設定管理
 - `ServiceFactory`: 依存性注入とサービス生成
 
-**実装例**:
-```typescript
-export class SlackService {
-  constructor(
-    private slackRepo: SlackRepositoryInterface,
-    private todoRepo: TodoRepositoryInterface
-  ) {}
+#### フロントエンド
 
-  async processWebhookEvent(
-    webhookId: string,
-    payload: SlackEventPayload
-  ): Promise<SlackServiceResult<WebhookProcessingResult>> {
-    // Webhook検証
-    const webhookResult = await this.slackRepo.findWebhookById(webhookId)
-    if (!webhookResult.success) {
-      return { success: false, error: 'Webhook not found', statusCode: 404 }
-    }
+**フロントエンドはApplication Layerを実装していません。**
 
-    // ビジネスロジック実行
-    // ...
-  }
-}
-```
+フロントエンドのビジネスロジックは以下に分散されます：
+- **Domain Layer**: Use Cases（TodoUseCases.ts、AuthUseCases.ts）
+- **Presentation Layer**: カスタムフック（useAuth.ts、useTodoForm.ts等）
 
-### 🌐 Presentation Layer (`app/api/`)
+これにより、フロントエンドではシンプルで軽量なアーキテクチャを実現しています。
+
+
+### 🌐 Presentation Layer
+
+#### バックエンド (`app/api/`)
 
 **責務**: HTTP固有の処理のみ
 
@@ -132,27 +167,50 @@ export class SlackService {
 - HTTPステータスコードの管理
 - 認証・認可チェック
 
-**実装例**:
+#### フロントエンド (`src/presentation/`)
+
+**責務**: UI論理とユーザーインタラクション
+
+**構造**:
+- `hooks/`: カスタムフック（UI論理の分離）
+- `pages/`: ページコンポーネント（Clean Architecture準拠）
+- `providers/`: データプロバイダー
+
+**カスタムフック実装例**:
 ```typescript
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { slackService } = createServices()
-    const payload = await request.json()
-    
-    const result = await slackService.processWebhookEvent(
-      params.webhook_id,
-      payload
-    )
-    
-    return NextResponse.json(result.data, { status: result.statusCode })
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
+// src/presentation/hooks/useAuth.ts
+export const useAuth = (): UseAuthReturn => {
+  const authUseCases = createAuthUseCases()
+  const [user, setUser] = useState<UserEntity | null>(null)
+  
+  const login = useCallback(async (email: string, password: string) => {
+    const result = await authUseCases.login({ email, password })
+    if (result.success) {
+      setUser(result.data)
+    }
+    return result
+  }, [authUseCases])
+  
+  return { user, login, logout, loading, error }
+}
+
+// src/presentation/hooks/useTodoForm.ts
+export const useTodoForm = (): UseTodoFormReturn => {
+  const todoUseCases = createTodoUseCases()
+  const { user } = useAuth()
+  
+  const submitForm = useCallback(async () => {
+    const result = await todoUseCases.createTodo({
+      userId: user.id,
+      ...formData
+    })
+    return result.success
+  }, [todoUseCases, user, formData])
+  
+  return { formData, updateField, submitForm, loading, error }
 }
 ```
+
 
 ## 🔧 技術スタック
 
@@ -160,7 +218,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 |---------|------|------|
 | フロントエンド | Next.js 14（App Router, TypeScript） | React Server Components |
 | UI | Tailwind CSS + Radix UI | アクセシブルなデザインシステム |
-| 状態管理 | Zustand | 軽量で型安全な状態管理 |
+| 状態管理 | Clean Architecture Hooks | Zustand→カスタムフック完全移行 |
 | バックエンド | Supabase（PostgreSQL + Auth） | BaaS with RLS |
 | 認証 | @supabase/ssr | SSR対応の認証 |
 | ホスティング | Vercel | サーバーレス展開 |
@@ -171,47 +229,80 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 ### 依存性の方向
 
+#### バックエンド
 ```
 Domain ← Application ← Infrastructure
    ↑         ↑             ↑
    └─── Presentation ────────┘
 ```
 
-- **Domain Layer**: 他の層に依存しない
-- **Application Layer**: Domain Layerのみに依存
-- **Infrastructure Layer**: Domain + Application Layerに依存
+#### フロントエンド
+```
+Domain ← Infrastructure
+   ↑         ↑
+   └─── Presentation ──┘
+```
+
+**依存関係ルール**:
+- **Domain Layer**: 他の層に依存しない（バックエンド・フロントエンド共通）
+- **Infrastructure Layer**: Domain Layerのみに依存（フロントエンドはApplication Layer不要）
 - **Presentation Layer**: すべての層に依存可能
 
 ### 開発ルール
 
-#### 新規実装時の必須事項
+**🎉 2025年8月: Clean Architecture移行完了**
+
+#### バックエンド実装ルール（完了）
 
 1. ✅ **必ずClean Architecture構造で実装**
 2. ✅ **ビジネスロジックはService層に集約**
 3. ✅ **データアクセスはRepository層で抽象化**
 4. ✅ **APIはHTTP処理のみに専念**
 
-#### レガシーコード移行方針
+#### フロントエンド実装ルール（完了）
 
-- 既存のAPI（直接Supabase使用）は段階的にClean Architecture版に移行
-- 新機能は必ずClean Architecture版で実装
-- テストはService層とRepository層を中心に作成
+1. ✅ **ドメイン層**: エンティティとユースケースでビジネスロジック実装
+2. ✅ **インフラ層**: Supabaseリポジトリ実装と依存性注入
+3. ✅ **プレゼンテーション層**: カスタムフックでUI論理分離
+4. ✅ **完全移行**: 全コンポーネントがClean Architecture準拠
 
 ### ファイル構成ルール
 
 ```
-app/                   # Next.js App Router（ページとAPI）
-components/            # 再利用可能UIコンポーネント
-  ├── ui/             # 基本UIコンポーネント（Button, Modal等）
-  ├── layout/         # レイアウト関連（Navigation, Menu等）  
-  └── [feature]/      # 機能別コンポーネント（todo, auth等）
+# Next.js App Router（ページとAPI）
+app/                   
+├── api/               # バックエンドAPI（Clean Architecture完了）
+└── [pages]/           # ページルーティング
+
+# バックエンドClean Architecture（完了）
 lib/
-  ├── entities/       # 🆕 Domain Layer - ビジネスオブジェクト
-  ├── repositories/   # 🆕 Infrastructure Layer - データアクセス
-  ├── services/       # 🆕 Application Layer - ビジネスロジック
-  └── [utils]/        # ユーティリティと共通ロジック
-store/                 # Zustand状態管理（段階的にService層に移行）
-types/                 # TypeScript型定義
+├── entities/          # Domain Layer - ビジネスオブジェクト
+├── repositories/      # Infrastructure Layer - データアクセス
+├── services/          # Application Layer - ビジネスロジック
+└── [utils]/           # ユーティリティと共通ロジック
+
+# フロントエンドClean Architecture（完了）
+src/
+├── domain/            # ドメイン層
+│   ├── entities/      # エンティティ（Todo.ts, User.ts）
+│   ├── repositories/  # リポジトリ抽象（TodoRepositoryInterface.ts等）
+│   └── use-cases/     # ユースケース（TodoUseCases.ts, AuthUseCases.ts）
+├── infrastructure/    # インフラ層
+│   ├── di/            # 依存性注入（ServiceFactory.ts）
+│   └── repositories/  # リポジトリ実装（SupabaseTodoRepository.ts等）
+└── presentation/      # プレゼンテーション層
+    ├── hooks/         # カスタムフック（useAuth.ts, useTodoForm.ts等）
+    ├── pages/         # ページコンポーネント
+    └── providers/     # プロバイダー（AuthProvider.tsx）
+
+# UIコンポーネント
+components/            # 再利用可能UIコンポーネント
+├── ui/               # 基本UIコンポーネント（Button, Modal等）
+├── layout/           # レイアウト関連（Navigation, Menu等）  
+└── [feature]/        # 機能別コンポーネント（todo, auth等）
+
+# 型定義とユーティリティ
+types/                # TypeScript型定義
 ```
 
 ## 🔄 データフロー

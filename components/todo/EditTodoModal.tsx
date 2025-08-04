@@ -1,56 +1,45 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
-import { useTodoStore } from '@/store/todoStore'
+import { useTodoForm } from '@/src/presentation/hooks/useTodoForm'
+import { TodoEntity } from '@/src/domain/entities/Todo'
 import { Todo, Urgency } from '@/types'
-import { getDeadlineFromUrgency } from '@/lib/utils'
 import { TodoForm } from './TodoForm'
 
 interface EditTodoModalProps {
   isOpen: boolean
   onClose: () => void
   todo: Todo | null
+  onUpdate?: (_todoId: string, _updates: any) => Promise<void>
 }
 
-export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
-  const { updateTodo } = useTodoStore()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [initialValues, setInitialValues] = useState({
-    title: '',
-    body: '',
-    urgency: 'today' as Urgency,
-    deadline: ''
+export function EditTodoModal({ isOpen, onClose, todo, onUpdate }: EditTodoModalProps) {
+  // Clean Architecture: Use custom hook for form management
+  const { state, actions } = useTodoForm({
+    initialTodo: todo ? new TodoEntity({
+      id: todo.id,
+      user_id: todo.user_id,
+      title: todo.title || null,
+      body: todo.body,
+      deadline: todo.deadline || null,
+      importance_score: todo.importance_score,
+      status: todo.status === 'open' ? 'open' : 'completed',
+      created_at: todo.created_at,
+      updated_at: new Date().toISOString(),
+      created_via: todo.created_via || 'manual'
+    }) : null,
+    onSuccess: () => {
+      onClose()
+    }
   })
 
-  // todoが変更されたときに初期値を設定
+  // Initialize form when todo changes
   useEffect(() => {
     if (todo && isOpen) {
-      setInitialValues({
-        title: todo.title || '',
-        body: todo.body || '',
-        deadline: todo.deadline || '',
-        urgency: (() => {
-          // deadline から urgency を推定
-          if (todo.deadline) {
-            const today = new Date().toISOString().split('T')[0]
-            const tomorrow = new Date()
-            tomorrow.setDate(tomorrow.getDate() + 1)
-            const tomorrowStr = tomorrow.toISOString().split('T')[0]
-
-            if (todo.deadline === today) {
-              return 'today'
-            } else if (todo.deadline === tomorrowStr) {
-              return 'tomorrow'
-            } else {
-              return 'later'
-            }
-          } else {
-            return 'later'
-          }
-        })()
-      })
+      // Clean Architecture用のエンティティ作成は不要（useTodoFormで処理）
+      // resetFormも不要（initialTodoで初期化される）
     }
   }, [todo, isOpen])
 
@@ -63,30 +52,26 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
   }) => {
     if (!todo) {return}
 
-    setIsSubmitting(true)
-    try {
-      let finalBody = data.body
-      if (data.slackData) {
-        // Slackメッセージがある場合、本文とSlackメッセージを改行で結合
-        if (finalBody) {
-          finalBody = `${finalBody}\n\n${data.slackData.text}`
-        } else {
-          finalBody = data.slackData.text
-        }
-      }
-      await updateTodo(todo.id, {
-        body: finalBody,
-        title: data.title || undefined,
-        deadline: data.deadline || getDeadlineFromUrgency(data.urgency as any)
-      })
+    // フォームデータを更新
+    actions.updateField('title', data.title)
+    actions.updateField('body', data.body)
+    actions.updateField('deadline', data.deadline)
 
-      onClose()
-    } finally {
-      setIsSubmitting(false)
+    // Clean Architecture経由で更新
+    await actions.submitForm()
+
+    // レガシー互換性のため、onUpdateも呼び出す
+    if (onUpdate) {
+      await onUpdate(todo.id, {
+        title: data.title,
+        body: data.body,
+        deadline: data.deadline
+      })
     }
   }
 
   const handleClose = () => {
+    actions.resetForm()
     onClose()
   }
 
@@ -95,28 +80,29 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleClose}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-lg w-full max-w-md p-6 z-50 max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between mb-6">
-            <Dialog.Title className="text-lg font-semibold text-gray-900">
+        <Dialog.Overlay className="fixed inset-0 bg-black/30 animate-in fade-in" />
+        <Dialog.Content className="fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95">
+          <div className="flex items-center justify-between p-6 border-b">
+            <Dialog.Title className="text-xl font-semibold">
               タスクを編集
             </Dialog.Title>
-            <Dialog.Close className="text-gray-400 hover:text-gray-600">
+            <Dialog.Close className="rounded-full p-2 hover:bg-gray-100 transition-colors">
               <X className="w-5 h-5" />
             </Dialog.Close>
           </div>
 
-          <TodoForm
-            key={`${todo.id}-${isOpen}`} // todoが変更されたときにフォームをリセット
-            initialTitle={initialValues.title}
-            initialBody={initialValues.body}
-            initialUrgency={initialValues.urgency}
-            initialDeadline={initialValues.deadline}
-            onSubmit={handleSubmit}
-            onCancel={handleClose}
-            submitLabel="保存"
-            isSubmitting={isSubmitting}
-          />
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+            <TodoForm
+              initialTitle={state.formData.title}
+              initialBody={state.formData.body}
+              initialUrgency={state.formData.urgency === 'now' ? 'today' : state.formData.urgency as Urgency}
+              initialDeadline={state.formData.deadline}
+              onSubmit={handleSubmit}
+              onCancel={handleClose}
+              submitLabel="更新"
+              isSubmitting={state.loading}
+            />
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

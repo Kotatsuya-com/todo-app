@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X, Plus, ClipboardList, BarChart3, Scale, Settings, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { useTodoStore } from '@/store/todoStore'
+import { useAuth } from '@/src/presentation/hooks/useAuth'
 import { authLogger } from '@/lib/client-logger'
 
 interface MobileMenuProps {
@@ -17,7 +17,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, signOut } = useTodoStore()
+  const { user, signOut } = useAuth()
 
   const tabs = [
     { name: 'マトリクス', href: '/', icon: ClipboardList },
@@ -95,7 +95,7 @@ export function MobileMenu({ onCreateTask }: MobileMenuProps) {
           {/* ユーザー情報 */}
           <div className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 mb-4 border-b border-gray-100">
             <User className="w-4 h-4" />
-            <span>{user.display_name || 'ユーザー'}</span>
+            <span>{user.getDisplayName() || 'ユーザー'}</span>
           </div>
 
           {/* 新規タスク作成ボタン */}

@@ -9,12 +9,12 @@ import { CreateTodoModal } from '@/components/todo/CreateTodoModal'
 import { MobileMenu } from './MobileMenu'
 import { UserMenu } from './UserMenu'
 import { useState } from 'react'
-import { useTodoStore } from '@/store/todoStore'
+import { useAuth } from '@/src/presentation/hooks/useAuth'
 
 export function Navigation() {
   const pathname = usePathname()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const { user } = useTodoStore()
+  const { user } = useAuth()
 
   const tabs = [
     { name: 'マトリクス', href: '/', icon: ClipboardList },

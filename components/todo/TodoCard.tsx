@@ -1,69 +1,60 @@
 'use client'
 
 import { Todo } from '@/types'
+import { TodoEntity } from '@/src/domain/entities/Todo'
 import { Button } from '@/components/ui/Button'
 import { Check, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
-import { formatDeadline, isOverdue } from '@/lib/utils'
-import { useTodoStore } from '@/store/todoStore'
 import { useState } from 'react'
 import { uiLogger } from '@/lib/client-logger'
 
 interface TodoCardProps {
   todo: Todo
   onEdit?: () => void
+  onComplete?: (_todoId: string) => Promise<void>
+  onDelete?: (_todoId: string) => Promise<void>
+  onUpdate?: (_todoId: string, _updates: any) => Promise<void>
 }
 
-export function TodoCard({ todo, onEdit }: TodoCardProps) {
-  const { completeTodo, deleteTodo, updateTodo } = useTodoStore()
+export function TodoCard({ todo, onEdit, onComplete, onDelete, onUpdate }: TodoCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
-  const overdue = isOverdue(todo.deadline)
+  // TodoEntityを作成してビジネスロジックを使用
+  const todoEntity = new TodoEntity({
+    id: todo.id,
+    user_id: todo.user_id,
+    title: todo.title || null,
+    body: todo.body,
+    deadline: todo.deadline || null,
+    importance_score: todo.importance_score,
+    status: todo.status === 'open' ? 'open' : 'completed',
+    created_at: todo.created_at,
+    updated_at: new Date().toISOString(),
+    created_via: todo.created_via || 'manual'
+  })
 
-  // 表示用のタイトル/内容を決定
-  const getDisplayContent = () => {
-    if (todo.title && todo.title.trim()) {
-      return todo.title
-    }
-    // 見出しがない場合は本文の最初の20文字 + ...
-    const plainText = todo.body.replace(/<[^>]*>/g, '').trim()
-    if (plainText.length <= 20) {
-      return plainText
-    }
-    return plainText.substring(0, 20) + '...'
-  }
+  const overdue = todoEntity.isOverdue()
 
-  // 本文の処理（HTMLタグを除去）
-  const getPlainTextBody = () => {
-    return todo.body.replace(/<[^>]*>/g, '').trim()
-  }
-
-  // ホバー時に表示する本文（200文字まで）
-  const getHoverBodyText = () => {
-    const plainText = getPlainTextBody()
-    if (plainText.length <= 200) {
-      return plainText
-    }
-    return plainText.substring(0, 200) + '...'
-  }
-
-  // 全文表示用の本文
-  const getFullBodyText = () => {
-    return getPlainTextBody()
-  }
-
-  // 本文が200文字を超えるかどうか
-  const hasLongBody = getPlainTextBody().length > 200
+  // Entity メソッドを使用
+  const getDisplayContent = () => todoEntity.getDisplayTitle()
+  const getPlainTextBody = () => todoEntity.getPlainTextBody()
+  const getHoverBodyText = () => todoEntity.getTrimmedBody(200)
+  const getFullBodyText = () => todoEntity.getPlainTextBody()
+  const hasLongBody = todoEntity.getPlainTextBody().length > 200
 
   const handleComplete = async () => {
-    await completeTodo(todo.id)
+    if (onComplete) {
+      await onComplete(todo.id)
+    }
   }
 
   const handleDelete = async () => {
     if (window.confirm('このタスクを削除してもよろしいですか？')) {
       setIsDeleting(true)
       try {
-        await deleteTodo(todo.id)
+        if (onDelete) {
+          await onDelete(todo.id)
+        }
       } catch (error) {
         uiLogger.error({ error, todoId: todo.id }, 'Failed to delete todo')
         setIsDeleting(false)
@@ -74,7 +65,9 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
   const handleExtendDeadline = async () => {
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
-    await updateTodo(todo.id, { deadline: tomorrow.toISOString().split('T')[0] })
+    if (onUpdate) {
+      await onUpdate(todo.id, { deadline: tomorrow.toISOString().split('T')[0] })
+    }
   }
 
   const handleExpandToggle = (e: React.MouseEvent) => {
@@ -149,7 +142,7 @@ export function TodoCard({ todo, onEdit }: TodoCardProps) {
         {todo.deadline && (
           <span className={`inline-flex items-center gap-1 text-sm ${overdue ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
             <Calendar className="w-3 h-3" />
-            {formatDeadline(todo.deadline)}
+            {todoEntity.getFormattedDeadline()}
             {overdue && <AlertCircle className="w-3 h-3" />}
           </span>
         )}

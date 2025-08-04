@@ -4,35 +4,67 @@
 
 Clean Architectureパターンに基づいた効率的なテスト戦略を採用し、保守性とテスタビリティを重視したテスト実装を行います。
 
+**🎉 2025年8月: フロントエンド・バックエンド完全対応**
+
 ## 🎯 テスト対象の優先順位
 
-### 1. Service層（最重要）
+### バックエンドテスト
+
+#### 1. Service層（最重要）
 **ビジネスロジックの単体テスト**
 - 複雑なビジネスルールの検証
 - 外部API連携の動作確認
 - エラーハンドリングの検証
 
-### 2. Repository層
+#### 2. Repository層
 **データアクセスロジックのテスト**
 - CRUD操作の動作確認
 - エラーハンドリングの検証
 - データ変換の正確性
 
-### 3. Entity層
+#### 3. Entity層
 **ドメインロジックとバリデーションのテスト**
 - ビジネスルールの検証
 - 状態変更の正確性
 - バリデーション機能
 
-### 4. API層
+#### 4. API層
 **統合テスト（Service層モック使用）**
 - HTTPリクエスト・レスポンスの検証
 - 認証・認可の動作確認
 - エラーレスポンスの検証
 
+### フロントエンドテスト
+
+#### 1. Use Cases層（最重要）
+**ビジネスロジックの単体テスト**
+- ドメインユースケースの動作確認
+- Repository層との連携テスト
+- エラーハンドリングの検証
+
+#### 2. Repository層
+**データアクセス実装のテスト**
+- Supabaseクライアントとの連携
+- データ変換の正確性
+- エラーハンドリングの検証
+
+#### 3. Entity層
+**ドメインエンティティのテスト**
+- ビジネスルールの検証
+- データ変換の正確性
+- バリデーション機能
+
+#### 4. Presentation層（カスタムフック）
+**UI論理の統合テスト**
+- カスタムフックの動作確認
+- Use Cases層との連携テスト
+- 状態管理の検証
+
 ## 📝 テストパターン
 
-### Service層テスト例
+### バックエンドテスト例
+
+#### Service層テスト例
 
 ```typescript
 // __tests__/lib/services/SlackService.test.ts
@@ -96,7 +128,7 @@ describe('SlackService', () => {
 })
 ```
 
-### Entity層テスト例
+#### Entity層テスト例
 
 ```typescript
 // __tests__/lib/entities/Todo.test.ts
@@ -195,7 +227,7 @@ describe('TodoEntity', () => {
 })
 ```
 
-### API層テスト例
+#### API層テスト例
 
 ```typescript
 // __tests__/api/slack/events/user/[webhook_id]/route.test.ts
@@ -267,6 +299,133 @@ describe('/api/slack/events/user/[webhook_id]', () => {
 })
 ```
 
+### フロントエンドテスト例
+
+#### Use Cases層テスト例
+
+```typescript
+// __tests__/src/domain/use-cases/TodoUseCases.test.ts
+import { TodoUseCases } from '@/src/domain/use-cases/TodoUseCases'
+import { MockTodoRepository } from '@/__tests__/mocks/repositories'
+
+describe('TodoUseCases', () => {
+  let todoUseCases: TodoUseCases
+  let mockTodoRepo: MockTodoRepository
+
+  beforeEach(() => {
+    mockTodoRepo = new MockTodoRepository()
+    todoUseCases = new TodoUseCases(mockTodoRepo)
+  })
+
+  describe('createTodo', () => {
+    test('should create todo successfully', async () => {
+      // Arrange
+      const params = {
+        userId: 'user-123',
+        title: 'Test Todo',
+        body: 'Test description',
+        deadline: '2025-12-31'
+      }
+      
+      mockTodoRepo.setMockResults([
+        { success: true, data: createMockTodoEntity() }
+      ])
+
+      // Act
+      const result = await todoUseCases.createTodo(params)
+
+      // Assert
+      expect(result.success).toBe(true)
+      expect(result.data).toBeDefined()
+    })
+  })
+})
+```
+
+#### Repository層テスト例
+
+```typescript
+// __tests__/src/infrastructure/repositories/SupabaseTodoRepository.test.ts
+import { SupabaseTodoRepository } from '@/src/infrastructure/repositories/SupabaseTodoRepository'
+import { createMockSupabaseClient } from '@/__tests__/mocks/supabase'
+
+describe('SupabaseTodoRepository', () => {
+  let repository: SupabaseTodoRepository
+  let mockSupabase: any
+
+  beforeEach(() => {
+    mockSupabase = createMockSupabaseClient()
+    repository = new SupabaseTodoRepository(mockSupabase)
+  })
+
+  describe('findById', () => {
+    test('should return todo when found', async () => {
+      // Arrange
+      const todoId = 'todo-123'
+      mockSupabase.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: createMockTodoData(),
+              error: null
+            })
+          })
+        })
+      })
+
+      // Act
+      const result = await repository.findById(todoId)
+
+      // Assert
+      expect(result.success).toBe(true)
+      expect(result.data).toBeInstanceOf(TodoEntity)
+    })
+  })
+})
+```
+
+#### カスタムフックテスト例
+
+```typescript
+// __tests__/src/presentation/hooks/useAuth.test.ts
+import { renderHook, act } from '@testing-library/react'
+import { useAuth } from '@/src/presentation/hooks/useAuth'
+import { MockAuthUseCases } from '@/__tests__/mocks/use-cases'
+
+// Use Cases層のモック
+jest.mock('@/src/infrastructure/di/ServiceFactory', () => ({
+  createAuthUseCases: () => new MockAuthUseCases()
+}))
+
+describe('useAuth', () => {
+  let mockAuthUseCases: MockAuthUseCases
+
+  beforeEach(() => {
+    const { createAuthUseCases } = require('@/src/infrastructure/di/ServiceFactory')
+    mockAuthUseCases = createAuthUseCases()
+  })
+
+  test('should handle user login successfully', async () => {
+    // Arrange
+    mockAuthUseCases.setMockResults([
+      { success: true, data: createMockUserEntity() }
+    ])
+
+    const { result } = renderHook(() => useAuth())
+
+    // Act
+    await act(async () => {
+      const loginResult = await result.current.login('test@example.com', 'password')
+      expect(loginResult.success).toBe(true)
+    })
+
+    // Assert
+    expect(result.current.user).toBeDefined()
+    expect(result.current.loading).toBe(false)
+  })
+})
+```
+
 ## 🔧 モックシステム
 
 ### Result-Based Mocking
@@ -305,7 +464,9 @@ jest.fn()
   // ... 30+ sequential mocks
 ```
 
-### Service層モック
+### バックエンドモック
+
+#### Service層モック
 
 ```typescript
 // __tests__/mocks/services.ts
@@ -334,7 +495,7 @@ export class MockSlackService {
 }
 ```
 
-### Repository層モック
+#### Repository層モック
 
 ```typescript
 // __tests__/mocks/repositories.ts
@@ -367,9 +528,73 @@ export class MockSlackRepository implements SlackRepositoryInterface {
 }
 ```
 
+### フロントエンドモック
+
+#### Use Cases層モック
+
+```typescript
+// __tests__/mocks/use-cases.ts
+export class MockTodoUseCases {
+  private mockResults: UseCaseResult<any>[] = []
+  private callIndex = 0
+
+  setMockResults(results: UseCaseResult<any>[]) {
+    this.mockResults = results
+    this.callIndex = 0
+  }
+
+  async createTodo(params: CreateTodoParams): Promise<UseCaseResult<TodoEntity>> {
+    return this.getNextResult()
+  }
+
+  async updateTodo(params: UpdateTodoParams): Promise<UseCaseResult<TodoEntity>> {
+    return this.getNextResult()
+  }
+
+  private getNextResult(): UseCaseResult<any> {
+    if (this.callIndex >= this.mockResults.length) {
+      throw new Error('MockTodoUseCases: No more mock results available')
+    }
+    return this.mockResults[this.callIndex++]
+  }
+}
+```
+
+#### Frontend Repository層モック
+
+```typescript
+// __tests__/mocks/frontend-repositories.ts
+export class MockTodoRepository implements TodoRepositoryInterface {
+  private mockResults: RepositoryResult<any>[] = []
+  private callIndex = 0
+
+  setMockResults(results: RepositoryResult<any>[]) {
+    this.mockResults = results
+    this.callIndex = 0
+  }
+
+  async findById(id: string): Promise<RepositoryResult<TodoEntity>> {
+    return this.getNextResult()
+  }
+
+  async create(params: CreateTodoParams): Promise<RepositoryResult<TodoEntity>> {
+    return this.getNextResult()
+  }
+
+  private getNextResult(): RepositoryResult<any> {
+    if (this.callIndex >= this.mockResults.length) {
+      throw new Error('MockTodoRepository: No more mock results available')
+    }
+    return this.mockResults[this.callIndex++]
+  }
+}
+```
+
 ## 🧩 テストユーティリティ
 
 ### Fixture関数
+
+#### バックエンドFixture
 
 ```typescript
 // __tests__/fixtures/entities.ts
@@ -401,6 +626,40 @@ export const createMockSlackPayload = (overrides: Partial<SlackEventPayload> = {
   },
   ...overrides
 })
+```
+
+#### フロントエンドFixture
+
+```typescript
+// __tests__/fixtures/frontend-entities.ts
+export const createMockTodoEntity = (overrides: Partial<TodoData> = {}): TodoEntity => {
+  const todoData = {
+    id: 'mock-todo-id',
+    userId: 'mock-user-id',
+    title: 'Mock Todo',
+    body: 'Mock description',
+    deadline: null,
+    importanceScore: 0.5,
+    status: 'open' as TodoStatus,
+    createdVia: 'manual' as TodoCreatedVia,
+    createdAt: new Date().toISOString(),
+    ...overrides
+  }
+  return new TodoEntity(todoData)
+}
+
+export const createMockUserEntity = (overrides: Partial<UserData> = {}): UserEntity => {
+  const userData = {
+    id: 'mock-user-id',
+    email: 'test@example.com',
+    profile: {
+      displayName: 'Test User',
+      avatarUrl: null
+    },
+    ...overrides
+  }
+  return new UserEntity(userData)
+}
 ```
 
 ### Helper関数
@@ -468,20 +727,44 @@ module.exports = {
 
 ## 📊 カバレッジ目標
 
-### Service層
+### バックエンド
+
+#### Service層
 - **関数カバレッジ**: 90%以上
 - **ブランチカバレッジ**: 85%以上
 - **行カバレッジ**: 90%以上
 
-### Repository層
+#### Repository層
 - **関数カバレッジ**: 80%以上
 - **ブランチカバレッジ**: 75%以上
 - **行カバレッジ**: 80%以上
 
-### Entity層
+#### Entity層
 - **関数カバレッジ**: 95%以上
 - **ブランチカバレッジ**: 90%以上
 - **行カバレッジ**: 95%以上
+
+### フロントエンド
+
+#### Use Cases層
+- **関数カバレッジ**: 90%以上
+- **ブランチカバレッジ**: 85%以上
+- **行カバレッジ**: 90%以上
+
+#### Repository層
+- **関数カバレッジ**: 85%以上
+- **ブランチカバレッジ**: 80%以上
+- **行カバレッジ**: 85%以上
+
+#### Entity層
+- **関数カバレッジ**: 95%以上
+- **ブランチカバレッジ**: 90%以上
+- **行カバレッジ**: 95%以上
+
+#### Presentation層（カスタムフック）
+- **関数カバレッジ**: 80%以上
+- **ブランチカバレッジ**: 75%以上
+- **行カバレッジ**: 80%以上
 
 ## 🐛 テストデバッグ
 

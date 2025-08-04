@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Settings, LogOut, ChevronDown } from 'lucide-react'
-import { useTodoStore } from '@/store/todoStore'
+import { useAuth } from '@/src/presentation/hooks/useAuth'
 import { authLogger } from '@/lib/client-logger'
 
 export function UserMenu() {
@@ -11,7 +11,7 @@ export function UserMenu() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
-  const { user, signOut } = useTodoStore()
+  const { user, signOut } = useAuth()
 
   // クリック外でメニューを閉じる
   useEffect(() => {
@@ -65,7 +65,7 @@ export function UserMenu() {
           <User className="w-4 h-4" />
         </div>
         <span className="hidden md:block text-sm font-medium">
-          {user.display_name || 'ユーザー'}
+          {user.getDisplayName() || 'ユーザー'}
         </span>
         <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -81,7 +81,7 @@ export function UserMenu() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">
-                  {user.display_name || 'ユーザー'}
+                  {user.getDisplayName() || 'ユーザー'}
                 </p>
                 <p className="text-xs text-gray-500">
                   {user.id?.slice(0, 8)}...
