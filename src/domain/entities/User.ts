@@ -102,6 +102,9 @@ export class UserEntity {
    * メールアドレスのドメインを取得
    */
   getEmailDomain(): string {
+    if (!this._data.email) {
+      return ''
+    }
     const parts = this._data.email.split('@')
     return parts.length > 1 ? parts[1] : ''
   }
@@ -110,6 +113,9 @@ export class UserEntity {
    * メールアドレスのローカル部分を取得
    */
   getEmailLocalPart(): string {
+    if (!this._data.email) {
+      return ''
+    }
     const parts = this._data.email.split('@')
     return parts[0] || ''
   }
@@ -234,6 +240,10 @@ export class UserEntity {
    * ファクトリーメソッド: APIレスポンスからUserエンティティを作成
    */
   static fromApiResponse(apiData: any): UserEntity {
+    if (!apiData.email) {
+      throw new Error('Email is required for User entity')
+    }
+    
     return new UserEntity({
       id: apiData.id,
       email: apiData.email,

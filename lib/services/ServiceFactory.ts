@@ -17,6 +17,7 @@ import { NotificationSettingsService } from '@/lib/services/NotificationSettings
 import { TitleGenerationService } from '@/lib/services/TitleGenerationService'
 import { UrlDetectionService } from '@/lib/services/UrlDetectionService'
 import { SlackDisconnectionService } from '@/lib/services/SlackDisconnectionService'
+import { WebhookService } from '@/lib/services/WebhookService'
 
 /**
  * サービス層のインスタンスを作成するファクトリー
@@ -41,6 +42,7 @@ export function createServices() {
   const titleGenerationService = new TitleGenerationService()
   const urlDetectionService = new UrlDetectionService()
   const slackDisconnectionService = new SlackDisconnectionService()
+  const webhookService = new WebhookService(slackRepo)
 
   return {
     // Services
@@ -53,6 +55,7 @@ export function createServices() {
     titleGenerationService,
     urlDetectionService,
     slackDisconnectionService,
+    webhookService,
 
     // Repositories (必要に応じて直接アクセス)
     slackRepo,
@@ -106,4 +109,10 @@ export function createUrlDetectionService() {
 
 export function createSlackDisconnectionService() {
   return new SlackDisconnectionService()
+}
+
+export function createWebhookService() {
+  const context = new SupabaseRepositoryContext()
+  const slackRepo = new SlackRepository(context)
+  return new WebhookService(slackRepo)
 }
