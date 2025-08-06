@@ -32,10 +32,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     webhookLogger.info('POST /api/slack/webhook called')
-    
+
     // 認証処理
     const userId = await requireAuthentication(request)
-    
     // リクエストボディの取得
     const { slack_connection_id } = await request.json()
     webhookLogger.debug({ slack_connection_id }, 'Request data received')

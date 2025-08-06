@@ -8,24 +8,20 @@ import { UserEntity } from '../../../../src/domain/entities/User'
 describe('UserEntity', () => {
   const mockUserData = {
     id: 'user-123',
-    email: 'test@example.com',
-    displayName: 'Test User',
-    avatarUrl: 'https://example.com/avatar.jpg',
-    totalTodos: 10,
-    completedTodos: 5,
-    createdAt: '2025-08-01T10:00:00Z',
-    updatedAt: '2025-08-03T10:00:00Z'
+    display_name: 'Test User',
+    avatar_url: 'https://example.com/avatar.jpg',
+    slack_user_id: 'U1234567890',
+    enable_webhook_notifications: true,
+    created_at: '2025-08-01T10:00:00Z'
   }
 
   const mockUserMinimal = {
     id: 'user-456',
-    email: 'minimal@example.com',
-    displayName: null,
-    avatarUrl: null,
-    totalTodos: 0,
-    completedTodos: 0,
-    createdAt: '2025-08-01T10:00:00Z',
-    updatedAt: '2025-08-01T10:00:00Z'
+    display_name: null,
+    avatar_url: null,
+    slack_user_id: null,
+    enable_webhook_notifications: false,
+    created_at: '2025-08-01T10:00:00Z'
   }
 
   describe('Constructor and Basic Properties', () => {
@@ -33,13 +29,11 @@ describe('UserEntity', () => {
       const user = new UserEntity(mockUserData)
 
       expect(user.id).toBe(mockUserData.id)
-      expect(user.email).toBe(mockUserData.email)
-      expect(user.displayName).toBe(mockUserData.displayName)
-      expect(user.avatarUrl).toBe(mockUserData.avatarUrl)
-      expect(user.totalTodos).toBe(mockUserData.totalTodos)
-      expect(user.completedTodos).toBe(mockUserData.completedTodos)
-      expect(user.createdAt).toBe(mockUserData.createdAt)
-      expect(user.updatedAt).toBe(mockUserData.updatedAt)
+      expect(user.displayName).toBe(mockUserData.display_name)
+      expect(user.avatarUrl).toBe(mockUserData.avatar_url)
+      expect(user.slackUserId).toBe(mockUserData.slack_user_id)
+      expect(user.notificationsEnabled).toBe(mockUserData.enable_webhook_notifications)
+      expect(user.createdAt).toBe(mockUserData.created_at)
     })
 
     it('should handle null optional properties', () => {
@@ -47,8 +41,8 @@ describe('UserEntity', () => {
 
       expect(user.displayName).toBeNull()
       expect(user.avatarUrl).toBeNull()
-      expect(user.totalTodos).toBe(0)
-      expect(user.completedTodos).toBe(0)
+      expect(user.slackUserId).toBeNull()
+      expect(user.notificationsEnabled).toBe(false)
     })
   })
 
@@ -58,255 +52,266 @@ describe('UserEntity', () => {
       expect(user.getDisplayName()).toBe('Test User')
     })
 
-    it('should return email when display name is null', () => {
+    it('should return "User" when display name is null', () => {
       const user = new UserEntity(mockUserMinimal)
-      expect(user.getDisplayName()).toBe('minimal@example.com')
+      expect(user.getDisplayName()).toBe('User')
     })
 
-    it('should return email when display name is empty string', () => {
-      const userWithEmptyName = { ...mockUserData, displayName: '' }
+    it('should return "User" when display name is empty string', () => {
+      const userWithEmptyName = { ...mockUserData, display_name: '' }
       const user = new UserEntity(userWithEmptyName)
-      expect(user.getDisplayName()).toBe('test@example.com')
+      expect(user.getDisplayName()).toBe('User')
+    })
+  })
+
+  describe('Slack Integration', () => {
+    it('should correctly identify Slack users', () => {
+      const userWithSlack = new UserEntity(mockUserData)
+      const userWithoutSlack = new UserEntity(mockUserMinimal)
+
+      expect(userWithSlack.hasSlackUserId()).toBe(true)
+      expect(userWithoutSlack.hasSlackUserId()).toBe(false)
     })
 
-    it('should return initials from display name', () => {
+    it('should correctly determine webhook notification capability', () => {
+      const userWithSlackAndNotif = new UserEntity(mockUserData)
+      const userWithSlackNoNotif = new UserEntity({ ...mockUserData, enable_webhook_notifications: false })
+      const userNoSlackWithNotif = new UserEntity({ ...mockUserMinimal, enable_webhook_notifications: true })
+
+      expect(userWithSlackAndNotif.canReceiveWebhookNotifications()).toBe(true)
+      expect(userWithSlackNoNotif.canReceiveWebhookNotifications()).toBe(false)
+      expect(userNoSlackWithNotif.canReceiveWebhookNotifications()).toBe(false)
+    })
+  })
+
+  describe('User Age and Activity', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+      jest.setSystemTime(new Date('2025-08-08T10:00:00Z'))
+    })
+
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('should calculate days from creation correctly', () => {
       const user = new UserEntity(mockUserData)
-      expect(user.getInitials()).toBe('TU')
+      expect(user.getDaysFromCreation()).toBe(7) // 7 days from Aug 1 to Aug 8
     })
 
-    it('should return initials from email when no display name', () => {
-      const user = new UserEntity(mockUserMinimal)
-      expect(user.getInitials()).toBe('ME')
-    })
+    it('should identify new users correctly', () => {
+      const newUser = new UserEntity({ ...mockUserData, created_at: '2025-08-05T10:00:00Z' })
+      const oldUser = new UserEntity({ ...mockUserData, created_at: '2025-07-01T10:00:00Z' })
 
-    it('should handle single name for initials', () => {
-      const userSingleName = { ...mockUserData, displayName: 'Alice' }
-      const user = new UserEntity(userSingleName)
-      expect(user.getInitials()).toBe('A')
-    })
-
-    it('should handle email without @ for initials', () => {
-      const userInvalidEmail = { ...mockUserMinimal, email: 'invalidemail', displayName: null }
-      const user = new UserEntity(userInvalidEmail)
-      expect(user.getInitials()).toBe('I')
+      expect(newUser.isNewUser()).toBe(true) // 3 days old
+      expect(oldUser.isNewUser()).toBe(false) // 38 days old
     })
   })
 
   describe('Statistics and Progress', () => {
-    it('should calculate completion rate correctly', () => {
+    it('should calculate user statistics correctly', () => {
       const user = new UserEntity(mockUserData)
-      expect(user.getCompletionRate()).toBe(0.5) // 5/10 = 50%
-    })
-
-    it('should return 0 completion rate when no todos', () => {
-      const user = new UserEntity(mockUserMinimal)
-      expect(user.getCompletionRate()).toBe(0)
-    })
-
-    it('should return 1 completion rate when all todos completed', () => {
-      const userAllCompleted = { ...mockUserData, totalTodos: 5, completedTodos: 5 }
-      const user = new UserEntity(userAllCompleted)
-      expect(user.getCompletionRate()).toBe(1)
-    })
-
-    it('should calculate remaining todos correctly', () => {
-      const user = new UserEntity(mockUserData)
-      expect(user.getRemainingTodos()).toBe(5) // 10 - 5 = 5
-    })
-
-    it('should return 0 remaining todos when all completed', () => {
-      const userAllCompleted = { ...mockUserData, totalTodos: 5, completedTodos: 5 }
-      const user = new UserEntity(userAllCompleted)
-      expect(user.getRemainingTodos()).toBe(0)
-    })
-  })
-
-  describe('Progress Categories', () => {
-    it('should identify beginner user', () => {
-      const beginnerUser = { ...mockUserData, totalTodos: 2, completedTodos: 1 }
-      const user = new UserEntity(beginnerUser)
-      expect(user.getProgressCategory()).toBe('beginner')
-    })
-
-    it('should identify intermediate user', () => {
-      const intermediateUser = { ...mockUserData, totalTodos: 15, completedTodos: 8 }
-      const user = new UserEntity(intermediateUser)
-      expect(user.getProgressCategory()).toBe('intermediate')
-    })
-
-    it('should identify advanced user', () => {
-      const advancedUser = { ...mockUserData, totalTodos: 60, completedTodos: 30 }
-      const user = new UserEntity(advancedUser)
-      expect(user.getProgressCategory()).toBe('advanced')
-    })
-
-    it('should identify expert user', () => {
-      const expertUser = { ...mockUserData, totalTodos: 150, completedTodos: 75 }
-      const user = new UserEntity(expertUser)
-      expect(user.getProgressCategory()).toBe('expert')
-    })
-  })
-
-  describe('Avatar Handling', () => {
-    it('should return avatar URL when available', () => {
-      const user = new UserEntity(mockUserData)
-      expect(user.getAvatarUrl()).toBe('https://example.com/avatar.jpg')
-    })
-
-    it('should return null when no avatar URL', () => {
-      const user = new UserEntity(mockUserMinimal)
-      expect(user.getAvatarUrl()).toBeNull()
-    })
-
-    it('should check if user has avatar', () => {
-      const userWithAvatar = new UserEntity(mockUserData)
-      const userWithoutAvatar = new UserEntity(mockUserMinimal)
-
-      expect(userWithAvatar.hasAvatar()).toBe(true)
-      expect(userWithoutAvatar.hasAvatar()).toBe(false)
-    })
-  })
-
-  describe('Email Validation', () => {
-    it('should validate correct email addresses', () => {
-      const validEmails = [
-        'test@example.com',
-        'user.name@domain.co.uk',
-        'user+tag@example.org',
-        'user123@test-domain.com'
+      const todos = [
+        { status: 'open', deadline: '2025-08-10' },
+        { status: 'open', deadline: '2025-08-05' }, // overdue
+        { status: 'completed', deadline: '2025-08-10' },
+        { status: 'completed', deadline: null },
+        { status: 'open', deadline: null }
       ]
 
-      validEmails.forEach(email => {
-        expect(UserEntity.isValidEmail(email)).toBe(true)
-      })
+      const stats = user.calculateStats(todos)
+
+      expect(stats.totalTodos).toBe(5)
+      expect(stats.completedTodos).toBe(2)
+      expect(stats.activeTodos).toBe(3)
+      expect(stats.overdueTodos).toBe(1)
+      expect(stats.completionRate).toBe(40) // 2/5 = 40%
     })
 
-    it('should reject invalid email addresses', () => {
-      const invalidEmails = [
-        'invalid',
-        '@example.com',
-        'test@',
-        'test..test@example.com',
-        'test @example.com',
-        ''
-      ]
-
-      invalidEmails.forEach(email => {
-        expect(UserEntity.isValidEmail(email)).toBe(false)
-      })
-    })
-
-    it('should validate user email through instance method', () => {
-      const userValid = new UserEntity(mockUserData)
-      const userInvalid = new UserEntity({ ...mockUserData, email: 'invalid-email' })
-
-      expect(userValid.hasValidEmail()).toBe(true)
-      expect(userInvalid.hasValidEmail()).toBe(false)
-    })
-  })
-
-  describe('Comparison and Equality', () => {
-    it('should identify same user by ID', () => {
-      const user1 = new UserEntity(mockUserData)
-      const user2 = new UserEntity({ ...mockUserData, displayName: 'Different Name' })
-
-      expect(user1.isSameUser(user2)).toBe(true)
-    })
-
-    it('should identify different users by ID', () => {
-      const user1 = new UserEntity(mockUserData)
-      const user2 = new UserEntity({ ...mockUserData, id: 'different-id' })
-
-      expect(user1.isSameUser(user2)).toBe(false)
-    })
-  })
-
-  describe('User Statistics Summary', () => {
-    it('should provide comprehensive user statistics', () => {
+    it('should handle empty todos array', () => {
       const user = new UserEntity(mockUserData)
-      const stats = user.getStatistics()
+      const stats = user.calculateStats([])
 
-      expect(stats).toEqual({
-        totalTodos: 10,
-        completedTodos: 5,
-        remainingTodos: 5,
-        completionRate: 0.5,
-        progressCategory: 'intermediate'
-      })
+      expect(stats.totalTodos).toBe(0)
+      expect(stats.completedTodos).toBe(0)
+      expect(stats.activeTodos).toBe(0)
+      expect(stats.overdueTodos).toBe(0)
+      expect(stats.completionRate).toBe(0)
+    })
+  })
+
+  describe('Data Validation', () => {
+    it('should validate correct user data', () => {
+      const user = new UserEntity(mockUserData)
+      const validation = user.validate()
+
+      expect(validation.valid).toBe(true)
+      expect(validation.errors).toHaveLength(0)
     })
 
-    it('should handle edge case statistics', () => {
-      const user = new UserEntity(mockUserMinimal)
-      const stats = user.getStatistics()
+    it('should detect missing user ID', () => {
+      const userWithoutId = new UserEntity({ ...mockUserData, id: '' })
+      const validation = userWithoutId.validate()
 
-      expect(stats).toEqual({
-        totalTodos: 0,
-        completedTodos: 0,
-        remainingTodos: 0,
-        completionRate: 0,
-        progressCategory: 'beginner'
+      expect(validation.valid).toBe(false)
+      expect(validation.errors).toContain('User ID is required')
+    })
+
+    it('should detect invalid created_at date', () => {
+      const userWithBadDate = new UserEntity({ ...mockUserData, created_at: 'invalid-date' })
+      const validation = userWithBadDate.validate()
+
+      expect(validation.valid).toBe(false)
+      expect(validation.errors).toContain('Invalid created_at format')
+    })
+  })
+
+  describe('Update Functionality', () => {
+    it('should create new instance with updated data', () => {
+      const user = new UserEntity(mockUserData)
+      const updatedUser = user.update({ display_name: 'Updated Name' })
+
+      expect(updatedUser).not.toBe(user) // Different instance
+      expect(updatedUser.displayName).toBe('Updated Name')
+      expect(updatedUser.id).toBe(user.id) // ID unchanged
+      expect(user.displayName).toBe('Test User') // Original unchanged
+    })
+
+    it('should update multiple fields', () => {
+      const user = new UserEntity(mockUserData)
+      const updatedUser = user.update({
+        display_name: 'New Name',
+        avatar_url: 'https://example.com/new-avatar.jpg',
+        enable_webhook_notifications: false
       })
+
+      expect(updatedUser.displayName).toBe('New Name')
+      expect(updatedUser.avatarUrl).toBe('https://example.com/new-avatar.jpg')
+      expect(updatedUser.notificationsEnabled).toBe(false)
     })
   })
 
   describe('Factory Methods', () => {
-    it('should create user from auth data', () => {
-      const authData = {
-        id: 'auth-123',
-        email: 'auth@example.com',
-        user_metadata: {
-          display_name: 'Auth User',
-          avatar_url: 'https://auth.example.com/avatar.jpg'
-        }
+    it('should create UserEntity from API response', () => {
+      const apiData = {
+        id: 'api-user-123',
+        display_name: 'API User',
+        avatar_url: 'https://api.example.com/avatar.jpg',
+        slack_user_id: 'U9876543210',
+        enable_webhook_notifications: true,
+        created_at: '2025-08-01T10:00:00Z'
       }
 
-      const user = UserEntity.fromAuthUser(authData)
+      const user = UserEntity.fromApiResponse(apiData)
 
-      expect(user.id).toBe('auth-123')
-      expect(user.email).toBe('auth@example.com')
-      expect(user.displayName).toBe('Auth User')
-      expect(user.avatarUrl).toBe('https://auth.example.com/avatar.jpg')
-      expect(user.totalTodos).toBe(0)
-      expect(user.completedTodos).toBe(0)
+      expect(user.id).toBe(apiData.id)
+      expect(user.displayName).toBe(apiData.display_name)
+      expect(user.avatarUrl).toBe(apiData.avatar_url)
+      expect(user.slackUserId).toBe(apiData.slack_user_id)
+      expect(user.notificationsEnabled).toBe(apiData.enable_webhook_notifications)
     })
 
-    it('should handle auth data without metadata', () => {
-      const authData = {
-        id: 'auth-456',
-        email: 'simple@example.com'
+    it('should handle missing fields in API response', () => {
+      const apiData = {
+        id: 'api-user-456',
+        created_at: '2025-08-01T10:00:00Z'
       }
 
-      const user = UserEntity.fromAuthUser(authData)
+      const user = UserEntity.fromApiResponse(apiData)
 
-      expect(user.id).toBe('auth-456')
-      expect(user.email).toBe('simple@example.com')
+      expect(user.id).toBe(apiData.id)
       expect(user.displayName).toBeNull()
       expect(user.avatarUrl).toBeNull()
+      expect(user.slackUserId).toBeNull()
+      expect(user.notificationsEnabled).toBe(true) // Default value
     })
 
-    it('should create basic user profile', () => {
-      const user = UserEntity.createBasicProfile({
-        id: 'basic-123',
-        email: 'basic@example.com'
-      })
+    it('should create UserEntity from auth data', () => {
+      jest.useFakeTimers()
+      const now = new Date('2025-08-08T10:00:00Z')
+      jest.setSystemTime(now)
 
-      expect(user.id).toBe('basic-123')
-      expect(user.email).toBe('basic@example.com')
+      const authData = { id: 'auth-user-123' }
+      const user = UserEntity.fromAuth(authData)
+
+      expect(user.id).toBe(authData.id)
       expect(user.displayName).toBeNull()
       expect(user.avatarUrl).toBeNull()
-      expect(user.totalTodos).toBe(0)
-      expect(user.completedTodos).toBe(0)
+      expect(user.slackUserId).toBeNull()
+      expect(user.notificationsEnabled).toBe(true)
+      expect(user.createdAt).toBe('2025-08-08T10:00:00.000Z')
+
+      jest.useRealTimers()
     })
   })
 
-  describe('Constants', () => {
-    it('should have correct progress thresholds', () => {
-      expect(UserEntity.PROGRESS_THRESHOLDS).toEqual({
-        beginner: 5,
-        intermediate: 20,
-        advanced: 50,
-        expert: 100
-      })
+  describe('Static Utilities', () => {
+    it('should validate email addresses correctly', () => {
+      expect(UserEntity.isValidEmail('test@example.com')).toBe(true)
+      expect(UserEntity.isValidEmail('user.name+tag@example.co.uk')).toBe(true)
+      expect(UserEntity.isValidEmail('invalid.email')).toBe(false)
+      expect(UserEntity.isValidEmail('@example.com')).toBe(false)
+      expect(UserEntity.isValidEmail('test@')).toBe(false)
+      expect(UserEntity.isValidEmail('')).toBe(false)
+      expect(UserEntity.isValidEmail('a'.repeat(255) + '@example.com')).toBe(false)
+    })
+
+    it('should sort users by display name', () => {
+      const users = [
+        new UserEntity({ ...mockUserData, display_name: 'Charlie' }),
+        new UserEntity({ ...mockUserData, display_name: 'Alice' }),
+        new UserEntity({ ...mockUserData, display_name: 'Bob' }),
+        new UserEntity({ ...mockUserData, display_name: null })
+      ]
+
+      const sortedAsc = UserEntity.sortByDisplayName(users, 'asc')
+      expect(sortedAsc[0].displayName).toBe('Alice')
+      expect(sortedAsc[1].displayName).toBe('Bob')
+      expect(sortedAsc[2].displayName).toBe('Charlie')
+      expect(sortedAsc[3].displayName).toBeNull() // 'User' comes last
+
+      const sortedDesc = UserEntity.sortByDisplayName(users, 'desc')
+      expect(sortedDesc[0].displayName).toBeNull() // 'User' comes first
+      expect(sortedDesc[1].displayName).toBe('Charlie')
+    })
+
+    it('should sort users by created date', () => {
+      const users = [
+        new UserEntity({ ...mockUserData, created_at: '2025-08-05T10:00:00Z' }),
+        new UserEntity({ ...mockUserData, created_at: '2025-08-01T10:00:00Z' }),
+        new UserEntity({ ...mockUserData, created_at: '2025-08-10T10:00:00Z' })
+      ]
+
+      const sortedDesc = UserEntity.sortByCreatedDate(users)
+      expect(new Date(sortedDesc[0].createdAt).getTime()).toBeGreaterThan(new Date(sortedDesc[1].createdAt).getTime())
+    })
+
+    it('should filter new users', () => {
+      jest.useFakeTimers()
+      jest.setSystemTime(new Date('2025-08-08T10:00:00Z'))
+
+      const users = [
+        new UserEntity({ ...mockUserData, created_at: '2025-08-05T10:00:00Z' }), // 3 days old
+        new UserEntity({ ...mockUserData, created_at: '2025-07-01T10:00:00Z' }), // 38 days old
+        new UserEntity({ ...mockUserData, created_at: '2025-08-07T10:00:00Z' })  // 1 day old
+      ]
+
+      const newUsers = UserEntity.filterNewUsers(users)
+      expect(newUsers).toHaveLength(2)
+
+      jest.useRealTimers()
+    })
+
+    it('should filter Slack users', () => {
+      const users = [
+        new UserEntity({ ...mockUserData, slack_user_id: 'U123' }),
+        new UserEntity({ ...mockUserData, slack_user_id: null }),
+        new UserEntity({ ...mockUserData, slack_user_id: 'U456' })
+      ]
+
+      const slackUsers = UserEntity.filterSlackUsers(users)
+      expect(slackUsers).toHaveLength(2)
+      expect(slackUsers.every(u => u.hasSlackUserId())).toBe(true)
     })
   })
 })

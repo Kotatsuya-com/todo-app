@@ -70,8 +70,7 @@ export class AuthUseCases {
       if (!userResult.data) {
         // 認証ユーザーは存在するがUserエンティティが存在しない場合、新規作成
         const createResult = await this._userRepository.create({
-          id: authUser.id,
-          email: authUser.email || ''
+          id: authUser.id
         })
 
         if (!createResult.success) {
@@ -149,8 +148,7 @@ export class AuthUseCases {
       if (!userResult.success || !userResult.data) {
         // ユーザーエンティティが存在しない場合は作成
         const createResult = await this._userRepository.create({
-          id: authUser.id,
-          email: authUser.email || request.email
+          id: authUser.id
         })
 
         if (!createResult.success) {
@@ -207,14 +205,6 @@ export class AuthUseCases {
         }
       }
 
-      // メールアドレスの重複確認
-      const emailTakenResult = await this._userRepository.isEmailTaken(request.email)
-      if (emailTakenResult.success && emailTakenResult.data) {
-        return {
-          success: false,
-          error: 'Email address is already registered'
-        }
-      }
 
       const signUpRequest: SignUpRequest = {
         email: request.email,
@@ -234,8 +224,7 @@ export class AuthUseCases {
 
       // ユーザーエンティティの作成
       const createResult = await this._userRepository.create({
-        id: authUser.id,
-        email: authUser.email || request.email
+        id: authUser.id
       })
 
       if (!createResult.success) {
@@ -346,8 +335,7 @@ export class AuthUseCases {
         } else {
           // ユーザーエンティティが存在しない場合は作成
           const createResult = await this._userRepository.create({
-            id: authUser.id,
-            email: authUser.email || ''
+            id: authUser.id
           })
 
           if (createResult.success) {

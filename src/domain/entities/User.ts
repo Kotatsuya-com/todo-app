@@ -5,9 +5,11 @@
 
 export interface UserData {
   id: string
-  email: string
+  display_name?: string | null
+  avatar_url?: string | null
+  slack_user_id?: string | null
+  enable_webhook_notifications: boolean
   created_at: string
-  updated_at: string
 }
 
 export interface UserValidationResult {
@@ -26,20 +28,17 @@ export interface UserStats {
 export class UserEntity {
   private _data: UserData
 
-  // ビジネスルール定数
-  public static readonly EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  public static readonly MIN_EMAIL_LENGTH = 3
-  public static readonly MAX_EMAIL_LENGTH = 254
-
   constructor(data: UserData) {
     this._data = { ...data }
   }
 
   // Getters for immutable access
   get id(): string { return this._data.id }
-  get email(): string { return this._data.email }
+  get displayName(): string | null { return this._data.display_name || null }
+  get avatarUrl(): string | null { return this._data.avatar_url || null }
+  get slackUserId(): string | null { return this._data.slack_user_id || null }
+  get notificationsEnabled(): boolean { return this._data.enable_webhook_notifications }
   get createdAt(): string { return this._data.created_at }
-  get updatedAt(): string { return this._data.updated_at }
 
   /**
    * 完全なデータコピーを取得（不変性保証）
@@ -59,36 +58,11 @@ export class UserEntity {
       errors.push('User ID is required')
     }
 
-    if (!this._data.email) {
-      errors.push('Email is required')
-    } else {
-      // メールアドレスの形式チェック
-      if (!UserEntity.EMAIL_REGEX.test(this._data.email)) {
-        errors.push('Invalid email format')
-      }
-
-      // 長さチェック
-      if (this._data.email.length < UserEntity.MIN_EMAIL_LENGTH) {
-        errors.push(`Email must be at least ${UserEntity.MIN_EMAIL_LENGTH} characters`)
-      }
-
-      if (this._data.email.length > UserEntity.MAX_EMAIL_LENGTH) {
-        errors.push(`Email must be ${UserEntity.MAX_EMAIL_LENGTH} characters or less`)
-      }
-    }
-
     // 日付の妥当性
     if (this._data.created_at) {
       const createdDate = new Date(this._data.created_at)
       if (isNaN(createdDate.getTime())) {
         errors.push('Invalid created_at format')
-      }
-    }
-
-    if (this._data.updated_at) {
-      const updatedDate = new Date(this._data.updated_at)
-      if (isNaN(updatedDate.getTime())) {
-        errors.push('Invalid updated_at format')
       }
     }
 
@@ -99,50 +73,17 @@ export class UserEntity {
   }
 
   /**
-   * メールアドレスのドメインを取得
-   */
-  getEmailDomain(): string {
-    if (!this._data.email) {
-      return ''
-    }
-    const parts = this._data.email.split('@')
-    return parts.length > 1 ? parts[1] : ''
-  }
-
-  /**
-   * メールアドレスのローカル部分を取得
-   */
-  getEmailLocalPart(): string {
-    if (!this._data.email) {
-      return ''
-    }
-    const parts = this._data.email.split('@')
-    return parts[0] || ''
-  }
-
-  /**
-   * ユーザーの表示名を取得（メールアドレスのローカル部分）
+   * ユーザーの表示名を取得
    */
   getDisplayName(): string {
-    return this.getEmailLocalPart()
+    return this._data.display_name || 'User'
   }
 
   /**
-   * マスクされたメールアドレスを取得
+   * Slackユーザーかどうかを判定
    */
-  getMaskedEmail(): string {
-    const localPart = this.getEmailLocalPart()
-    const domain = this.getEmailDomain()
-
-    if (localPart.length <= 2) {
-      return `${localPart}***@${domain}`
-    }
-
-    const firstChar = localPart.charAt(0)
-    const lastChar = localPart.charAt(localPart.length - 1)
-    const maskedMiddle = '*'.repeat(Math.min(localPart.length - 2, 3))
-
-    return `${firstChar}${maskedMiddle}${lastChar}@${domain}`
+  hasSlackUserId(): boolean {
+    return !!this._data.slack_user_id
   }
 
   /**
@@ -156,16 +97,6 @@ export class UserEntity {
   }
 
   /**
-   * 最終更新からの経過日数を取得
-   */
-  getDaysFromLastUpdate(): number {
-    const updatedDate = new Date(this._data.updated_at)
-    const now = new Date()
-    const diffTime = now.getTime() - updatedDate.getTime()
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24))
-  }
-
-  /**
    * アカウントが新規ユーザーかどうかを判定（作成から7日以内）
    */
   isNewUser(): boolean {
@@ -173,24 +104,10 @@ export class UserEntity {
   }
 
   /**
-   * アカウントが非アクティブかどうかを判定（30日以上更新なし）
+   * 通知が有効かどうかを判定
    */
-  isInactive(): boolean {
-    return this.getDaysFromLastUpdate() >= 30
-  }
-
-  /**
-   * 企業メールアドレスかどうかを判定
-   */
-  isCorporateEmail(): boolean {
-    const domain = this.getEmailDomain().toLowerCase()
-    const personalDomains = [
-      'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-      'icloud.com', 'me.com', 'mac.com', 'live.com', 'msn.com',
-      'yahoo.co.jp', 'hotmail.co.jp', 'gmail.jp'
-    ]
-
-    return !personalDomains.includes(domain)
+  canReceiveWebhookNotifications(): boolean {
+    return this._data.enable_webhook_notifications && this.hasSlackUserId()
   }
 
   /**
@@ -229,8 +146,7 @@ export class UserEntity {
   update(updates: Partial<UserData>): UserEntity {
     const newData = {
       ...this._data,
-      ...updates,
-      updated_at: new Date().toISOString()
+      ...updates
     }
 
     return new UserEntity(newData)
@@ -240,54 +156,60 @@ export class UserEntity {
    * ファクトリーメソッド: APIレスポンスからUserエンティティを作成
    */
   static fromApiResponse(apiData: any): UserEntity {
-    if (!apiData.email) {
-      throw new Error('Email is required for User entity')
-    }
-    
     return new UserEntity({
       id: apiData.id,
-      email: apiData.email,
-      created_at: apiData.created_at,
-      updated_at: apiData.updated_at
+      display_name: apiData.display_name || null,
+      avatar_url: apiData.avatar_url || null,
+      slack_user_id: apiData.slack_user_id || null,
+      enable_webhook_notifications: apiData.enable_webhook_notifications ?? true,
+      created_at: apiData.created_at
     })
   }
 
   /**
    * ファクトリーメソッド: 認証データからUserエンティティを作成
    */
-  static fromAuth(authUser: { id: string; email?: string }): UserEntity {
+  static fromAuth(authUser: { id: string }): UserEntity {
     const now = new Date().toISOString()
 
     return new UserEntity({
       id: authUser.id,
-      email: authUser.email || '',
-      created_at: now,
-      updated_at: now
+      display_name: null,
+      avatar_url: null,
+      slack_user_id: null,
+      enable_webhook_notifications: true,
+      created_at: now
     })
   }
 
   /**
-   * メールアドレスの妥当性を検証
+   * メールアドレスの妥当性を検証（認証用ユーティリティ）
    */
   static isValidEmail(email: string): boolean {
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const MIN_EMAIL_LENGTH = 3
+    const MAX_EMAIL_LENGTH = 254
+
     if (!email) {
       return false
     }
-    if (email.length < UserEntity.MIN_EMAIL_LENGTH) {
+    if (email.length < MIN_EMAIL_LENGTH) {
       return false
     }
-    if (email.length > UserEntity.MAX_EMAIL_LENGTH) {
+    if (email.length > MAX_EMAIL_LENGTH) {
       return false
     }
-    return UserEntity.EMAIL_REGEX.test(email)
+    return EMAIL_REGEX.test(email)
   }
 
   /**
-   * ユーザーリストをメールアドレスでソート
+   * ユーザーリストを表示名でソート
    */
-  static sortByEmail(users: UserEntity[], order: 'asc' | 'desc' = 'asc'): UserEntity[] {
+  static sortByDisplayName(users: UserEntity[], order: 'asc' | 'desc' = 'asc'): UserEntity[] {
     return [...users].sort((a, b) => {
-      const comparison = a.email.localeCompare(b.email)
+      const nameA = a.displayName || 'User'
+      const nameB = b.displayName || 'User'
+      const comparison = nameA.localeCompare(nameB)
       return order === 'desc' ? -comparison : comparison
     })
   }
@@ -305,13 +227,6 @@ export class UserEntity {
   }
 
   /**
-   * アクティブユーザーのみをフィルタリング
-   */
-  static filterActive(users: UserEntity[]): UserEntity[] {
-    return users.filter(user => !user.isInactive())
-  }
-
-  /**
    * 新規ユーザーのみをフィルタリング
    */
   static filterNewUsers(users: UserEntity[]): UserEntity[] {
@@ -319,9 +234,9 @@ export class UserEntity {
   }
 
   /**
-   * 企業ユーザーのみをフィルタリング
+   * Slack連携済みユーザーのみをフィルタリング
    */
-  static filterCorporateUsers(users: UserEntity[]): UserEntity[] {
-    return users.filter(user => user.isCorporateEmail())
+  static filterSlackUsers(users: UserEntity[]): UserEntity[] {
+    return users.filter(user => user.hasSlackUserId())
   }
 }

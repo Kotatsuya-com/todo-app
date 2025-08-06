@@ -108,7 +108,7 @@ export default function ComparePage() {
 
       {currentPair && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="grid grid-cols-2 gap-8 mb-8 max-sm:grid-cols-1">
             <div className="space-y-4">
               <div className="text-center">
                 <h3 className="font-semibold text-lg mb-2">タスクA</h3>

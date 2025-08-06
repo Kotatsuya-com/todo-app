@@ -261,11 +261,11 @@ export class SlackAuthService {
       // Slack User IDのバリデーション
       const userEntity = new UserEntity({
         id: userId,
-        email: '',
+        display_name: null,
+        avatar_url: null,
         slack_user_id: slackUserId,
         enable_webhook_notifications: false,
-        created_at: '',
-        updated_at: ''
+        created_at: new Date().toISOString()
       })
 
       if (!userEntity.validateSlackUserId(slackUserId)) {

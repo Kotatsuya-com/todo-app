@@ -5,11 +5,11 @@
 
 export interface User {
   id: string
-  email: string
+  display_name?: string | null
+  avatar_url?: string | null
   slack_user_id?: string | null
   enable_webhook_notifications: boolean
   created_at: string
-  updated_at: string
 }
 
 export interface UserEmojiSettings {
@@ -33,8 +33,12 @@ export class UserEntity {
     return this._user.id
   }
 
-  get email(): string {
-    return this._user.email
+  get displayName(): string | null {
+    return this._user.display_name || null
+  }
+
+  get avatarUrl(): string | null {
+    return this._user.avatar_url || null
   }
 
   get slackUserId(): string | null {
@@ -43,6 +47,10 @@ export class UserEntity {
 
   get notificationsEnabled(): boolean {
     return this._user.enable_webhook_notifications
+  }
+
+  get createdAt(): string {
+    return this._user.created_at
   }
 
   hasSlackUserId(): boolean {

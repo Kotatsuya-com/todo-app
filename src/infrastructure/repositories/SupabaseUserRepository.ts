@@ -52,42 +52,6 @@ export class SupabaseUserRepository implements UserRepositoryInterface {
     }
   }
 
-  /**
-   * メールアドレスでユーザーを取得
-   */
-  async findByEmail(email: string): Promise<RepositoryResult<UserEntity | null>> {
-    try {
-      const { data, error } = await this.supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Not found
-          return {
-            success: true,
-            data: null
-          }
-        }
-        return {
-          success: false,
-          error: error.message
-        }
-      }
-
-      return {
-        success: true,
-        data: UserEntity.fromApiResponse(data)
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
-      }
-    }
-  }
 
   /**
    * 新しいユーザーを作成
@@ -98,9 +62,11 @@ export class SupabaseUserRepository implements UserRepositoryInterface {
 
       const userData = {
         id: request.id,
-        email: request.email,
-        created_at: now,
-        updated_at: now
+        display_name: request.display_name || null,
+        avatar_url: request.avatar_url || null,
+        slack_user_id: request.slack_user_id || null,
+        enable_webhook_notifications: request.enable_webhook_notifications ?? true,
+        created_at: now
       }
 
       const { data, error } = await this.supabase
@@ -133,12 +99,22 @@ export class SupabaseUserRepository implements UserRepositoryInterface {
    */
   async update(request: UpdateUserRequest): Promise<RepositoryResult<UserEntity>> {
     try {
-      const updateData: any = {
-        updated_at: new Date().toISOString()
+      const updateData: any = {}
+
+      if (request.display_name !== undefined) {
+        updateData.display_name = request.display_name
       }
 
-      if (request.email !== undefined) {
-        updateData.email = request.email
+      if (request.avatar_url !== undefined) {
+        updateData.avatar_url = request.avatar_url
+      }
+
+      if (request.slack_user_id !== undefined) {
+        updateData.slack_user_id = request.slack_user_id
+      }
+
+      if (request.enable_webhook_notifications !== undefined) {
+        updateData.enable_webhook_notifications = request.enable_webhook_notifications
       }
 
       const { data, error } = await this.supabase
@@ -235,40 +211,6 @@ export class SupabaseUserRepository implements UserRepositoryInterface {
     }
   }
 
-  /**
-   * メールアドレスの重複確認
-   */
-  async isEmailTaken(email: string, excludeUserId?: string): Promise<RepositoryResult<boolean>> {
-    try {
-      let query = this.supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-
-      if (excludeUserId) {
-        query = query.neq('id', excludeUserId)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        return {
-          success: false,
-          error: error.message
-        }
-      }
-
-      return {
-        success: true,
-        data: (data || []).length > 0
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
-      }
-    }
-  }
 
   /**
    * 全ユーザーを取得（管理用）
@@ -306,15 +248,11 @@ export class SupabaseUserRepository implements UserRepositoryInterface {
    */
   async findActiveUsers(): Promise<RepositoryResult<UserEntity[]>> {
     try {
-      // 30日以内に更新されたユーザーをアクティブとみなす
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
+      // TODOが1つ以上あるユーザーをアクティブとみなす
       const { data, error } = await this.supabase
         .from('users')
-        .select('*')
-        .gte('updated_at', thirtyDaysAgo.toISOString())
-        .order('updated_at', { ascending: false })
+        .select('*, todos!inner(id)')
+        .order('created_at', { ascending: false })
 
       if (error) {
         return {
@@ -373,18 +311,15 @@ export class SupabaseUserRepository implements UserRepositoryInterface {
   }
 
   /**
-   * 非アクティブユーザーを取得（30日以上更新なし）
+   * Slack連携済みユーザーを取得
    */
-  async findInactiveUsers(): Promise<RepositoryResult<UserEntity[]>> {
+  async findSlackUsers(): Promise<RepositoryResult<UserEntity[]>> {
     try {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
       const { data, error } = await this.supabase
         .from('users')
         .select('*')
-        .lt('updated_at', thirtyDaysAgo.toISOString())
-        .order('updated_at', { ascending: true })
+        .not('slack_user_id', 'is', null)
+        .order('created_at', { ascending: false })
 
       if (error) {
         return {

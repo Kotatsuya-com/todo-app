@@ -7,12 +7,18 @@ import { UserEntity } from '../entities/User'
 
 export interface CreateUserRequest {
   id: string
-  email: string
+  display_name?: string | null
+  avatar_url?: string | null
+  slack_user_id?: string | null
+  enable_webhook_notifications?: boolean
 }
 
 export interface UpdateUserRequest {
   id: string
-  email?: string
+  display_name?: string | null
+  avatar_url?: string | null
+  slack_user_id?: string | null
+  enable_webhook_notifications?: boolean
 }
 
 export interface RepositoryResult<T> {
@@ -26,11 +32,6 @@ export interface UserRepositoryInterface {
    * IDでユーザーを取得
    */
   findById(_id: string): Promise<RepositoryResult<UserEntity | null>>
-
-  /**
-   * メールアドレスでユーザーを取得
-   */
-  findByEmail(_email: string): Promise<RepositoryResult<UserEntity | null>>
 
   /**
    * 新しいユーザーを作成
@@ -53,11 +54,6 @@ export interface UserRepositoryInterface {
   exists(_id: string): Promise<RepositoryResult<boolean>>
 
   /**
-   * メールアドレスの重複確認
-   */
-  isEmailTaken(_email: string, _excludeUserId?: string): Promise<RepositoryResult<boolean>>
-
-  /**
    * 全ユーザーを取得（管理用）
    */
   findAll(): Promise<RepositoryResult<UserEntity[]>>
@@ -73,7 +69,7 @@ export interface UserRepositoryInterface {
   findNewUsers(): Promise<RepositoryResult<UserEntity[]>>
 
   /**
-   * 非アクティブユーザーを取得（30日以上更新なし）
+   * Slack連携済みユーザーを取得
    */
-  findInactiveUsers(): Promise<RepositoryResult<UserEntity[]>>
+  findSlackUsers(): Promise<RepositoryResult<UserEntity[]>>
 }

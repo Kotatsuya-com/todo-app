@@ -16,8 +16,8 @@ import { Grid3x3, List, Filter } from 'lucide-react'
 const QUADRANT_INFO = {
   urgent_important: { title: '🔥 今すぐやる', color: 'bg-red-50 border-red-200' },
   not_urgent_important: { title: '📅 計画してやる', color: 'bg-blue-50 border-blue-200' },
-  urgent_not_important: { title: '🤝 誰かに任せる', color: 'bg-yellow-50 border-yellow-200' },
-  not_urgent_not_important: { title: '🗑️ やらない', color: 'bg-gray-50 border-gray-200' }
+  urgent_not_important: { title: '⚡ さっさと片付ける', color: 'bg-yellow-50 border-yellow-200' },
+  not_urgent_not_important: { title: '📝 後回し', color: 'bg-gray-50 border-gray-200' }
 } as const
 
 export default function DashboardPage() {
@@ -122,7 +122,7 @@ export default function DashboardPage() {
         </div>
       ) : filters.viewMode === 'matrix' ? (
         /* マトリクス表示 */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
           {Object.entries(quadrants).map(([key, quadrantTodos]) => (
             <div
               key={key}
