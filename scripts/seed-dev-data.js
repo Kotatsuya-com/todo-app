@@ -7,7 +7,7 @@ const fs = require('fs')
 /**
  * Development seed data loader for TODO app
  * This script loads test data into local Supabase for UI testing
- * 
+ *
  * Usage:
  *   npm run seed:dev                    # Use first available user
  *   npm run seed:dev -- --user-id UUID # Specify target user ID
@@ -35,11 +35,11 @@ if (!fs.existsSync(SEED_FILE)) {
 try {
   // Check if Supabase is running
   console.log('📡 Checking Supabase status...')
-  const statusOutput = execSync('npx supabase status', { 
+  const statusOutput = execSync('npx supabase status', {
     encoding: 'utf8',
     stdio: 'pipe'
   })
-  
+
   if (!statusOutput.includes('API URL') || statusOutput.includes('supabase start')) {
     console.log('🚀 Starting Supabase...')
     execSync('npx supabase start', { stdio: 'inherit' })
@@ -49,19 +49,19 @@ try {
 
   // Get available users and select target user
   console.log('👥 Finding target user...')
-  
-  const containerOutput = execSync('docker ps --format "{{.Names}}" | grep supabase_db', { 
+
+  const containerOutput = execSync('docker ps --format "{{.Names}}" | grep supabase_db', {
     encoding: 'utf8',
     stdio: 'pipe'
   }).trim()
-  
+
   if (!containerOutput) {
     throw new Error('Supabase database container not found. Make sure Supabase is running.')
   }
-  
+
   let selectedUserId = null
   let selectedUserEmail = null
-  
+
   if (targetUserId) {
     // Verify specified user ID exists
     try {
@@ -69,7 +69,7 @@ try {
         encoding: 'utf8',
         stdio: 'pipe'
       }).trim()
-      
+
       if (userCheck) {
         selectedUserId = targetUserId
         selectedUserEmail = userCheck
@@ -89,7 +89,7 @@ try {
         encoding: 'utf8',
         stdio: 'pipe'
       }).trim()
-      
+
       if (userId) {
         selectedUserId = userId
         selectedUserEmail = targetEmail
@@ -109,16 +109,16 @@ try {
         encoding: 'utf8',
         stdio: 'pipe'
       })
-      
+
       console.log('\n📋 Available users:')
       console.log(usersOutput)
-      
+
       // Get the first user as default
       const firstUser = execSync(`docker exec ${containerOutput} psql -U postgres -d postgres -t -c "SELECT id, email FROM auth.users ORDER BY created_at LIMIT 1;"`, {
         encoding: 'utf8',
         stdio: 'pipe'
       }).trim()
-      
+
       if (firstUser) {
         const [userId, email] = firstUser.split('|').map(s => s.trim())
         selectedUserId = userId
@@ -134,14 +134,12 @@ try {
       process.exit(1)
     }
   }
-  
+
   // Load seed data using the selected user
   console.log('📥 Loading seed data from:', SEED_FILE)
-  
+
   // Create dynamic SQL with the selected user ID
-  const originalSql = fs.readFileSync(SEED_FILE, 'utf8')
-  
-  // Replace the placeholder or modify the DO block to use the selected user ID
+  // Note: Reading original seed file for reference (future enhancement)
   const modifiedSql = `
 -- Dynamic seed data for user: ${selectedUserEmail} (${selectedUserId})
 
@@ -247,17 +245,17 @@ BEGIN
     
 END $$;
 `
-  
+
   // Write the modified SQL to a temporary file
   const tempSqlFile = path.join(__dirname, 'temp-seed-dynamic.sql')
   fs.writeFileSync(tempSqlFile, modifiedSql)
-  
+
   try {
     // Copy SQL file to container and execute it
     execSync(`docker cp "${tempSqlFile}" ${containerOutput}:/tmp/seed-dev-dynamic.sql`, {
       stdio: 'pipe'
     })
-    
+
     execSync(`docker exec ${containerOutput} psql -U postgres -d postgres -f /tmp/seed-dev-dynamic.sql`, {
       stdio: 'inherit'
     })
@@ -292,7 +290,7 @@ END $$;
 
 } catch (error) {
   console.error('❌ Error loading seed data:', error.message)
-  
+
   // Provide helpful troubleshooting
   console.log('')
   console.log('🔧 Troubleshooting:')
@@ -300,6 +298,6 @@ END $$;
   console.log('  • Run: npm run db:start')
   console.log('  • Check Supabase status: npm run db:status')
   console.log('  • Try resetting: npm run db:reset')
-  
+
   process.exit(1)
 }

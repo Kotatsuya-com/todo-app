@@ -10,7 +10,7 @@ class MockWebSocket {
     this.readyState = MockWebSocket.CONNECTING
     setTimeout(() => {
       this.readyState = MockWebSocket.OPEN
-      if (this.onopen) this.onopen()
+      if (this.onopen) {this.onopen()}
     }, 0)
   }
 
@@ -20,7 +20,7 @@ class MockWebSocket {
 
   close() {
     this.readyState = MockWebSocket.CLOSED
-    if (this.onclose) this.onclose()
+    if (this.onclose) {this.onclose()}
   }
 
   addEventListener(event, handler) {
@@ -41,5 +41,5 @@ MockWebSocket.CLOSED = 3
 module.exports = {
   getNativeWebSocket: () => MockWebSocket,
   WebSocket: MockWebSocket,
-  default: MockWebSocket,
+  default: MockWebSocket
 }

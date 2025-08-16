@@ -29,7 +29,7 @@ const mockCreateServerClient = createServerClient as jest.MockedFunction<typeof 
 describe('supabase-server.ts', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Setup environment variables
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
@@ -62,10 +62,10 @@ describe('supabase-server.ts', () => {
   describe('cookie get method', () => {
     it('should return cookie value when cookie exists', () => {
       mockCookieStore.get.mockReturnValue({ value: 'testValue' })
-      
+
       createServerSupabaseClient()
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBe('testValue')
       expect(mockCookieStore.get).toHaveBeenCalledWith('testCookie')
@@ -73,10 +73,10 @@ describe('supabase-server.ts', () => {
 
     it('should return undefined when cookie does not exist', () => {
       mockCookieStore.get.mockReturnValue(undefined)
-      
+
       createServerSupabaseClient()
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
       expect(mockCookieStore.get).toHaveBeenCalledWith('testCookie')
@@ -87,9 +87,9 @@ describe('supabase-server.ts', () => {
     it('should set cookie with basic options', () => {
       createServerSupabaseClient()
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {})
-      
+
       expect(mockCookieStore.set).toHaveBeenCalledWith('testCookie', 'testValue', {})
     })
 
@@ -100,12 +100,12 @@ describe('supabase-server.ts', () => {
 
       createServerSupabaseClient(mockRequest)
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {
         secure: false,
         sameSite: 'lax'
       })
-      
+
       expect(mockCookieStore.set).toHaveBeenCalledWith('testCookie', 'testValue', {
         secure: false,
         sameSite: 'lax'
@@ -119,12 +119,12 @@ describe('supabase-server.ts', () => {
 
       createServerSupabaseClient(mockRequest)
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {
         secure: false,
         sameSite: 'lax'
       })
-      
+
       expect(mockCookieStore.set).toHaveBeenCalledWith('testCookie', 'testValue', {
         secure: true,
         sameSite: 'none'
@@ -138,7 +138,7 @@ describe('supabase-server.ts', () => {
 
       createServerSupabaseClient()
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       // Should not throw error
       expect(() => {
         cookieOptions.cookies.set('testCookie', 'testValue', {})
@@ -148,12 +148,12 @@ describe('supabase-server.ts', () => {
     it('should handle undefined request gracefully', () => {
       createServerSupabaseClient(undefined)
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {
         secure: false,
         sameSite: 'lax'
       })
-      
+
       expect(mockCookieStore.set).toHaveBeenCalledWith('testCookie', 'testValue', {
         secure: false,
         sameSite: 'lax'
@@ -165,9 +165,9 @@ describe('supabase-server.ts', () => {
     it('should remove cookie by setting it with maxAge 0', () => {
       createServerSupabaseClient()
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       cookieOptions.cookies.remove('testCookie', { path: '/' })
-      
+
       expect(mockCookieStore.set).toHaveBeenCalledWith('testCookie', '', {
         path: '/',
         maxAge: 0
@@ -181,7 +181,7 @@ describe('supabase-server.ts', () => {
 
       createServerSupabaseClient()
       const cookieOptions = mockCreateServerClient.mockOptions
-      
+
       // Should not throw error
       expect(() => {
         cookieOptions.cookies.remove('testCookie', {})

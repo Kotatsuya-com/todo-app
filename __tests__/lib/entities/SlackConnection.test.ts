@@ -51,22 +51,22 @@ describe('SlackConnectionEntity', () => {
   describe('isValidWorkspaceId', () => {
     it('should validate correct Slack workspace ID formats', () => {
       const validIds = ['T1234567890', 'T123456789', 'T123456789ABC', 'TAAAAAAAAAAA']
-      
+
       validIds.forEach(workspaceId => {
         const mockConnection = createMockSlackConnection({ workspace_id: workspaceId })
         const entity = new SlackConnectionEntity(mockConnection)
-        
+
         expect(entity.isValidWorkspaceId()).toBe(true)
       })
     })
 
     it('should reject invalid Slack workspace ID formats', () => {
-      EDGE_CASE_WORKSPACE_IDS.filter(id => 
+      EDGE_CASE_WORKSPACE_IDS.filter(id =>
         !id.match(/^T[A-Z0-9]{8,}$/)
       ).forEach(workspaceId => {
         const mockConnection = createMockSlackConnection({ workspace_id: workspaceId })
         const entity = new SlackConnectionEntity(mockConnection)
-        
+
         expect(entity.isValidWorkspaceId()).toBe(false)
       })
     })
@@ -75,15 +75,15 @@ describe('SlackConnectionEntity', () => {
       // Minimum valid length
       const entity1 = new SlackConnectionEntity(createMockSlackConnection({ workspace_id: 'T12345678' }))
       expect(entity1.isValidWorkspaceId()).toBe(true)
-      
+
       // Too short
       const entity2 = new SlackConnectionEntity(createMockSlackConnection({ workspace_id: 'T123' }))
       expect(entity2.isValidWorkspaceId()).toBe(false)
-      
+
       // Wrong prefix
       const entity3 = new SlackConnectionEntity(createMockSlackConnection({ workspace_id: 'A1234567890' }))
       expect(entity3.isValidWorkspaceId()).toBe(false)
-      
+
       // Empty
       const entity4 = new SlackConnectionEntity(createMockSlackConnection({ workspace_id: '' }))
       expect(entity4.isValidWorkspaceId()).toBe(false)
@@ -119,8 +119,8 @@ describe('SlackConnectionEntity', () => {
     })
 
     it('should handle scopes with whitespace correctly', () => {
-      const mockConnection = createMockSlackConnection({ 
-        scope: ' channels:read , chat:write , reactions:read ' 
+      const mockConnection = createMockSlackConnection({
+        scope: ' channels:read , chat:write , reactions:read '
       })
       const entity = new SlackConnectionEntity(mockConnection)
 
@@ -129,8 +129,8 @@ describe('SlackConnectionEntity', () => {
     })
 
     it('should be case sensitive for scope validation', () => {
-      const mockConnection = createMockSlackConnection({ 
-        scope: 'channels:read,chat:write' 
+      const mockConnection = createMockSlackConnection({
+        scope: 'channels:read,chat:write'
       })
       const entity = new SlackConnectionEntity(mockConnection)
 
@@ -143,7 +143,7 @@ describe('SlackConnectionEntity', () => {
         const mockConnection = createMockSlackConnection({ scope: scopeString })
         const entity = new SlackConnectionEntity(mockConnection)
         const scopes = scopeString.split(',').map(s => s.trim())
-        
+
         expect(entity.hasValidScope(scopes)).toBe(true)
       })
     })
@@ -252,8 +252,8 @@ describe('SlackConnectionEntity', () => {
     })
 
     it('should handle connections created today', () => {
-      const todayConnection = createMockSlackConnection({ 
-        created_at: new Date().toISOString() 
+      const todayConnection = createMockSlackConnection({
+        created_at: new Date().toISOString()
       })
       const entity = new SlackConnectionEntity(todayConnection)
 
@@ -365,10 +365,10 @@ describe('SlackConnectionEntity', () => {
     it('should maintain immutability through conversion cycle', () => {
       const mockConnection = createMockSlackConnection()
       const originalData = { ...mockConnection }
-      
+
       const entity = SlackConnectionEntity.fromPlainObject(mockConnection)
       const converted = entity.toPlainObject()
-      
+
       expect(converted).toEqual(originalData)
       expect(mockConnection).toEqual(originalData) // Original unchanged
     })

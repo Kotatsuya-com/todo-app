@@ -4,13 +4,13 @@
 
 // POSTハンドラーは動的にインポート
 import {
-  createSlackEventRequest,
+  createSlackEventRequest
 } from '@/__tests__/mocks/supabase-helpers'
 import {
   mockSlackReactionEvent,
   mockSlackEventPayload,
   setupTestEnvironment,
-  cleanupTestEnvironment,
+  cleanupTestEnvironment
 } from '@/__tests__/mocks'
 import {
   MockSlackService,
@@ -19,7 +19,7 @@ import {
   userMismatchResponse,
   slackUserIdNotConfiguredResponse,
   emojiNotConfiguredResponse,
-  eventQueuedResponse,
+  eventQueuedResponse
 } from '@/__tests__/mocks/services'
 import { SlackService } from '@/lib/services/SlackService'
 import { createServices } from '@/lib/services/BackendServiceFactory'
@@ -69,8 +69,8 @@ jest.mock('@/lib/logger', () => ({
       error: jest.fn(),
       debug: jest.fn(),
       info: jest.fn(),
-      warn: jest.fn(),
-    }),
+      warn: jest.fn()
+    })
   },
   webhookLogger: {
     error: jest.fn(),
@@ -81,13 +81,13 @@ jest.mock('@/lib/logger', () => ({
       error: jest.fn(),
       debug: jest.fn(),
       info: jest.fn(),
-      warn: jest.fn(),
-    }),
-  },
+      warn: jest.fn()
+    })
+  }
 }))
 
 jest.mock('@/lib/slack-signature', () => ({
-  verifySlackSignature: jest.fn().mockResolvedValue(true), // 署名検証を常にパスするようモック
+  verifySlackSignature: jest.fn().mockResolvedValue(true) // 署名検証を常にパスするようモック
 }))
 
 jest.mock('@/lib/logger', () => ({
@@ -100,9 +100,9 @@ jest.mock('@/lib/logger', () => ({
       error: jest.fn(),
       debug: jest.fn(),
       info: jest.fn(),
-      warn: jest.fn(),
-    }),
-  },
+      warn: jest.fn()
+    })
+  }
 }))
 
 describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach', () => {
@@ -115,14 +115,14 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
     jest.resetModules()
     setupTestEnvironment()
     cleanupTestEnvironment()
-    
+
     // Slack署名検証用の環境変数設定
     process.env.SLACK_SIGNING_SECRET = 'test-signing-secret'
-    
+
     // Factory Pattern でモックサービスを作成
     mockSlackService = new MockSlackService()
     mockSlackService.setMockResults([])
-    
+
     // ServiceFactory のモック設定
     ;(createServices as jest.MockedFunction<typeof createServices>)
       .mockReturnValue({
@@ -141,31 +141,31 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
         emojiSettingsRepo: {} as any,
         notificationSettingsRepo: {} as any
       })
-    
+
     // HandlerFactory のモック設定
     const mockPOST = jest.fn()
     const mockGET = jest.fn()
-    
+
     const { createSlackEventsHandlers } = require('@/lib/factories/HandlerFactory')
     ;(createSlackEventsHandlers as jest.MockedFunction<typeof createSlackEventsHandlers>)
       .mockReturnValue({
         POST: mockPOST,
         GET: mockGET
       })
-    
+
     // モックPOSTハンドラーの実装
     mockPOST.mockImplementation(async (request: any, { params }: any) => {
       const { webhook_id } = params
-      
+
       try {
         // リクエストボディの取得とパース
         let body = ''
         let payload: any = {}
-        
+
         if (request.text) {
           body = await request.text()
         }
-        
+
         if (body === 'invalid-json') {
           // 無効なJSONの場合は400エラー
           return {
@@ -173,7 +173,7 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
             status: 400
           }
         }
-        
+
         if (body) {
           try {
             payload = JSON.parse(body)
@@ -184,7 +184,7 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
             }
           }
         }
-        
+
         // URL verification challenge
         if (payload.type === 'url_verification' && payload.challenge) {
           return {
@@ -192,17 +192,17 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
             status: 200
           }
         }
-        
-        // SlackServiceを直接呼び出してテストする 
+
+        // SlackServiceを直接呼び出してテストする
         const result = await mockSlackService.processWebhookEvent(webhook_id, payload)
-        
+
         if (!result.success) {
-          return { 
+          return {
             json: async () => ({ error: result.error }),
             status: result.statusCode || 500
           }
         }
-        
+
         return {
           json: async () => result.data,
           status: 200
@@ -214,7 +214,7 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
         }
       }
     })
-    
+
     POST = mockPOST
   })
 
@@ -239,8 +239,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
       // サービス層でWebhook not foundを返すように設定
       mockSlackService.setMockResults([webhookNotFoundResponse()])
 
-      const request = createSlackEventRequest(mockSlackEventPayload, { 
-        webhookId: 'nonexistent-webhook-id' 
+      const request = createSlackEventRequest(mockSlackEventPayload, {
+        webhookId: 'nonexistent-webhook-id'
       })
       const response = await POST(request as any, { params: { webhook_id: 'nonexistent-webhook-id' } })
       const data = await response.json()
@@ -256,8 +256,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
         ...mockSlackEventPayload,
         event: {
           ...mockSlackReactionEvent,
-          user: 'U9999999999', // 異なるユーザーID
-        },
+          user: 'U9999999999' // 異なるユーザーID
+        }
       }
 
       // サービス層でユーザーミスマッチレスポンスを返すように設定
@@ -318,8 +318,8 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
         ...mockSlackEventPayload,
         event: {
           ...mockSlackReactionEvent,
-          reaction: 'thumbsup', // 設定されていない絵文字
-        },
+          reaction: 'thumbsup' // 設定されていない絵文字
+        }
       }
 
       // サービス層で絵文字未設定レスポンスを返すように設定
@@ -342,9 +342,9 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
         url: `http://localhost:3000/api/slack/events/user/${webhookId}`,
         headers: new Headers({
           'x-slack-signature': 'v0=valid_but_irrelevant_for_json_test',
-          'x-slack-request-timestamp': Math.floor(Date.now() / 1000).toString(),
+          'x-slack-request-timestamp': Math.floor(Date.now() / 1000).toString()
         }),
-        text: jest.fn().mockResolvedValue('invalid json {'), // 不正なJSON
+        text: jest.fn().mockResolvedValue('invalid json {') // 不正なJSON
       }
 
       const response = await POST(invalidRequest as any, { params: { webhook_id: webhookId } })
@@ -358,7 +358,7 @@ describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach'
       const challengePayload = {
         type: 'url_verification',
         challenge: 'test_challenge_string',
-        token: 'verification_token',
+        token: 'verification_token'
       }
 
       const request = createSlackEventRequest(challengePayload, { webhookId })

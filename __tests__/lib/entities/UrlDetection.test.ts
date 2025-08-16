@@ -75,7 +75,7 @@ describe('UrlDetectionEntity', () => {
         'http://',
         'https://'
       ]
-      
+
       stringInvalidUrls.forEach(url => {
         const entity = UrlDetectionEntity.fromRequestUrl(url)
         expect(entity.isValidRequestUrl()).toBe(false)
@@ -194,7 +194,7 @@ describe('UrlDetectionEntity', () => {
 
     it('should handle empty port as standard', () => {
       const entity = UrlDetectionEntity.fromRequestUrl('http://localhost')
-      
+
       expect(entity.isStandardPort('http:', '')).toBe(true)
       expect(entity.isStandardPort('https:', '')).toBe(true)
     })
@@ -267,7 +267,7 @@ describe('UrlDetectionEntity', () => {
       const entity = UrlDetectionEntity.fromRequestUrl('http://localhost', {
         fallbackUrl: customFallback
       })
-      
+
       const result = entity.buildUrlFromComponents('https:', '', '3000')
       expect(result).toBe(customFallback)
     })
@@ -296,7 +296,7 @@ describe('UrlDetectionEntity', () => {
         ngrokUrl: null,
         publicAppUrl: null
       })
-      
+
       const appUrl = entity.determineAppBaseUrl()
       // invalid-urlはパースに失敗するため、parseRequestUrl()のフォールバック処理でlocalhostが使われる
       expect(appUrl).toBe('http://localhost')
@@ -336,7 +336,7 @@ describe('UrlDetectionEntity', () => {
       const entity = UrlDetectionEntity.fromRequestUrl('http://localhost', {
         fallbackUrl: customFallback
       })
-      
+
       const normalized = entity.normalizeAppUrl('totally-invalid-url')
       expect(normalized).toBe(customFallback)
     })
@@ -349,7 +349,7 @@ describe('UrlDetectionEntity', () => {
         ngrokUrl: 'https://test.ngrok.io',
         publicAppUrl: 'https://production.com'
       })
-      
+
       const entity = UrlDetectionEntity.fromRequestUrl(requestUrl, options)
       const result = entity.createResult()
 
@@ -386,9 +386,9 @@ describe('UrlDetectionEntity', () => {
     it('should create entity from request URL', () => {
       const requestUrl = 'https://example.com/test'
       const options = createMockUrlDetectionOptions({ ngrokUrl: 'https://ngrok.io' })
-      
+
       const entity = UrlDetectionEntity.fromRequestUrl(requestUrl, options)
-      
+
       expect(entity.requestUrl).toBe(requestUrl)
       expect(entity.options.ngrokUrl).toBe('https://ngrok.io')
     })
@@ -397,9 +397,9 @@ describe('UrlDetectionEntity', () => {
       const requestUrl = 'https://example.com/test'
       const nextUrl = { protocol: 'https:', hostname: 'example.com', port: '' }
       const options = createMockUrlDetectionOptions()
-      
+
       const entity = UrlDetectionEntity.fromNextRequest(requestUrl, nextUrl, options)
-      
+
       expect(entity.requestUrl).toBe(requestUrl)
       // nextUrlプロパティは内部でフォールバック用に使用される
     })
@@ -408,9 +408,9 @@ describe('UrlDetectionEntity', () => {
       const requestUrl = 'https://example.com/test'
       const ngrokUrl = 'https://test.ngrok.io'
       const publicAppUrl = 'https://production.com'
-      
+
       const entity = UrlDetectionEntity.withEnvironmentDefaults(requestUrl, ngrokUrl, publicAppUrl)
-      
+
       expect(entity.requestUrl).toBe(requestUrl)
       expect(entity.options.ngrokUrl).toBe(ngrokUrl)
       expect(entity.options.publicAppUrl).toBe(publicAppUrl)
@@ -419,9 +419,9 @@ describe('UrlDetectionEntity', () => {
 
     it('should handle null values in environment defaults', () => {
       const requestUrl = 'https://example.com/test'
-      
+
       const entity = UrlDetectionEntity.withEnvironmentDefaults(requestUrl, null, null)
-      
+
       expect(entity.options.ngrokUrl).toBeNull()
       expect(entity.options.publicAppUrl).toBeNull()
     })
@@ -433,7 +433,7 @@ describe('UrlDetectionEntity', () => {
         requestUrl: 'http://localhost:3000',
         ...EDGE_CASE_DATA.emptyComponents
       })
-      
+
       const parsed = entity.parseRequestUrl()
       expect(parsed.hostname).toBe('localhost') // from valid requestUrl
     })
@@ -441,14 +441,14 @@ describe('UrlDetectionEntity', () => {
     it('should handle extremely long URLs', () => {
       const entity = new UrlDetectionEntity(EDGE_CASE_DATA.longUrl)
       const validation = entity.validateRequest()
-      
+
       expect(validation.valid).toBe(true)
     })
 
     it('should handle special characters in hostname', () => {
       const entity = UrlDetectionEntity.fromRequestUrl('http://xn--n3h.com/api')
       const parsed = entity.parseRequestUrl()
-      
+
       expect(parsed.hostname).toBe('xn--n3h.com')
     })
 
@@ -457,7 +457,7 @@ describe('UrlDetectionEntity', () => {
         const protocol = testCase.expected.startsWith('https') ? 'https:' : 'http:'
         const entity = UrlDetectionEntity.fromRequestUrl('http://localhost')
         const url = entity.buildUrlFromComponents(protocol, testCase.hostname, testCase.port)
-        
+
         expect(url).toBe(testCase.expected)
       })
     })
@@ -465,12 +465,12 @@ describe('UrlDetectionEntity', () => {
     it('should handle boundary value ports', () => {
       const entity = UrlDetectionEntity.fromRequestUrl('http://localhost')
       const { standardPorts, commonNonStandardPorts } = EDGE_CASE_DATA.boundaryValues
-      
+
       standardPorts.forEach(port => {
         expect(entity.isStandardPort('http:', port === '80' ? port : '')).toBe(true)
         expect(entity.isStandardPort('https:', port === '443' ? port : '')).toBe(true)
       })
-      
+
       commonNonStandardPorts.forEach(port => {
         expect(entity.isStandardPort('http:', port)).toBe(false)
         expect(entity.isStandardPort('https:', port)).toBe(false)
@@ -488,7 +488,7 @@ describe('UrlDetectionEntity', () => {
     it('should have working regex patterns', () => {
       expect(UrlDetectionEntity.NGROK_DOMAIN_PATTERN.test('test.ngrok.io')).toBe(true)
       expect(UrlDetectionEntity.NGROK_DOMAIN_PATTERN.test('example.com')).toBe(false)
-      
+
       expect(UrlDetectionEntity.LOCALHOST_PATTERN.test('localhost')).toBe(true)
       expect(UrlDetectionEntity.LOCALHOST_PATTERN.test('127.0.0.1')).toBe(true)
       expect(UrlDetectionEntity.LOCALHOST_PATTERN.test('::1')).toBe(true)

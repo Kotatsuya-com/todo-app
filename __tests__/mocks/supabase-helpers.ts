@@ -6,13 +6,13 @@
 // 成功レスポンス
 export const mockSupabaseSuccess = <T>(data: T) => ({
   data,
-  error: null,
+  error: null
 })
 
 // エラーレスポンス
 export const mockSupabaseError = (error: any) => ({
   data: null,
-  error,
+  error
 })
 
 // データが見つからない場合のレスポンス（PGRST116）
@@ -22,20 +22,20 @@ export const mockSupabaseNotFound = () => ({
     code: 'PGRST116',
     message: 'No rows found',
     details: null,
-    hint: null,
-  },
+    hint: null
+  }
 })
 
 // 認証エラーレスポンス
 export const mockAuthError = () => ({
   data: { user: null },
-  error: new Error('Not authenticated'),
+  error: new Error('Not authenticated')
 })
 
 // 認証成功レスポンス
 export const mockAuthSuccess = (user: any) => ({
   data: { user },
-  error: null,
+  error: null
 })
 
 // シンプルなSupabaseクライアントモック作成
@@ -50,7 +50,7 @@ export const createSimpleSupabaseClient = () => {
     update: jest.fn(),
     upsert: jest.fn(),
     delete: jest.fn(),
-    order: jest.fn(),
+    order: jest.fn()
   }
 
   // メソッドチェーンを実現
@@ -61,10 +61,10 @@ export const createSimpleSupabaseClient = () => {
   const client = {
     auth: {
       getUser: jest.fn(),
-      signInWithOAuth: jest.fn(),
+      signInWithOAuth: jest.fn()
     },
     from: jest.fn(() => mockChain),
-    rpc: jest.fn(),
+    rpc: jest.fn()
   }
 
   return { client, mockChain }
@@ -90,10 +90,10 @@ export const setupQueryResult = (mockChain: any, result: any) => {
 // Slack Events API専用のSupabaseクライアントモック
 export const createSlackEventsSupabaseClient = (queryResults: any[]) => {
   let callIndex = 0
-  
+
   const createChain = () => {
     const result = queryResults[callIndex++] || mockSupabaseSuccess(null)
-    
+
     return {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -105,17 +105,17 @@ export const createSlackEventsSupabaseClient = (queryResults: any[]) => {
       delete: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       then: (resolve) => resolve(result),
-      catch: (reject) => reject,
+      catch: (reject) => reject
     }
   }
-  
+
   return {
     auth: {
       getUser: jest.fn(),
-      signInWithOAuth: jest.fn(),
+      signInWithOAuth: jest.fn()
     },
     from: jest.fn(() => createChain()),
-    rpc: jest.fn(),
+    rpc: jest.fn()
   }
 }
 
@@ -156,7 +156,7 @@ export const createSlackEventRequest = (payload: any, options: {
   const crypto = require('crypto')
   const timestamp = options.timestamp || Math.floor(Date.now() / 1000).toString()
   const bodyText = JSON.stringify(payload)
-  
+
   // 署名を生成（テスト用のシークレット）
   const secret = 'test-signing-secret'
   const sigBasestring = `v0:${timestamp}:${bodyText}`
@@ -164,19 +164,19 @@ export const createSlackEventRequest = (payload: any, options: {
     .createHmac('sha256', secret)
     .update(sigBasestring)
     .digest('hex')}`
-  
+
   const mockRequest = {
     method: 'POST',
     url: `http://localhost:3000/api/slack/events/user/${options.webhookId || 'test-webhook-id'}`,
     headers: new Headers({
       'x-slack-signature': signature,
       'x-slack-request-timestamp': timestamp,
-      'content-type': 'application/json',
+      'content-type': 'application/json'
     }),
     nextUrl: new URL(`http://localhost:3000/api/slack/events/user/${options.webhookId || 'test-webhook-id'}`),
     json: jest.fn().mockResolvedValue(payload),
-    text: jest.fn().mockResolvedValue(bodyText), // 重要：必ずテキストを返す
+    text: jest.fn().mockResolvedValue(bodyText) // 重要：必ずテキストを返す
   }
-  
+
   return mockRequest
 }

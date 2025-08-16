@@ -32,9 +32,9 @@ jest.mock('@/lib/logger', () => ({
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-      info: jest.fn(),
-    }),
-  },
+      info: jest.fn()
+    })
+  }
 }))
 
 import { getSlackMessageFromUrl, parseSlackUrl } from '@/lib/slack-message'
@@ -67,10 +67,10 @@ describe('SlackMessageService', () => {
     }
 
     service = new SlackMessageService(mockSlackRepo)
-    
+
     // Reset all mocks
     jest.clearAllMocks()
-    
+
     // Setup default parseSlackUrl mock for valid URLs
     mockParseSlackUrl.mockImplementation((url: string) => {
       if (url.includes('slack.com') && url.includes('/archives/')) {
@@ -92,7 +92,7 @@ describe('SlackMessageService', () => {
     it('should complete full message retrieval successfully', async () => {
       const mockConnections = createMultipleConnections()
       const mockApiResponse = createMockSlackApiResponse()
-      
+
       // Mock successful user validation
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         data: { id: userId } as UserWithSettings
@@ -107,10 +107,6 @@ describe('SlackMessageService', () => {
       mockGetSlackMessageFromUrl.mockResolvedValue(mockApiResponse)
 
       const result = await service.retrieveMessage(validUrl, userId)
-      
-      if (!result.success) {
-        console.log('Test failed with error:', result.error, 'Status:', result.statusCode)
-      }
 
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
@@ -169,7 +165,7 @@ describe('SlackMessageService', () => {
 
     it('should fail when Slack message cannot be retrieved', async () => {
       const mockConnections = [createMockSlackConnection()]
-      
+
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         data: { id: userId } as UserWithSettings
       } as RepositoryResult<UserWithSettings>)
@@ -228,7 +224,7 @@ describe('SlackMessageService', () => {
 
     it('should handle Slack API exceptions', async () => {
       const mockConnections = [createMockSlackConnection()]
-      
+
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         data: { id: userId } as UserWithSettings
       } as RepositoryResult<UserWithSettings>)
@@ -263,7 +259,7 @@ describe('SlackMessageService', () => {
         createMockSlackConnection({ workspace_id: 'T9999999999', workspace_name: 'Other' }),
         createMockSlackConnection({ workspace_id: 'T1234567890', workspace_name: 'Target' })
       ]
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
         success: true,
         data: connections
@@ -284,14 +280,14 @@ describe('SlackMessageService', () => {
         createMockSlackConnection({ workspace_name: 'Other Workspace' }),
         createMockSlackConnection({ workspace_name: 'target-workspace' }) // Match the parsed workspace
       ]
-      
+
       // Override parseSlackUrl for this specific test
       mockParseSlackUrl.mockReturnValueOnce({
         workspace: 'target-workspace',
         channel: 'C123',
         timestamp: '123'
       })
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
         success: true,
         data: connections
@@ -312,7 +308,7 @@ describe('SlackMessageService', () => {
         createMockSlackConnection({ team_name: 'Other Team' }),
         createMockSlackConnection({ team_name: 'Target Team' })
       ]
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
         success: true,
         data: connections
@@ -330,7 +326,7 @@ describe('SlackMessageService', () => {
     it('should use first connection when no match found', async () => {
       const url = 'https://unknown.slack.com/archives/C123/p123'
       const connections = createMultipleConnections()
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
         success: true,
         data: connections
@@ -350,7 +346,7 @@ describe('SlackMessageService', () => {
       const connections = [
         createMockSlackConnection({ workspace_name: 'example workspace' })
       ]
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
         success: true,
         data: connections
@@ -387,7 +383,7 @@ describe('SlackMessageService', () => {
         timestamp: '9999999999.999999',
         channel: 'C9999999999'
       }
-      
+
       mockGetSlackMessageFromUrl.mockResolvedValue(mockApiResponse)
 
       const result = await service.retrieveMessage(validUrl, userId)
@@ -465,7 +461,7 @@ describe('SlackMessageService', () => {
 
     it('should handle extremely long URLs', async () => {
       const longUrl = 'https://very-long-workspace-name-that-might-cause-issues.slack.com/archives/C1234567890/p1234567890123456'
-      
+
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         data: { id: userId } as UserWithSettings
       } as RepositoryResult<UserWithSettings>)
@@ -484,7 +480,7 @@ describe('SlackMessageService', () => {
 
     it('should handle special characters in user ID', async () => {
       const specialUserId = 'user-with-special@chars#123'
-      
+
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         success: true,
         data: { id: specialUserId } as UserWithSettings
@@ -506,7 +502,7 @@ describe('SlackMessageService', () => {
     it('should maintain consistent error response format', async () => {
       const errorScenarios = [
         () => service.retrieveMessage('', userId), // Invalid URL
-        () => service.retrieveMessage(validUrl, ''), // Invalid user ID
+        () => service.retrieveMessage(validUrl, '') // Invalid user ID
       ]
 
       for (const scenario of errorScenarios) {

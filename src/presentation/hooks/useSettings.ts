@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './useAuth'
 import { UserEntity } from '@/src/domain/entities/User'
+import { SETTINGS_DEBOUNCE_TIMEOUT_MS } from '@/src/constants/timeConstants'
 
 export interface SlackConnection {
   id: string
@@ -375,7 +376,7 @@ export const useSettings = (): UseSettingsReturn => {
       const timer = setTimeout(() => {
         fetchAllSettings() // 全設定を再読み込み
         window.history.replaceState({}, '', '/settings')
-      }, 1000)
+      }, SETTINGS_DEBOUNCE_TIMEOUT_MS)
 
       return () => clearTimeout(timer)
     }

@@ -266,18 +266,18 @@ export const EDGE_CASE_DATA = {
     hostname: '',
     port: ''
   },
-  
+
   // 極端に長いURL
   longUrl: {
     requestUrl: 'https://very-long-subdomain-name-that-exceeds-normal-length.example.com:8080/very/long/path/that/goes/deeper/than/usual/api/endpoint/with/many/parameters?param1=value1&param2=value2&param3=value3&param4=value4&param5=value5#fragment-with-long-name'
   },
-  
+
   // 特殊文字を含むホスト名
   specialCharsInHostname: {
     // IDN（国際化ドメイン名）
     hostname: 'xn--n3h.com' // 実際の例: ☃.com
   },
-  
+
   // 境界値
   boundaryValues: {
     minValidUrl: 'http://a.co',

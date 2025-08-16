@@ -1,0 +1,29 @@
+{
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact", 
+    "typescript",
+    "typescriptreact"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "typescript.preferences.strictFunctionTypes": true,
+  "typescript.preferences.strictNullChecks": true,
+  "typescript.preferences.noImplicitAny": true,
+  "eslint.format.enable": true,
+  "editor.formatOnSave": true,
+  "editor.rulers": [80, 120],
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "eslint.workingDirectories": ["."],
+  "search.exclude": {
+    "node_modules": true,
+    ".next": true,
+    "dist": true,
+    "build": true,
+    "coverage": true
+  }
+}

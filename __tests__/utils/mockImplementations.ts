@@ -1,7 +1,7 @@
 /**
  * Mock Implementations
  * モック実装集 - 各種サービスとリポジトリのモック実装
- * 
+ *
  * @fileoverview This file contains mock implementations and should not run as a test suite
  */
 

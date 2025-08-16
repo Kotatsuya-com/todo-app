@@ -13,7 +13,7 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
     debug: jest.fn(),
     info: jest.fn(),
-    warn: jest.fn(),
+    warn: jest.fn()
   }
 }))
 
@@ -30,7 +30,7 @@ describe('ngrok-url.ts', () => {
   describe('getNgrokUrl', () => {
     it('should read APP_URL from .env.runtime file when it exists', () => {
       const mockEnvContent = 'APP_URL=https://abc123.ngrok.io\nOTHER_VAR=value'
-      
+
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(mockEnvContent)
@@ -45,7 +45,7 @@ describe('ngrok-url.ts', () => {
 
     it('should handle APP_URL with whitespace', () => {
       const mockEnvContent = 'APP_URL=  https://abc123.ngrok.io  \n'
-      
+
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(mockEnvContent)
@@ -57,15 +57,15 @@ describe('ngrok-url.ts', () => {
 
     it('should fallback to .ngrok-url file when .env.runtime does not exist', () => {
       const mockNgrokContent = 'https://def456.ngrok.io'
-      
+
       mockPath.join
         .mockReturnValueOnce('/mock/project/.env.runtime')
         .mockReturnValueOnce('/mock/project/.ngrok-url')
-      
+
       mockFs.existsSync
         .mockReturnValueOnce(false) // .env.runtime doesn't exist
         .mockReturnValueOnce(true)  // .ngrok-url exists
-      
+
       mockFs.readFileSync.mockReturnValue(mockNgrokContent)
 
       const result = getNgrokUrl()
@@ -77,11 +77,11 @@ describe('ngrok-url.ts', () => {
     it('should fallback to .ngrok-url file when APP_URL is not found in .env.runtime', () => {
       const mockEnvContent = 'OTHER_VAR=value\nANOTHER_VAR=test'
       const mockNgrokContent = 'https://fallback.ngrok.io'
-      
+
       mockPath.join
         .mockReturnValueOnce('/mock/project/.env.runtime')
         .mockReturnValueOnce('/mock/project/.ngrok-url')
-      
+
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync
         .mockReturnValueOnce(mockEnvContent)   // .env.runtime
@@ -103,7 +103,7 @@ describe('ngrok-url.ts', () => {
 
     it('should return null and log error when file reading fails', () => {
       const mockError = new Error('Permission denied')
-      
+
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockImplementation(() => {
@@ -113,10 +113,10 @@ describe('ngrok-url.ts', () => {
       const result = getNgrokUrl()
 
       expect(result).toBeNull()
-      
+
       const { apiLogger } = require('@/lib/logger')
       expect(apiLogger.error).toHaveBeenCalledWith(
-        { error: mockError }, 
+        { error: mockError },
         'Failed to read ngrok URL'
       )
     })
@@ -124,11 +124,11 @@ describe('ngrok-url.ts', () => {
     it('should handle empty APP_URL match', () => {
       const mockEnvContent = 'APP_URL=\nOTHER_VAR=value'
       const mockNgrokContent = 'https://backup.ngrok.io'
-      
+
       mockPath.join
         .mockReturnValueOnce('/mock/project/.env.runtime')
         .mockReturnValueOnce('/mock/project/.ngrok-url')
-      
+
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync
         .mockReturnValueOnce(mockEnvContent)
@@ -143,7 +143,7 @@ describe('ngrok-url.ts', () => {
   describe('getAppBaseUrl', () => {
     it('should return ngrok URL when available', () => {
       const mockEnvContent = 'APP_URL=https://ngrok-test.ngrok.io'
-      
+
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(mockEnvContent)
@@ -155,7 +155,7 @@ describe('ngrok-url.ts', () => {
 
     it('should return NEXT_PUBLIC_APP_URL when ngrok URL is not available', () => {
       process.env.NEXT_PUBLIC_APP_URL = 'https://myapp.vercel.app'
-      
+
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(false)
 
@@ -191,7 +191,7 @@ describe('ngrok-url.ts', () => {
     it('should prioritize ngrok URL over environment variable', () => {
       process.env.NEXT_PUBLIC_APP_URL = 'https://production.com'
       const mockEnvContent = 'APP_URL=https://dev.ngrok.io'
-      
+
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockReturnValue(mockEnvContent)

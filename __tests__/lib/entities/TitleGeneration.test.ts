@@ -182,10 +182,10 @@ describe('TitleGenerationEntity', () => {
         { content: 'test' },
         { maxLength: 10 }
       )
-      
+
       const longTitle = 'これは10文字を超える長いタイトルです'
       const result = entity.processGeneratedTitle(longTitle)
-      
+
       expect(result.length).toBe(10)
       expect(result).toBe('これは10文字を超え')
     })
@@ -195,13 +195,13 @@ describe('TitleGenerationEntity', () => {
 
       // Empty string
       expect(entity.processGeneratedTitle('')).toBe(TitleGenerationEntity.FALLBACK_TITLE)
-      
+
       // Null
       expect(entity.processGeneratedTitle(null)).toBe(TitleGenerationEntity.FALLBACK_TITLE)
-      
+
       // Undefined
       expect(entity.processGeneratedTitle(undefined)).toBe(TitleGenerationEntity.FALLBACK_TITLE)
-      
+
       // Whitespace only
       expect(entity.processGeneratedTitle('   ')).toBe(TitleGenerationEntity.FALLBACK_TITLE)
     })
@@ -239,7 +239,7 @@ describe('TitleGenerationEntity', () => {
       COMPLEXITY_TEST_CASES.forEach(testCase => {
         const entity = TitleGenerationEntity.fromContent(testCase.content)
         const complexity = entity.getContentComplexity()
-        
+
         expect(complexity).toBe(testCase.expectedComplexity)
       })
     })
@@ -247,7 +247,7 @@ describe('TitleGenerationEntity', () => {
     it('should handle special characters in complexity assessment', () => {
       const entity = TitleGenerationEntity.fromContent(EDGE_CASE_DATA.specialCharacters.content)
       const complexity = entity.getContentComplexity()
-      
+
       expect(complexity).toBe(EDGE_CASE_DATA.specialCharacters.expectedComplexity)
     })
 
@@ -277,7 +277,7 @@ describe('TitleGenerationEntity', () => {
       COMPLEXITY_TEST_CASES.forEach(testCase => {
         const entity = TitleGenerationEntity.fromContent(testCase.content)
         const temperature = entity.getRecommendedTemperature()
-        
+
         expect(temperature).toBe(testCase.expectedTemp)
       })
     })
@@ -339,21 +339,21 @@ describe('TitleGenerationEntity', () => {
   describe('edge cases and error handling', () => {
     it('should handle content with special characters', () => {
       const entity = TitleGenerationEntity.fromContent(EDGE_CASE_DATA.specialCharacters.content)
-      
+
       expect(entity.isValidContent()).toBe(true)
       expect(entity.validateRequest().valid).toBe(true)
     })
 
     it('should handle emoji content', () => {
       const entity = TitleGenerationEntity.fromContent(EDGE_CASE_DATA.emojiContent.content)
-      
+
       expect(entity.isValidContent()).toBe(true)
       expect(entity.getContentComplexity()).toBe(EDGE_CASE_DATA.emojiContent.expectedComplexity)
     })
 
     it('should handle mixed language content', () => {
       const entity = TitleGenerationEntity.fromContent(EDGE_CASE_DATA.mixedLanguages.content)
-      
+
       expect(entity.isValidContent()).toBe(true)
       expect(entity.getContentComplexity()).toBe(EDGE_CASE_DATA.mixedLanguages.expectedComplexity)
     })
@@ -368,7 +368,7 @@ describe('TitleGenerationEntity', () => {
 
     it('should maintain consistent behavior across multiple calls', () => {
       const entity = TitleGenerationEntity.fromContent('consistent test')
-      
+
       // Multiple calls should return same results
       expect(entity.getContentComplexity()).toBe(entity.getContentComplexity())
       expect(entity.getRecommendedTemperature()).toBe(entity.getRecommendedTemperature())
@@ -389,7 +389,7 @@ describe('TitleGenerationEntity', () => {
 
     it('should use constants consistently', () => {
       const entity = TitleGenerationEntity.fromContent('test')
-      
+
       expect(entity.options.model).toBe(TitleGenerationEntity.DEFAULT_MODEL)
       expect(entity.options.maxTokens).toBe(TitleGenerationEntity.DEFAULT_MAX_TOKENS)
       expect(entity.options.temperature).toBe(TitleGenerationEntity.DEFAULT_TEMPERATURE)

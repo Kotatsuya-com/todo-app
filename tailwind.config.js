@@ -4,7 +4,7 @@ module.exports = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}'
   ],
   theme: {
     extend: {
@@ -40,27 +40,27 @@ module.exports = {
 
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
+        ring: 'hsl(var(--ring))'
       },
 
       /** 既存のアニメーション拡張はそのまま維持 */
       animation: {
         'slide-in': 'slideIn 0.3s ease-out',
-        'fade-in': 'fadeIn 0.3s ease-out',
+        'fade-in': 'fadeIn 0.3s ease-out'
       },
       keyframes: {
         slideIn: {
           from: { transform: 'translateY(-10px)', opacity: '0' },
-          to: { transform: 'translateY(0)', opacity: '1' },
+          to: { transform: 'translateY(0)', opacity: '1' }
         },
         fadeIn: {
           from: { opacity: '0' },
-          to: { opacity: '1' },
-        },
-      },
-    },
+          to: { opacity: '1' }
+        }
+      }
+    }
   },
   plugins: [
-    require('@tailwindcss/typography'),
-  ],
+    require('@tailwindcss/typography')
+  ]
 }

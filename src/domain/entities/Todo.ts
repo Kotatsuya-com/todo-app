@@ -31,6 +31,14 @@ export interface TodoSortOptions {
   order: 'asc' | 'desc'
 }
 
+export interface UpdateTodoData {
+  title?: string | null
+  body?: string
+  deadline?: string | null
+  importance_score?: number
+  status?: TodoStatus
+}
+
 export class TodoEntity {
   private _data: TodoData
 

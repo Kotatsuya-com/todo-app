@@ -49,28 +49,28 @@ export const createMockTodoRepository = (): jest.Mocked<TodoRepositoryInterface>
 /**
  * 成功結果のヘルパー
  */
-export const mockRepositorySuccess = <T>(data: T): RepositoryResult<T> => 
+export const mockRepositorySuccess = <T>(data: T): RepositoryResult<T> =>
   RepositoryUtils.success(data)
 
-export const mockRepositoryListSuccess = <T>(data: T[]): RepositoryListResult<T> => 
+export const mockRepositoryListSuccess = <T>(data: T[]): RepositoryListResult<T> =>
   RepositoryUtils.successList(data)
 
 /**
  * エラー結果のヘルパー
  */
-export const mockRepositoryError = <T>(message: string): RepositoryResult<T> => 
+export const mockRepositoryError = <T>(message: string): RepositoryResult<T> =>
   RepositoryUtils.failure(new Error(message))
 
-export const mockRepositoryListError = <T>(message: string): RepositoryListResult<T> => 
+export const mockRepositoryListError = <T>(message: string): RepositoryListResult<T> =>
   RepositoryUtils.failureList(new Error(message))
 
 /**
  * 404 Not Found結果のヘルパー
  */
-export const mockRepositoryNotFound = <T>(): RepositoryResult<T> => 
+export const mockRepositoryNotFound = <T>(): RepositoryResult<T> =>
   RepositoryUtils.failure(new Error('Not found'))
 
-export const mockRepositoryListNotFound = <T>(): RepositoryListResult<T> => 
+export const mockRepositoryListNotFound = <T>(): RepositoryListResult<T> =>
   RepositoryUtils.successList([])
 
 /**
@@ -101,7 +101,7 @@ export const setupSlackRepositoryMocks = (
   if (config.findProcessedEvent !== undefined) {
     mockRepo.findProcessedEvent.mockResolvedValue(config.findProcessedEvent)
   }
-  
+
   return mockRepo
 }
 
@@ -118,6 +118,6 @@ export const setupTodoRepositoryMocks = (
   if (config.create !== undefined) {
     mockRepo.create.mockResolvedValue(config.create)
   }
-  
+
   return mockRepo
 }

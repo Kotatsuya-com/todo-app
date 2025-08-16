@@ -22,7 +22,7 @@ describe('/api/user/notifications API Routes', () => {
   beforeEach(() => {
     // Create test container
     container = new TestContainer()
-    
+
     // Create handlers with test container
     handlers = createNotificationSettingsHandlers(container)
 

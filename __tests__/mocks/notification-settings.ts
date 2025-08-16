@@ -115,7 +115,7 @@ export class MockNotificationSettingsRepository implements NotificationSettingsR
 
     const existingSetting = this.settings.get(userId)
     const now = new Date().toISOString()
-    
+
     const newSetting: NotificationSettings = {
       user_id: userId,
       updated_at: now,
@@ -226,7 +226,7 @@ export function createEmptyMockNotificationSettingsRepository(): MockNotificatio
  */
 export function createMockServicesForNotificationSettings(mockRepo?: MockNotificationSettingsRepository) {
   const notificationSettingsRepo = mockRepo || createMockNotificationSettingsRepository()
-  
+
   return {
     notificationSettingsService: {
       // Will be replaced with actual service mock if needed

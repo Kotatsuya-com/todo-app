@@ -22,7 +22,7 @@ describe('/api/slack/auth API Routes', () => {
   beforeEach(() => {
     // Create test container
     container = new TestContainer()
-    
+
     // Create handlers with test container
     handlers = createSlackAuthHandlers(container)
 
@@ -67,7 +67,7 @@ describe('/api/slack/auth API Routes', () => {
 
       // Mock OAuth callback parameters
       mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-      
+
       container.updateServiceMock('slackAuthService', {
         processOAuthCallback: jest.fn().mockResolvedValue(mockResponse)
       })
@@ -96,7 +96,7 @@ describe('/api/slack/auth API Routes', () => {
     it('should handle OAuth error parameter', async () => {
       // Mock OAuth error parameter
       mockRequest.nextUrl.searchParams.set('error', 'access_denied')
-      
+
       container.updateUtilsMock({
         getAppBaseUrl: jest.fn().mockReturnValue('http://localhost:3000')
       })
@@ -132,7 +132,7 @@ describe('/api/slack/auth API Routes', () => {
 
       // Mock OAuth callback parameters
       mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-      
+
       container.updateServiceMock('slackAuthService', {
         processOAuthCallback: jest.fn().mockResolvedValue(mockErrorResponse)
       })
@@ -150,7 +150,7 @@ describe('/api/slack/auth API Routes', () => {
     it('should handle authentication errors', async () => {
       // Mock OAuth callback parameters
       mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-      
+
       container.updateAuthMock({
         requireAuthentication: jest.fn().mockRejectedValue(new Error('Authentication failed'))
       })
@@ -182,7 +182,7 @@ describe('/api/slack/auth API Routes', () => {
 
         // Mock OAuth callback parameters
         mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-        
+
         container.updateServiceMock('slackAuthService', {
           processOAuthCallback: jest.fn().mockResolvedValue(mockErrorResponse)
         })
@@ -201,7 +201,7 @@ describe('/api/slack/auth API Routes', () => {
     it('should handle unexpected errors', async () => {
       // Mock OAuth callback parameters
       mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-      
+
       container.updateServiceMock('slackAuthService', {
         processOAuthCallback: jest.fn().mockRejectedValue(new Error('Unexpected error'))
       })
@@ -221,7 +221,7 @@ describe('/api/slack/auth API Routes', () => {
     it('should use test container for all dependencies', async () => {
       // Mock OAuth callback parameters
       mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-      
+
       container.updateUtilsMock({
         getAppBaseUrl: jest.fn().mockReturnValue('http://localhost:3000')
       })
@@ -246,7 +246,7 @@ describe('/api/slack/auth API Routes', () => {
 
       // Mock OAuth callback parameters
       mockRequest.nextUrl.searchParams.set('code', 'oauth-code-123')
-      
+
       container.updateServiceMock('slackAuthService', {
         processOAuthCallback: jest.fn().mockResolvedValue(customResponse)
       })

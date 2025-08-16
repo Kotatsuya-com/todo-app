@@ -341,7 +341,7 @@ describe('EmojiSettingsService', () => {
 
       expect(result.success).toBe(true)
       const popularEmojis = result.data?.popularEmojis || []
-      
+
       for (let i = 1; i < popularEmojis.length; i++) {
         expect(popularEmojis[i-1].count).toBeGreaterThanOrEqual(popularEmojis[i].count)
       }

@@ -1,7 +1,8 @@
 /**
  * @jest-environment jsdom
  */
-import { ClientLogger } from '@/lib/client-logger'
+import clientLogger, { createClientLogger } from '@/lib/client-logger'
+import { mockProcessEnv, restoreProcessEnv } from '@/__tests__/utils/typeHelpers'
 
 describe('ClientLogger', () => {
   let originalWindow: any
@@ -14,7 +15,7 @@ describe('ClientLogger', () => {
       log: console.log,
       info: console.info,
       warn: console.warn,
-      error: console.error,
+      error: console.error
     }
 
     // Mock console methods
@@ -31,32 +32,28 @@ describe('ClientLogger', () => {
   afterEach(() => {
     // Restore original console
     Object.assign(console, originalConsole)
+    // Restore environment variables
+    restoreProcessEnv()
     jest.useRealTimers()
     jest.clearAllMocks()
   })
 
   describe('constructor and level detection', () => {
     it('should use debug level in development by default', () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'development'
-      delete process.env.NEXT_PUBLIC_CLIENT_LOG_LEVEL
+      mockProcessEnv({ NODE_ENV: 'development' })
 
-      const logger = new (require('@/lib/client-logger').default.constructor)()
-      
+      const logger = createClientLogger({})
+
       // Test by calling debug method - should log in development
       logger.debug('test message')
       expect(console.log).toHaveBeenCalled()
-
-      process.env.NODE_ENV = originalEnv
     })
 
     it('should use warn level in production by default', () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'production'
-      delete process.env.NEXT_PUBLIC_CLIENT_LOG_LEVEL
+      mockProcessEnv({ NODE_ENV: 'production' })
 
-      const logger = new (require('@/lib/client-logger').default.constructor)()
-      
+      const logger = createClientLogger({})
+
       // Test by calling debug method - should not log in production
       logger.debug('test message')
       expect(console.log).not.toHaveBeenCalled()
@@ -64,8 +61,6 @@ describe('ClientLogger', () => {
       // Test by calling warn method - should log in production
       logger.warn('test warning')
       expect(console.warn).toHaveBeenCalled()
-
-      process.env.NODE_ENV = originalEnv
     })
 
     it('should respect NEXT_PUBLIC_CLIENT_LOG_LEVEL environment variable', () => {
@@ -73,7 +68,7 @@ describe('ClientLogger', () => {
       process.env.NEXT_PUBLIC_CLIENT_LOG_LEVEL = 'error'
 
       const logger = new (require('@/lib/client-logger').default.constructor)()
-      
+
       // Only error should log with error level
       logger.debug('debug message')
       logger.info('info message')
@@ -112,7 +107,7 @@ describe('ClientLogger', () => {
     it('should log when window is available (browser)', () => {
       // Ensure window is available
       global.window = { ...originalWindow }
-      
+
       const logger = new (require('@/lib/client-logger').default.constructor)()
       logger.debug('debug message')
 
@@ -212,60 +207,60 @@ describe('ClientLogger', () => {
 
     it('should include context in log messages', () => {
       logger.debug('test message')
-      
+
       expect(console.log).toHaveBeenCalledWith(
-        '[10:30:45] DEBUG', 
-        'test message', 
+        '[10:30:45] DEBUG',
+        'test message',
         { module: 'test' }
       )
     })
 
     it('should support string-only log calls', () => {
       logger.info('simple message')
-      
+
       expect(console.info).toHaveBeenCalledWith(
-        '[10:30:45] INFO', 
-        'simple message', 
+        '[10:30:45] INFO',
+        'simple message',
         { module: 'test' }
       )
     })
 
     it('should support context + message log calls', () => {
       logger.warn({ userId: 123 }, 'user action')
-      
+
       expect(console.warn).toHaveBeenCalledWith(
-        '[10:30:45] WARN', 
-        'user action', 
+        '[10:30:45] WARN',
+        'user action',
         { module: 'test', userId: 123 }
       )
     })
 
     it('should merge additional context with base context', () => {
       logger.error({ error: 'something went wrong' }, 'error occurred')
-      
+
       expect(console.error).toHaveBeenCalledWith(
-        '[10:30:45] ERROR', 
-        'error occurred', 
+        '[10:30:45] ERROR',
+        'error occurred',
         { module: 'test', error: 'something went wrong' }
       )
     })
 
     it('should support debug with context + message pattern (line 57)', () => {
       logger.debug({ requestId: 'abc123' }, 'debug with context')
-      
+
       expect(console.log).toHaveBeenCalledWith(
-        '[10:30:45] DEBUG', 
-        'debug with context', 
+        '[10:30:45] DEBUG',
+        'debug with context',
         { module: 'test', requestId: 'abc123' }
       )
     })
 
     it('should support info with context + message pattern (line 69)', () => {
       logger.info({ userId: 456 }, 'info with context')
-      
+
       expect(console.info).toHaveBeenCalledWith(
-        '[10:30:45] INFO', 
-        'info with context', 
+        '[10:30:45] INFO',
+        'info with context',
         { module: 'test', userId: 456 }
       )
     })
@@ -282,10 +277,10 @@ describe('ClientLogger', () => {
     it('should create child logger with merged context', () => {
       const childLogger = logger.child({ component: 'button' })
       childLogger.debug('child message')
-      
+
       expect(console.log).toHaveBeenCalledWith(
-        '[10:30:45] DEBUG', 
-        'child message', 
+        '[10:30:45] DEBUG',
+        'child message',
         { module: 'parent', component: 'button' }
       )
     })
@@ -293,10 +288,10 @@ describe('ClientLogger', () => {
     it('should allow child context to override parent context', () => {
       const childLogger = logger.child({ module: 'child' })
       childLogger.info('override message')
-      
+
       expect(console.info).toHaveBeenCalledWith(
-        '[10:30:45] INFO', 
-        'override message', 
+        '[10:30:45] INFO',
+        'override message',
         { module: 'child' }
       )
     })
@@ -312,7 +307,7 @@ describe('ClientLogger', () => {
 
     it('should format timestamp correctly', () => {
       logger.debug('test message')
-      
+
       const call = (console.log as jest.Mock).mock.calls[0]
       expect(call[0]).toBe('[10:30:45] DEBUG')
     })
@@ -320,9 +315,9 @@ describe('ClientLogger', () => {
     it('should handle empty context correctly', () => {
       const emptyLogger = new (require('@/lib/client-logger').default.constructor)()
       emptyLogger.debug('message without context')
-      
+
       expect(console.log).toHaveBeenCalledWith(
-        '[10:30:45] DEBUG', 
+        '[10:30:45] DEBUG',
         'message without context'
       )
     })
@@ -332,7 +327,7 @@ describe('ClientLogger', () => {
       logger.info('info')
       logger.warn('warn')
       logger.error('error')
-      
+
       expect((console.log as jest.Mock).mock.calls[0][0]).toBe('[10:30:45] DEBUG')
       expect((console.info as jest.Mock).mock.calls[0][0]).toBe('[10:30:45] INFO')
       expect((console.warn as jest.Mock).mock.calls[0][0]).toBe('[10:30:45] WARN')

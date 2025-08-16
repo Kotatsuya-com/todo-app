@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase'
 import { ExternalLink, CheckCircle, AlertTriangle, Loader2, Trash2, Copy } from 'lucide-react'
 import { authLogger } from '@/lib/client-logger'
+import { MESSAGE_DISPLAY_TIMEOUT_MS } from '@/src/constants/timeConstants'
 
 interface SlackConnection {
   id: string
@@ -177,7 +178,7 @@ export function SlackIntegration() {
     try {
       await navigator.clipboard.writeText(webhookUrl)
       setMessage('Webhook URLをクリップボードにコピーしました')
-      setTimeout(() => setMessage(''), 3000)
+      setTimeout(() => setMessage(''), MESSAGE_DISPLAY_TIMEOUT_MS)
     } catch (error) {
       setMessage('コピーに失敗しました')
     }

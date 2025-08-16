@@ -13,10 +13,10 @@ describe('/api/slack/integration/disconnect/route.ts - 依存性注入アプロ�
   beforeEach(() => {
     setupTestEnvironment()
     cleanupTestEnvironment()
-    
+
     // TestContainerを作成（モック付き）
     testContainer = new TestContainer()
-    
+
     // ハンドラーの作成
     disconnectHandlers = createDisconnectHandlers(testContainer)
   })

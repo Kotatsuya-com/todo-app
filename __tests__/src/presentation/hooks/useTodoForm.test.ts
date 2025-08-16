@@ -100,7 +100,7 @@ describe('useTodoForm', () => {
     })
 
     it('should initialize with existing todo data', () => {
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ initialTodo: mockTodo })
       )
 
@@ -121,7 +121,7 @@ describe('useTodoForm', () => {
         deadline: null
       })
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ initialTodo: todoWithNulls })
       )
 
@@ -200,7 +200,7 @@ describe('useTodoForm', () => {
     })
 
     it('should reset form to initial todo data', () => {
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ initialTodo: mockTodo })
       )
 
@@ -293,7 +293,7 @@ describe('useTodoForm', () => {
   describe('Form Submission - Create Todo', () => {
     it('should create new todo successfully', async () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ onSuccess })
       )
 
@@ -347,7 +347,7 @@ describe('useTodoForm', () => {
         error: 'Creation failed'
       })
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ onError })
       )
 
@@ -369,7 +369,7 @@ describe('useTodoForm', () => {
   describe('Form Submission - Update Todo', () => {
     it('should update existing todo successfully', async () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ initialTodo: mockTodo, onSuccess })
       )
 
@@ -403,7 +403,7 @@ describe('useTodoForm', () => {
         error: 'Update failed'
       })
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ initialTodo: mockTodo, onError })
       )
 
@@ -504,7 +504,7 @@ describe('useTodoForm', () => {
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const tomorrowStr = tomorrow.toISOString().split('T')[0]
-      
+
       expect(result.current.state.formData.deadline).toBe(tomorrowStr)
     })
 
@@ -558,7 +558,7 @@ describe('useTodoForm', () => {
       const onError = jest.fn()
       mockTodoUseCases.createTodo.mockRejectedValue(new Error('Network error'))
 
-      const { result } = renderHook(() => 
+      const { result } = renderHook(() =>
         useTodoForm({ onError })
       )
 
@@ -595,7 +595,7 @@ describe('useTodoForm', () => {
 
   describe('Loading States', () => {
     it('should show loading during form submission', async () => {
-      let resolveCreate: (value: any) => void
+      let resolveCreate: (value: { success: boolean; data?: TodoEntity; error?: string }) => void
       const createPromise = new Promise(resolve => {
         resolveCreate = resolve
       })

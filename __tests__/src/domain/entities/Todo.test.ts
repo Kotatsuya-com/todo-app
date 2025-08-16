@@ -15,13 +15,13 @@ Object.defineProperty(global, 'crypto', {
 describe('TodoEntity', () => {
   beforeAll(() => {
     // Fix the date to 2025-08-03 for consistent test results
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2025-08-03T12:00:00Z'));
-  });
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2025-08-03T12:00:00Z'))
+  })
 
   afterAll(() => {
-    jest.useRealTimers();
-  });
+    jest.useRealTimers()
+  })
   // テスト用のデータ
   const mockTodoData: TodoData = {
     id: 'test-id',
@@ -201,8 +201,8 @@ describe('TodoEntity', () => {
     })
 
     it('should reject body that is too long', () => {
-      const invalidData = { 
-        ...mockTodoData, 
+      const invalidData = {
+        ...mockTodoData,
         body: 'a'.repeat(TodoEntity.MAX_BODY_LENGTH + 1)
       }
       const todo = new TodoEntity(invalidData)
@@ -212,8 +212,8 @@ describe('TodoEntity', () => {
     })
 
     it('should reject title that is too long', () => {
-      const invalidData = { 
-        ...mockTodoData, 
+      const invalidData = {
+        ...mockTodoData,
         title: 'a'.repeat(TodoEntity.MAX_TITLE_LENGTH + 1)
       }
       const todo = new TodoEntity(invalidData)
@@ -267,25 +267,25 @@ describe('TodoEntity', () => {
     describe('Grouping', () => {
       it('should group todos by quadrant correctly', () => {
         const todos = [
-          new TodoEntity({ 
-            ...mockTodoToday, 
+          new TodoEntity({
+            ...mockTodoToday,
             id: 'urgent-important',
-            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD + 100 
+            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD + 100
           }),
-          new TodoEntity({ 
-            ...mockTodoTomorrow, 
+          new TodoEntity({
+            ...mockTodoTomorrow,
             id: 'not-urgent-important',
-            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD + 100 
+            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD + 100
           }),
-          new TodoEntity({ 
-            ...mockTodoToday, 
+          new TodoEntity({
+            ...mockTodoToday,
             id: 'urgent-not-important',
-            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD - 100 
+            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD - 100
           }),
-          new TodoEntity({ 
-            ...mockTodoTomorrow, 
+          new TodoEntity({
+            ...mockTodoTomorrow,
             id: 'not-urgent-not-important',
-            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD - 100 
+            importance_score: TodoEntity.IMPORTANT_SCORE_THRESHOLD - 100
           })
         ]
 

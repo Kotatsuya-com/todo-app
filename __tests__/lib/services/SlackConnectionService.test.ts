@@ -120,13 +120,13 @@ describe('SlackConnectionService', () => {
   describe('deleteUserConnection', () => {
     it('should successfully delete user connection', async () => {
       const mockConnection = createMockSlackConnection()
-      
+
       // Mock validation success
       mockSlackRepo.findConnectionById.mockResolvedValue({
         success: true,
         data: mockConnection
       })
-      
+
       // Mock deletion success
       mockSlackRepo.deleteConnection.mockResolvedValue({
         success: true,
@@ -480,7 +480,7 @@ describe('SlackConnectionService', () => {
     it('should sort connections by date correctly', async () => {
       const connections = [
         createMockSlackConnection({ created_at: '2023-03-01T00:00:00Z' }), // March
-        createMockSlackConnection({ created_at: '2023-01-01T00:00:00Z' }), // January  
+        createMockSlackConnection({ created_at: '2023-01-01T00:00:00Z' }), // January
         createMockSlackConnection({ created_at: '2023-02-01T00:00:00Z' })  // February
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
@@ -586,8 +586,8 @@ describe('SlackConnectionService', () => {
     })
 
     it('should handle very large datasets', async () => {
-      const largeDataset = Array.from({ length: 1000 }, (_, i) => 
-        createMockSlackConnection({ 
+      const largeDataset = Array.from({ length: 1000 }, (_, i) =>
+        createMockSlackConnection({
           id: `conn-${i}`,
           workspace_name: `Workspace ${i}`,
           team_name: `Team ${i % 10}` // Create some duplicates

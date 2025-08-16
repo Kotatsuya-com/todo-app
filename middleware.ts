@@ -1,14 +1,12 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import type { CookieOptions } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createLogger } from './lib/logger'
 
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({
     request: {
-      headers: req.headers,
-    },
+      headers: req.headers
+    }
   })
 
   try {
@@ -23,28 +21,28 @@ export async function middleware(req: NextRequest) {
           set(name: string, value: string, options: CookieOptions) {
             // ngrok環境の場合は適切なcookie設定を行う
             const isNgrok = req.nextUrl.hostname.includes('ngrok')
-            const cookieOptions = { 
+            const cookieOptions = {
               ...options,
               secure: isNgrok ? true : options.secure,
-              sameSite: isNgrok ? 'none' as const : options.sameSite,
+              sameSite: isNgrok ? 'none' as const : options.sameSite
             }
-            
+
             // Request cookieを設定
             req.cookies.set({
               name,
               value,
-              ...cookieOptions,
+              ...cookieOptions
             })
             // Response cookieを設定
             response = NextResponse.next({
               request: {
-                headers: req.headers,
-              },
+                headers: req.headers
+              }
             })
             response.cookies.set({
               name,
               value,
-              ...cookieOptions,
+              ...cookieOptions
             })
           },
           remove(name: string, options: CookieOptions) {
@@ -52,21 +50,21 @@ export async function middleware(req: NextRequest) {
             req.cookies.set({
               name,
               value: '',
-              ...options,
+              ...options
             })
             // Response cookieを削除
             response = NextResponse.next({
               request: {
-                headers: req.headers,
-              },
+                headers: req.headers
+              }
             })
             response.cookies.set({
               name,
               value: '',
-              ...options,
+              ...options
             })
-          },
-        },
+          }
+        }
       }
     )
 
@@ -101,6 +99,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - api (API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|api).*)',
-  ],
+    '/((?!_next/static|_next/image|favicon.ico|api).*)'
+  ]
 }

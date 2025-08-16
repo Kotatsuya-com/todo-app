@@ -20,25 +20,25 @@ class MockTodoRepository implements TodoRepositoryInterface {
 
   async findTodos(filters: TodoFilters): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
     let filteredTodos = this.todos.filter(t => t.userId === filters.userId)
-    
+
     if (filters.status) {
       filteredTodos = filteredTodos.filter(t => t.status === filters.status)
     }
-    
+
     if (filters.isOverdue) {
       filteredTodos = filteredTodos.filter(t => t.isOverdue())
     }
-    
+
     if (filters.quadrant) {
       filteredTodos = filteredTodos.filter(t => t.getQuadrant() === filters.quadrant)
     }
-    
+
     return { success: true, data: filteredTodos }
   }
 
   async findById(id: string): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
     const todo = this.todos.find(t => t.id === id)
-    return todo 
+    return todo
       ? { success: true, data: todo }
       : { success: false, error: 'Todo not found' }
   }
@@ -114,7 +114,7 @@ class MockTodoRepository implements TodoRepositoryInterface {
     if (index === -1) {
       return { success: false, error: 'Todo not found' }
     }
-    
+
     const existingTodo = this.todos[index]
     const completedTodo = new TodoEntity({
       ...existingTodo.getData(),
@@ -130,7 +130,7 @@ class MockTodoRepository implements TodoRepositoryInterface {
     if (index === -1) {
       return { success: false, error: 'Todo not found' }
     }
-    
+
     const existingTodo = this.todos[index]
     const reopenedTodo = new TodoEntity({
       ...existingTodo.getData(),
@@ -162,9 +162,9 @@ class MockTodoRepository implements TodoRepositoryInterface {
     const completed = userTodos.filter(t => t.status === 'completed').length
     const active = userTodos.filter(t => t.status === 'open').length
     const overdue = userTodos.filter(t => t.isOverdue()).length
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       data: {
         total: userTodos.length,
         completed,
@@ -277,7 +277,7 @@ describe('TodoUseCases', () => {
       } as any
 
       const useCases = new TodoUseCases(failingRepository)
-      
+
       const params = {
         userId,
         body: 'Valid todo',
@@ -469,7 +469,7 @@ describe('TodoUseCases', () => {
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const yesterdayStr = yesterday.toISOString().split('T')[0]
-      
+
       const urgentImportant = await todoUseCases.createTodo({
         userId,
         body: 'Urgent and important',
@@ -573,7 +573,7 @@ describe('TodoUseCases', () => {
 
     it('should handle empty todo list', async () => {
       const emptyUserId = 'empty-user'
-      
+
       const result = await todoUseCases.getTodoDashboard({
         userId: emptyUserId,
         includeCompleted: false,

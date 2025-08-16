@@ -11,22 +11,22 @@ export const createMockSupabaseClient = (overrides = {}) => {
   const createMockChain = () => {
     // チェーンの状態を保持
     let finalValue = { data: [], error: null }
-    
+
     const chain = {
       select: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(), 
+      insert: jest.fn().mockReturnThis(),
       update: jest.fn().mockReturnThis(),
       upsert: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
       single: jest.fn(),
       order: jest.fn(),
-      
+
       // Promise のような振る舞い
       then: (resolve, reject) => {
         return Promise.resolve(finalValue).then(resolve, reject)
       },
-      
+
       // 値を設定するためのヘルパーメソッド
       mockResolvedValue: jest.fn((value) => {
         finalValue = value
@@ -34,18 +34,18 @@ export const createMockSupabaseClient = (overrides = {}) => {
         chain.order.mockResolvedValue(value)
         return chain
       }),
-      
+
       mockResolvedValueOnce: jest.fn((value) => {
         chain.single.mockResolvedValueOnce(value)
         chain.order.mockResolvedValueOnce(value)
         return chain
       })
     }
-    
+
     // single と order はチェーンを返すか値を返すかを設定可能
     chain.single.mockResolvedValue({ data: null, error: null })
     chain.order.mockResolvedValue({ data: [], error: null })
-    
+
     // チェーンメソッドが自分自身を返すように設定
     chain.select.mockReturnValue(chain)
     chain.insert.mockReturnValue(chain)
@@ -55,20 +55,20 @@ export const createMockSupabaseClient = (overrides = {}) => {
     chain.eq.mockReturnValue(chain)
     chain.single.mockReturnValue(chain)
     chain.order.mockReturnValue(chain)
-    
+
     return chain
   }
 
   const defaultMethods = {
     auth: {
       getUser: jest.fn(),
-      signInWithOAuth: jest.fn(),
+      signInWithOAuth: jest.fn()
     },
     from: jest.fn(() => {
       // 毎回新しいチェーンインスタンスを作成
       return createMockChain()
     }),
-    rpc: jest.fn(),
+    rpc: jest.fn()
   }
 
   // チェーンをリセットする関数を追加
@@ -89,7 +89,7 @@ export const createMockNextRequest = (options = {}) => {
     method = 'GET',
     url = 'http://localhost:3000/api/test',
     body = {},
-    headers = {},
+    headers = {}
   } = options
 
   return {
@@ -98,7 +98,7 @@ export const createMockNextRequest = (options = {}) => {
     headers: new Headers(headers),
     nextUrl: new URL(url),
     json: jest.fn().mockResolvedValue(body),
-    text: jest.fn().mockResolvedValue(JSON.stringify(body)),
+    text: jest.fn().mockResolvedValue(JSON.stringify(body))
   }
 }
 
@@ -109,11 +109,11 @@ export const createMockOpenAIResponse = (title) => ({
     choices: [
       {
         message: {
-          content: title,
-        },
-      },
-    ],
-  }),
+          content: title
+        }
+      }
+    ]
+  })
 })
 
 // Slack APIのモック
@@ -121,16 +121,16 @@ export const createMockSlackResponse = (data) => ({
   ok: true,
   json: jest.fn().mockResolvedValue({
     ok: true,
-    ...data,
-  }),
+    ...data
+  })
 })
 
 export const createMockSlackErrorResponse = (error) => ({
   ok: true,
   json: jest.fn().mockResolvedValue({
     ok: false,
-    error,
-  }),
+    error
+  })
 })
 
 // テストデータ
@@ -146,7 +146,7 @@ export const mockUser = {
   user_metadata: {},
   identities: [],
   created_at: '2023-01-01T00:00:00Z',
-  updated_at: '2023-01-01T00:00:00Z',
+  updated_at: '2023-01-01T00:00:00Z'
 }
 
 export const mockSlackConnection = {
@@ -157,7 +157,7 @@ export const mockSlackConnection = {
   team_name: 'Test Team',
   access_token: 'xoxp-test-token',
   scope: 'channels:read,chat:write',
-  created_at: '2023-01-01T00:00:00Z',
+  created_at: '2023-01-01T00:00:00Z'
 }
 
 export const mockSlackWebhook = {
@@ -170,13 +170,13 @@ export const mockSlackWebhook = {
   last_event_at: null,
   event_count: 0,
   created_at: '2023-01-01T00:00:00Z',
-  updated_at: '2023-01-01T00:00:00Z',
+  updated_at: '2023-01-01T00:00:00Z'
 }
 
 export const mockSlackMessage = {
   text: 'Test message from Slack',
   user: 'U1234567890',
-  ts: '1609459200.000100',
+  ts: '1609459200.000100'
 }
 
 export const mockSlackReactionEvent = {
@@ -186,9 +186,9 @@ export const mockSlackReactionEvent = {
   item: {
     type: 'message',
     channel: 'C1234567890',
-    ts: '1609459200.000100',
+    ts: '1609459200.000100'
   },
-  event_ts: '1609459300.000000',
+  event_ts: '1609459300.000000'
 }
 
 export const mockSlackEventPayload = {
@@ -205,10 +205,10 @@ export const mockSlackEventPayload = {
       team_id: 'T1234567890',
       user_id: 'U1234567890',
       is_bot: false,
-      is_enterprise_install: false,
-    },
+      is_enterprise_install: false
+    }
   ],
-  is_ext_shared_channel: false,
+  is_ext_shared_channel: false
 }
 
 export const mockTodo = {
@@ -221,7 +221,7 @@ export const mockTodo = {
   importance_score: 0.5,
   created_via: 'manual',
   created_at: '2023-01-01T00:00:00Z',
-  updated_at: '2023-01-01T00:00:00Z',
+  updated_at: '2023-01-01T00:00:00Z'
 }
 
 export const mockEmojiSettings = {
@@ -231,7 +231,7 @@ export const mockEmojiSettings = {
   tomorrow_emoji: 'calendar',
   later_emoji: 'memo',
   created_at: '2023-01-01T00:00:00Z',
-  updated_at: '2023-01-01T00:00:00Z',
+  updated_at: '2023-01-01T00:00:00Z'
 }
 
 // ヘルパー関数
@@ -239,7 +239,7 @@ export const setupSupabaseMocks = (supabaseClient) => {
   // 認証成功のデフォルト設定
   supabaseClient.auth.getUser.mockResolvedValue({
     data: { user: mockUser },
-    error: null,
+    error: null
   })
 
   return supabaseClient
@@ -248,17 +248,17 @@ export const setupSupabaseMocks = (supabaseClient) => {
 export const setupSlackConnectionMocks = (supabaseClient: any) => {
   // from()チェーンを一度だけ取得してモック設定
   const mockChain = supabaseClient.from()
-  
+
   // single()の戻り値を設定
   mockChain.single.mockResolvedValue({
     data: mockSlackConnection,
-    error: null,
+    error: null
   })
 
   // チェーンなしの戻り値（select().eq()）を設定
   mockChain.mockResolvedValue.mockResolvedValue({
     data: [mockSlackConnection],
-    error: null,
+    error: null
   })
 
   return supabaseClient
@@ -266,26 +266,26 @@ export const setupSlackConnectionMocks = (supabaseClient: any) => {
 
 export const setupWebhookMocks = (supabaseClient, options = {}) => {
   const { returnData = mockSlackWebhook, returnError = null } = options
-  
+
   // GET webhooks用のモック（.order()で終わる）
   const getChain = supabaseClient.from()
   getChain.order.mockResolvedValue({
     data: returnData ? [returnData] : [],
-    error: returnError,
+    error: returnError
   })
 
   // POST/DELETE用のモック（.single()で終わる）
   const postChain = supabaseClient.from()
   postChain.single.mockResolvedValue({
     data: returnData,
-    error: returnError,
+    error: returnError
   })
 
   // UPDATE用のモック（チェーンなしの戻り値）
   const updateChain = supabaseClient.from()
   updateChain.mockResolvedValue({
     data: returnData,
-    error: returnError,
+    error: returnError
   })
 
   return supabaseClient
@@ -293,11 +293,11 @@ export const setupWebhookMocks = (supabaseClient, options = {}) => {
 
 export const setupUserNotificationMocks = (supabaseClient, userData = { enable_webhook_notifications: true }) => {
   const mockChain = supabaseClient.from()
-  
+
   // GET用のモック（single()で返す）
   mockChain.single.mockResolvedValue({
     data: userData,
-    error: null,
+    error: null
   })
 
   return supabaseClient
@@ -326,7 +326,7 @@ export const setupTestEnvironment = () => {
   process.env.SLACK_CLIENT_ID = 'test-slack-client-id'
   process.env.SLACK_CLIENT_SECRET = 'test-slack-client-secret'
   process.env.SLACK_SIGNING_SECRET = 'test-signing-secret'
-  
+
   // global fetch のモック設定
   if (!global.fetch) {
     global.fetch = jest.fn()
@@ -336,7 +336,7 @@ export const setupTestEnvironment = () => {
 // クリーンアップ
 export const cleanupTestEnvironment = () => {
   jest.clearAllMocks()
-  
+
   // fetch モックのクリア
   if (global.fetch) {
     (global.fetch as jest.Mock).mockClear()

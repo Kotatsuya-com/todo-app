@@ -324,13 +324,13 @@ describe('NotificationSettingsService', () => {
       ]
 
       for (const testCase of testCases) {
-        const testSettings = Array.from({ length: testCase.total }, (_, i) => 
+        const testSettings = Array.from({ length: testCase.total }, (_, i) =>
           createMockNotificationSettings({
             user_id: `user-${i}`,
             enable_webhook_notifications: i < testCase.enabled
           })
         )
-        
+
         mockRepository.setMockData(testSettings)
         const result = await service.getNotificationStats()
 
@@ -367,7 +367,7 @@ describe('NotificationSettingsService', () => {
       expect(result.success).toBe(true)
       expect(result.data).toEqual(expect.any(Array))
       expect(result.data?.length).toBeGreaterThan(0)
-      
+
       // Verify all returned users have notifications enabled
       if (result.data) {
         for (const userId of result.data) {

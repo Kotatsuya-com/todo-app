@@ -7,7 +7,7 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
     debug: jest.fn(),
     info: jest.fn(),
-    warn: jest.fn(),
+    warn: jest.fn()
   }
 }))
 
@@ -43,10 +43,10 @@ describe('openai-title.ts', () => {
         choices: [
           {
             message: {
-              content: 'プロジェクト企画書作成',
-            },
-          },
-        ],
+              content: 'プロジェクト企画書作成'
+            }
+          }
+        ]
       }
 
       mockCreate.mockResolvedValue(mockResponse)
@@ -76,10 +76,10 @@ describe('openai-title.ts', () => {
         choices: [
           {
             message: {
-              content: null,
-            },
-          },
-        ],
+              content: null
+            }
+          }
+        ]
       }
 
       mockCreate.mockResolvedValue(mockResponse)
@@ -91,7 +91,7 @@ describe('openai-title.ts', () => {
 
     it('should handle empty choices array and return default', async () => {
       const mockResponse = {
-        choices: [],
+        choices: []
       }
 
       mockCreate.mockResolvedValue(mockResponse)
@@ -105,9 +105,9 @@ describe('openai-title.ts', () => {
       const mockResponse = {
         choices: [
           {
-            message: {},
-          },
-        ],
+            message: {}
+          }
+        ]
       }
 
       mockCreate.mockResolvedValue(mockResponse)
@@ -122,10 +122,10 @@ describe('openai-title.ts', () => {
         choices: [
           {
             message: {
-              content: '  プロジェクト管理  \n',
-            },
-          },
-        ],
+              content: '  プロジェクト管理  \n'
+            }
+          }
+        ]
       }
 
       mockCreate.mockResolvedValue(mockResponse)
@@ -143,7 +143,7 @@ describe('openai-title.ts', () => {
 
       const { apiLogger } = require('@/lib/logger')
       expect(apiLogger.error).toHaveBeenCalledWith(
-        { error: mockError, contentLength: 6 }, 
+        { error: mockError, contentLength: 6 },
         'Failed to generate title with OpenAI'
       )
     })
@@ -156,7 +156,7 @@ describe('openai-title.ts', () => {
 
       const { apiLogger } = require('@/lib/logger')
       expect(apiLogger.error).toHaveBeenCalledWith(
-        { error: networkError, contentLength: 9 }, 
+        { error: networkError, contentLength: 9 },
         'Failed to generate title with OpenAI'
       )
     })

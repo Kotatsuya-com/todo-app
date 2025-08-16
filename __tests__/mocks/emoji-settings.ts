@@ -107,7 +107,7 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
 
     const existingSetting = this.settings.get(settings.user_id)
     const now = new Date().toISOString()
-    
+
     const newSetting: EmojiSetting = {
       id: existingSetting?.id || `emoji-setting-${Date.now()}`,
       created_at: existingSetting?.created_at || now,
@@ -231,7 +231,7 @@ export function createEmptyMockEmojiSettingsRepository(): MockEmojiSettingsRepos
  */
 export function createMockServicesForEmojiSettings(mockRepo?: MockEmojiSettingsRepository) {
   const emojiSettingsRepo = mockRepo || createMockEmojiSettingsRepository()
-  
+
   return {
     emojiSettingsService: {
       // Will be replaced with actual service mock if needed

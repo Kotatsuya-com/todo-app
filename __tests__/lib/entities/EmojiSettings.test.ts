@@ -129,7 +129,7 @@ describe('EmojiSettingsEntity', () => {
     it('should reset custom settings to defaults', () => {
       const mockSettings = createMockCustomEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
-      
+
       const resetEntity = entity.resetToDefaults()
 
       expect(resetEntity.todayEmoji).toBe(DEFAULT_EMOJI_SETTINGS.today_emoji)
@@ -141,7 +141,7 @@ describe('EmojiSettingsEntity', () => {
     it('should preserve non-emoji properties', () => {
       const mockSettings = createMockCustomEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
-      
+
       const resetEntity = entity.resetToDefaults()
 
       expect(resetEntity.id).toBe(mockSettings.id)
@@ -152,7 +152,7 @@ describe('EmojiSettingsEntity', () => {
     it('should update the updated_at timestamp', () => {
       const mockSettings = createMockCustomEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
-      
+
       const resetEntity = entity.resetToDefaults()
 
       expect(resetEntity.updatedAt).not.toBe(mockSettings.updated_at)
@@ -165,7 +165,7 @@ describe('EmojiSettingsEntity', () => {
       const mockSettings = createMockCustomEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
       const originalTodayEmoji = entity.todayEmoji
-      
+
       entity.resetToDefaults()
 
       expect(entity.todayEmoji).toBe(originalTodayEmoji)
@@ -177,7 +177,7 @@ describe('EmojiSettingsEntity', () => {
       const mockSettings = createMockEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
       const updateRequest = createMockValidEmojiUpdateRequest()
-      
+
       const updatedEntity = entity.updateSettings(updateRequest)
 
       expect(updatedEntity.todayEmoji).toBe(updateRequest.today_emoji)
@@ -189,7 +189,7 @@ describe('EmojiSettingsEntity', () => {
       const mockSettings = createMockEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
       const updateRequest = createMockValidEmojiUpdateRequest()
-      
+
       const updatedEntity = entity.updateSettings(updateRequest)
 
       expect(updatedEntity.id).toBe(mockSettings.id)
@@ -201,7 +201,7 @@ describe('EmojiSettingsEntity', () => {
       const mockSettings = createMockEmojiSetting()
       const entity = new EmojiSettingsEntity(mockSettings)
       const updateRequest = createMockValidEmojiUpdateRequest()
-      
+
       const updatedEntity = entity.updateSettings(updateRequest)
 
       expect(updatedEntity.updatedAt).not.toBe(mockSettings.updated_at)
@@ -215,7 +215,7 @@ describe('EmojiSettingsEntity', () => {
       const entity = new EmojiSettingsEntity(mockSettings)
       const originalTodayEmoji = entity.todayEmoji
       const updateRequest = createMockValidEmojiUpdateRequest()
-      
+
       entity.updateSettings(updateRequest)
 
       expect(entity.todayEmoji).toBe(originalTodayEmoji)
@@ -320,11 +320,11 @@ describe('EmojiSettingsEntity', () => {
             tomorrow_emoji: 'fire', // Use a different valid emoji
             later_emoji: 'memo'
           }
-          
+
           // Ensure no duplicates
-          if (emojiName === 'fire') request.tomorrow_emoji = 'calendar'
-          if (emojiName === 'memo') request.later_emoji = 'star'
-          
+          if (emojiName === 'fire') {request.tomorrow_emoji = 'calendar'}
+          if (emojiName === 'memo') {request.later_emoji = 'star'}
+
           const validation = EmojiSettingsEntity.validateEmojiUpdateRequest(request)
           expect(validation.valid).toBe(true)
         })
@@ -332,14 +332,14 @@ describe('EmojiSettingsEntity', () => {
 
       it('should reject all invalid emoji names', () => {
         INVALID_EMOJI_NAMES.forEach(invalidEmoji => {
-          if (invalidEmoji === null || invalidEmoji === undefined) return
-          
+          if (invalidEmoji === null || invalidEmoji === undefined) {return}
+
           const request = {
             today_emoji: invalidEmoji,
             tomorrow_emoji: 'calendar',
             later_emoji: 'memo'
           }
-          
+
           const validation = EmojiSettingsEntity.validateEmojiUpdateRequest(request)
           expect(validation.valid).toBe(false)
           expect(validation.errors.some(error => error.includes('Invalid today_emoji'))).toBe(true)
@@ -358,7 +358,7 @@ describe('EmojiSettingsEntity', () => {
 
       it('should return null for invalid names', () => {
         INVALID_EMOJI_NAMES.forEach(invalidName => {
-          if (invalidName === null || invalidName === undefined) return
+          if (invalidName === null || invalidName === undefined) {return}
           const emoji = EmojiSettingsEntity.getAvailableEmojiByName(invalidName)
           expect(emoji).toBeNull()
         })
@@ -421,7 +421,7 @@ describe('EmojiSettingsEntity', () => {
       it('should not include id, created_at, or updated_at', () => {
         const updateRequest = createMockValidEmojiUpdateRequest()
         const settings = EmojiSettingsEntity.createFromUpdateRequest('user-123', updateRequest)
-        
+
         expect(settings).not.toHaveProperty('id')
         expect(settings).not.toHaveProperty('created_at')
         expect(settings).not.toHaveProperty('updated_at')

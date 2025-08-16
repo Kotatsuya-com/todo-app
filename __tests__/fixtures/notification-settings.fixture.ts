@@ -53,7 +53,7 @@ export const createMockMultipleNotificationSettings = (): NotificationSettings[]
   createMockNotificationSettings({ user_id: 'user-2', enable_webhook_notifications: true }), // Default
   createMockNotificationSettings({ user_id: 'user-3', enable_webhook_notifications: false }), // Custom
   createMockNotificationSettings({ user_id: 'user-4', enable_webhook_notifications: false }), // Custom
-  createMockNotificationSettings({ user_id: 'user-5', enable_webhook_notifications: true }), // Default
+  createMockNotificationSettings({ user_id: 'user-5', enable_webhook_notifications: true }) // Default
 ]
 
 // Expected statistics for multiple settings

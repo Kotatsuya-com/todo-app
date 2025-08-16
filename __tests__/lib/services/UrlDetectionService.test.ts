@@ -30,15 +30,15 @@ jest.mock('@/lib/logger', () => ({
         error: jest.fn(),
         warn: jest.fn(),
         debug: jest.fn(),
-        info: jest.fn(),
-      }),
-    }),
-  },
+        info: jest.fn()
+      })
+    })
+  }
 }))
 
 // Mock path module
 jest.mock('path', () => ({
-  join: jest.fn((...args) => args.join('/')),
+  join: jest.fn((...args) => args.join('/'))
 }))
 
 describe('UrlDetectionService', () => {
@@ -48,10 +48,10 @@ describe('UrlDetectionService', () => {
   beforeEach(() => {
     // Clear all mocks
     jest.clearAllMocks()
-    
+
     // Save original environment
     originalEnv = { ...process.env }
-    
+
     // Create service instance
     service = new UrlDetectionService()
   })
@@ -76,7 +76,7 @@ describe('UrlDetectionService', () => {
     it('should detect app URL successfully with ngrok file', async () => {
       // Mock ngrok file exists and has content
       mockFs.existsSync.mockImplementation((path: any) => {
-        if (path.includes('.env.runtime')) return true
+        if (path.includes('.env.runtime')) {return true}
         return false
       })
       mockFs.readFileSync.mockReturnValue('APP_URL=https://test123.ngrok.io\nOTHER_VAR=value')
@@ -96,8 +96,8 @@ describe('UrlDetectionService', () => {
     it('should detect app URL with fallback ngrok file', async () => {
       // Mock .env.runtime doesn't exist but .ngrok-url does
       mockFs.existsSync.mockImplementation((path: any) => {
-        if (path.includes('.env.runtime')) return false
-        if (path.includes('.ngrok-url')) return true
+        if (path.includes('.env.runtime')) {return false}
+        if (path.includes('.ngrok-url')) {return true}
         return false
       })
       mockFs.readFileSync.mockReturnValue('https://fallback.ngrok.io')
@@ -137,14 +137,14 @@ describe('UrlDetectionService', () => {
 
     it('should handle NextRequest-style URL parameters', async () => {
       mockFs.existsSync.mockReturnValue(false)
-      
+
       const requestUrl = 'https://example.com:8080/api/app-url'
       const nextUrl = {
         protocol: 'https:',
         hostname: 'example.com',
         port: '8080'
       }
-      
+
       const result = await service.detectAppUrl(requestUrl, nextUrl)
 
       expect(result.success).toBe(true)
@@ -177,7 +177,7 @@ describe('UrlDetectionService', () => {
 
     it('should include complete metadata in response', async () => {
       mockFs.existsSync.mockReturnValue(false)
-      
+
       const requestUrl = 'https://app.ngrok.io:8443/webhook'
       const result = await service.detectAppUrl(requestUrl)
 
@@ -195,8 +195,8 @@ describe('UrlDetectionService', () => {
   describe('getNgrokFileInfo', () => {
     it('should detect .env.runtime file with APP_URL', async () => {
       mockFs.existsSync.mockImplementation((path: any) => {
-        if (path.includes('.env.runtime')) return true
-        if (path.includes('.ngrok-url')) return false
+        if (path.includes('.env.runtime')) {return true}
+        if (path.includes('.ngrok-url')) {return false}
         return false
       })
       mockFs.readFileSync.mockReturnValue('APP_URL=https://env-runtime.ngrok.io\nOTHER=value')
@@ -210,8 +210,8 @@ describe('UrlDetectionService', () => {
 
     it('should detect .ngrok-url file when .env.runtime not available', async () => {
       mockFs.existsSync.mockImplementation((path: any) => {
-        if (path.includes('.env.runtime')) return false
-        if (path.includes('.ngrok-url')) return true
+        if (path.includes('.env.runtime')) {return false}
+        if (path.includes('.ngrok-url')) {return true}
         return false
       })
       mockFs.readFileSync.mockReturnValue('https://ngrok-file.ngrok.io')
@@ -235,7 +235,7 @@ describe('UrlDetectionService', () => {
 
     it('should handle malformed .env.runtime file', async () => {
       mockFs.existsSync.mockImplementation((path: any) => {
-        if (path.includes('.env.runtime')) return true
+        if (path.includes('.env.runtime')) {return true}
         return false
       })
       mockFs.readFileSync.mockReturnValue('INVALID_CONTENT\nNO_URL=value')
@@ -263,8 +263,8 @@ describe('UrlDetectionService', () => {
     it('should prioritize .env.runtime over .ngrok-url', async () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockImplementation((path: any) => {
-        if (path.includes('.env.runtime')) return 'APP_URL=https://env-priority.ngrok.io'
-        if (path.includes('.ngrok-url')) return 'https://should-not-be-used.ngrok.io'
+        if (path.includes('.env.runtime')) {return 'APP_URL=https://env-priority.ngrok.io'}
+        if (path.includes('.ngrok-url')) {return 'https://should-not-be-used.ngrok.io'}
         return ''
       })
 
@@ -286,7 +286,7 @@ describe('UrlDetectionService', () => {
   describe('detectAppUrlSimple', () => {
     it('should return simplified response format', async () => {
       mockFs.existsSync.mockReturnValue(false)
-      
+
       const requestUrl = 'https://example.com/api/app-url'
       const result = await service.detectAppUrlSimple(requestUrl)
 
@@ -328,7 +328,7 @@ describe('UrlDetectionService', () => {
       const options = createMockUrlDetectionOptions({
         fallbackUrl: 'https://custom-fallback.com'
       })
-      
+
       const result = await service.normalizeUrl(rawUrl, options)
 
       expect(result.success).toBe(false)
@@ -347,7 +347,7 @@ describe('UrlDetectionService', () => {
   describe('healthCheck', () => {
     it('should return healthy status with all services working', async () => {
       mockFs.existsSync.mockReturnValue(false)
-      
+
       const result = await service.healthCheck()
 
       expect(result.success).toBe(true)
@@ -364,7 +364,7 @@ describe('UrlDetectionService', () => {
 
     it('should return healthy status with ngrok available', async () => {
       mockFs.existsSync.mockImplementation((path: any) => {
-        if (path.includes('.ngrok-url')) return true
+        if (path.includes('.ngrok-url')) {return true}
         return false
       })
       mockFs.readFileSync.mockReturnValue('https://health-check.ngrok.io')
@@ -405,10 +405,10 @@ describe('UrlDetectionService', () => {
     ENVIRONMENT_DETECTION_CASES.forEach(testCase => {
       it(`should detect ${testCase.expected} environment from URL with ${testCase.hostname}`, async () => {
         mockFs.existsSync.mockReturnValue(false)
-        
+
         // Handle IPv6 addresses properly
-        const hostname = testCase.hostname.includes(':') && !testCase.hostname.startsWith('[') 
-          ? `[${testCase.hostname}]` 
+        const hostname = testCase.hostname.includes(':') && !testCase.hostname.startsWith('[')
+          ? `[${testCase.hostname}]`
           : testCase.hostname
         const requestUrl = `http://${hostname}/api/app-url`
         const result = await service.detectAppUrl(requestUrl)
@@ -417,7 +417,7 @@ describe('UrlDetectionService', () => {
         expect(result.data!.metadata!.environment).toBe(testCase.expected)
         // For IPv6, hostname in URL object includes brackets
         const expectedHostname = testCase.hostname.includes(':') && !testCase.hostname.startsWith('[')
-          ? `[${testCase.hostname}]` 
+          ? `[${testCase.hostname}]`
           : testCase.hostname
         expect(result.data!.metadata!.hostname).toBe(expectedHostname)
       })
@@ -430,7 +430,7 @@ describe('UrlDetectionService', () => {
       mockFs.existsSync.mockReturnValue(true)
       mockFs.readFileSync.mockImplementation(() => {
         readCount++
-        if (readCount === 1) return 'APP_URL=https://concurrent1.ngrok.io'
+        if (readCount === 1) {return 'APP_URL=https://concurrent1.ngrok.io'}
         return 'APP_URL=https://concurrent2.ngrok.io'
       })
 
@@ -440,7 +440,7 @@ describe('UrlDetectionService', () => {
       ]
 
       const results = await Promise.all(promises)
-      
+
       expect(results[0].success).toBe(true)
       expect(results[1].success).toBe(true)
     })
@@ -462,7 +462,7 @@ describe('UrlDetectionService', () => {
     it('should handle malformed content in environment files', async () => {
       mockFs.existsSync.mockImplementation((path: any) => {
         // Only .env.runtime exists, .ngrok-url doesn't exist
-        if (path.includes('.env.runtime')) return true
+        if (path.includes('.env.runtime')) {return true}
         return false
       })
       // Content that has no APP_URL= pattern at all
@@ -499,7 +499,7 @@ describe('UrlDetectionService', () => {
   describe('logging integration', () => {
     it('should log successful URL detection', async () => {
       mockFs.existsSync.mockReturnValue(false)
-      
+
       await service.detectAppUrl('https://example.com/api')
 
       // Verify logging calls were made (mocked logger should have been called)

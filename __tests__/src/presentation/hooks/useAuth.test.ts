@@ -6,6 +6,7 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAuth } from '../../../../src/presentation/hooks/useAuth'
 import { UserEntity } from '../../../../src/domain/entities/User'
+import { SESSION_VALIDATION_INTERVAL_MS } from '../../../../src/constants/timeConstants'
 
 // Mock dependencies
 jest.mock('../../../../src/infrastructure/di/FrontendServiceFactory')
@@ -54,15 +55,15 @@ const mockCurrentUserData = {
 describe('useAuth', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     mockCreateAuthUseCases.mockReturnValue(mockAuthUseCases)
-    
+
     // Default mock implementations
     mockAuthUseCases.getCurrentUser.mockResolvedValue({
       success: false,
       error: 'No authenticated user'
     })
-    
+
     mockAuthUseCases.onAuthStateChange.mockReturnValue(() => {})
   })
 
@@ -389,7 +390,7 @@ describe('useAuth', () => {
 
       // Fast forward 5 minutes
       act(() => {
-        jest.advanceTimersByTime(5 * 60 * 1000)
+        jest.advanceTimersByTime(SESSION_VALIDATION_INTERVAL_MS)
       })
 
       await waitFor(() => {
@@ -420,7 +421,7 @@ describe('useAuth', () => {
 
       // Fast forward 5 minutes
       act(() => {
-        jest.advanceTimersByTime(5 * 60 * 1000)
+        jest.advanceTimersByTime(SESSION_VALIDATION_INTERVAL_MS)
       })
 
       await waitFor(() => {
@@ -479,7 +480,7 @@ describe('useAuth', () => {
 
   describe('Auth State Change Subscription', () => {
     it('should subscribe to auth state changes', async () => {
-      let authCallback: ((userData: any) => void) | null = null
+      let authCallback: ((userData: { userEntity: UserEntity; authUser: { id: string; email: string } } | null) => void) | null = null
 
       mockAuthUseCases.onAuthStateChange.mockImplementation((callback) => {
         authCallback = callback
@@ -515,7 +516,7 @@ describe('useAuth', () => {
 
   describe('Loading States', () => {
     it('should handle async operations correctly', async () => {
-      let resolveSignIn: (value: any) => void
+      let resolveSignIn: (value: { success: boolean; data?: typeof mockCurrentUserData; error?: string }) => void
       const signInPromise = new Promise(resolve => {
         resolveSignIn = resolve
       })
@@ -532,10 +533,10 @@ describe('useAuth', () => {
       let signInResult: boolean | undefined
       await act(async () => {
         const promise = result.current.signIn('test@example.com', 'password123')
-        
+
         // Immediately resolve the promise to complete the operation
         resolveSignIn!({ success: true, data: mockCurrentUserData })
-        
+
         // Wait for the signIn operation to complete
         signInResult = await promise
       })

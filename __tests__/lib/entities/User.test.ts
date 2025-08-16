@@ -119,13 +119,13 @@ describe('UserEntity', () => {
 
     it('should validate edge case: minimum valid length', () => {
       const userEntity = new UserEntity(createMockUser())
-      
+
       expect(userEntity.validateSlackUserId('U12345678')).toBe(true) // 9 chars total (U + 8)
     })
 
     it('should validate edge case: very long valid ID', () => {
       const userEntity = new UserEntity(createMockUser())
-      
+
       expect(userEntity.validateSlackUserId('U123456789012345678901234567890')).toBe(true)
     })
   })

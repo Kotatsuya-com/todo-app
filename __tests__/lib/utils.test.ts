@@ -1,11 +1,11 @@
-import { 
-  cn, 
-  getDeadlineFromUrgency, 
-  getQuadrant, 
-  formatDeadline, 
-  isOverdue, 
-  extractUrls, 
-  linkifyText 
+import {
+  cn,
+  getDeadlineFromUrgency,
+  getQuadrant,
+  formatDeadline,
+  isOverdue,
+  extractUrls,
+  linkifyText
 } from '@/lib/utils'
 import type { Urgency, Quadrant } from '@/src/domain/types'
 
@@ -15,7 +15,7 @@ jest.mock('@/lib/logger', () => ({
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
-    error: jest.fn(),
+    error: jest.fn()
   })
 }))
 

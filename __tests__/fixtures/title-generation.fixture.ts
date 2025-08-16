@@ -178,19 +178,19 @@ export const EDGE_CASE_DATA = {
     content: 'タスク「重要」の実行 & 確認 #urgent @team',
     expectedComplexity: 'medium'
   },
-  
+
   // 絵文字を含むコンテンツ
   emojiContent: {
     content: '🚀 プロジェクト完了 🎉',
     expectedComplexity: 'medium' // 特殊文字（絵文字）があるため
   },
-  
+
   // 複数言語混在
   mixedLanguages: {
     content: 'Task management システムの開発 and testing',
     expectedComplexity: 'simple' // 5単語、特殊文字なし
   },
-  
+
   // 境界値
   boundaryValues: {
     minLength: 'a',

@@ -18,7 +18,7 @@ describe('supabase.ts', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Setup environment variables
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key'
@@ -79,20 +79,20 @@ describe('supabase.ts', () => {
   describe('cookie get method', () => {
     it('should return cookie value when document exists and cookie found', () => {
       global.document.cookie = 'testCookie=testValue; otherCookie=otherValue'
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBe('testValue')
     })
 
     it('should return undefined when cookie not found', () => {
       global.document.cookie = 'otherCookie=otherValue'
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
     })
@@ -100,30 +100,30 @@ describe('supabase.ts', () => {
     it('should return undefined when document is undefined', () => {
       // Delete document to simulate SSR
       delete (global as any).document
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
     })
 
     it('should return undefined when cookie string is empty', () => {
       global.document.cookie = ''
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
     })
 
     it('should return undefined when cookie format is invalid', () => {
       global.document.cookie = 'invalidCookieFormat'
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
     })
@@ -133,16 +133,16 @@ describe('supabase.ts', () => {
     it('should set cookie with basic options', () => {
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {})
-      
+
       expect(global.document.cookie).toBe('testCookie=testValue')
     })
 
     it('should set cookie with all options', () => {
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {
         path: '/',
         domain: '.example.com',
@@ -151,7 +151,7 @@ describe('supabase.ts', () => {
         secure: true,
         sameSite: 'strict'
       })
-      
+
       expect(global.document.cookie).toBe(
         'testCookie=testValue; path=/; domain=.example.com; max-age=3600; httponly; secure; samesite=strict'
       )
@@ -159,15 +159,15 @@ describe('supabase.ts', () => {
 
     it('should skip domain option when in ngrok environment', () => {
       global.window.location.hostname = 'abc123.ngrok.io'
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {
         path: '/',
         domain: '.example.com'
       })
-      
+
       expect(global.document.cookie).toBe(
         'testCookie=testValue; path=/; secure; samesite=none'
       )
@@ -175,12 +175,12 @@ describe('supabase.ts', () => {
 
     it('should add ngrok-specific options when in ngrok environment', () => {
       global.window.location.hostname = 'test.ngrok.io'
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       cookieOptions.cookies.set('testCookie', 'testValue', {})
-      
+
       expect(global.document.cookie).toBe(
         'testCookie=testValue; secure; samesite=none'
       )
@@ -188,10 +188,10 @@ describe('supabase.ts', () => {
 
     it('should not set cookie when document is undefined', () => {
       delete (global as any).document
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       // Should not throw error
       expect(() => {
         cookieOptions.cookies.set('testCookie', 'testValue', {})
@@ -203,9 +203,9 @@ describe('supabase.ts', () => {
     it('should remove cookie with basic options', () => {
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       cookieOptions.cookies.remove('testCookie', {})
-      
+
       expect(global.document.cookie).toBe(
         'testCookie=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
       )
@@ -214,12 +214,12 @@ describe('supabase.ts', () => {
     it('should remove cookie with path and domain options', () => {
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       cookieOptions.cookies.remove('testCookie', {
         path: '/',
         domain: '.example.com'
       })
-      
+
       expect(global.document.cookie).toBe(
         'testCookie=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.example.com'
       )
@@ -227,10 +227,10 @@ describe('supabase.ts', () => {
 
     it('should not remove cookie when document is undefined', () => {
       delete (global as any).document
-      
+
       createClient()
       const cookieOptions = mockCreateBrowserClient.mockOptions
-      
+
       // Should not throw error
       expect(() => {
         cookieOptions.cookies.remove('testCookie', {})

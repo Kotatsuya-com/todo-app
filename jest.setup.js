@@ -15,9 +15,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'location', {
     value: {
-      origin: 'http://localhost:3000',
+      origin: 'http://localhost:3000'
     },
-    writable: true,
+    writable: true
   })
 }
 

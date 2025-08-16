@@ -67,7 +67,7 @@ export const createMockAvailableEmoji = (overrides: Partial<AvailableEmoji> = {}
 
 // Test data constants
 export const VALID_EMOJI_NAMES = [
-  'fire', 'calendar', 'memo', 'warning', 'clock', 
+  'fire', 'calendar', 'memo', 'warning', 'clock',
   'hourglass', 'pushpin', 'bookmark', 'bulb', 'star', 'zap', 'bell'
 ]
 
@@ -100,15 +100,15 @@ export const createMockMultipleEmojiSettings = (): EmojiSetting[] => [
   createMockEmojiSetting({ user_id: 'user-1', id: 'emoji-1' }), // Default settings
   createMockEmojiSetting({ user_id: 'user-2', id: 'emoji-2' }), // Default settings
   createMockCustomEmojiSetting(), // Custom settings
-  createMockEmojiSetting({ 
-    user_id: 'user-4', 
+  createMockEmojiSetting({
+    user_id: 'user-4',
     id: 'emoji-4',
     today_emoji: 'star',
     tomorrow_emoji: 'bulb',
     later_emoji: 'zap'
   }),
-  createMockEmojiSetting({ 
-    user_id: 'user-5', 
+  createMockEmojiSetting({
+    user_id: 'user-5',
     id: 'emoji-5',
     today_emoji: 'fire', // Popular choice
     tomorrow_emoji: 'bell',

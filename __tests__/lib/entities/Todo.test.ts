@@ -27,7 +27,7 @@ import {
 describe('TodoEntity', () => {
   beforeEach(() => {
     setupDateMocks(MOCK_DATE) // Fixed to 2023-01-15
-    
+
     // Also mock Math.random for consistent results
     jest.spyOn(Math, 'random').mockReturnValue(0.5)
   })

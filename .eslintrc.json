@@ -5,7 +5,6 @@
   ],
   "rules": {
     // TypeScript関連（Next.jsに含まれている場合はスキップ）
-    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     
     // React関連
     "react/jsx-uses-react": "off",
@@ -23,6 +22,20 @@
     "eqeqeq": ["error", "always"],
     "curly": ["error", "all"],
     "no-undef": "off",
+    "no-unused-vars": ["error", { 
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^(_|MOCK_|VALID_|INVALID_|EXPECTED_|DEFAULT_)"
+    }],
+    
+    // console.log使用制限
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "CallExpression[callee.object.name='console'][callee.property.name='log']",
+        "message": "console.log()の使用は禁止です。適切なログライブラリを使用してください。"
+      }
+    ],
+    
     
     // コードスタイル
     "indent": ["error", 2, { "SwitchCase": 1 }],
@@ -41,6 +54,14 @@
   },
   "overrides": [
     {
+      "files": ["**/__tests__/**/*", "**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "no-console": "off",
+        "no-restricted-syntax": "off",
+        "no-unused-vars": "off"
+      }
+    },
+    {
       "files": ["*.js", "*.jsx"],
       "rules": {
         "@typescript-eslint/no-var-requires": "off"
@@ -49,13 +70,15 @@
     {
       "files": ["lib/logger.ts", "lib/client-logger.ts"],
       "rules": {
-        "no-console": "off"
+        "no-console": "off",
+        "no-restricted-syntax": "off"
       }
     },
     {
       "files": ["scripts/**/*", "*.config.js", "*.config.ts"],
       "rules": {
-        "no-console": "off"
+        "no-console": "off",
+        "no-restricted-syntax": "off"
       }
     }
   ],

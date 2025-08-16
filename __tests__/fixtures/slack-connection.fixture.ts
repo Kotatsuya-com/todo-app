@@ -65,20 +65,20 @@ export const createMockSlackConnectionDifferentUser = (): SlackConnection =>
 
 // Multiple connections for testing lists
 export const createMockMultipleSlackConnections = (): SlackConnection[] => [
-  createMockSlackConnection({ 
-    id: 'conn-1', 
+  createMockSlackConnection({
+    id: 'conn-1',
     workspace_name: 'Workspace 1',
     team_name: 'Team Alpha',
     created_at: '2023-01-01T00:00:00Z'
   }),
-  createMockSlackConnection({ 
-    id: 'conn-2', 
+  createMockSlackConnection({
+    id: 'conn-2',
     workspace_name: 'Workspace 2',
     team_name: 'Team Beta',
     created_at: '2023-02-01T00:00:00Z'
   }),
-  createMockSlackConnection({ 
-    id: 'conn-3', 
+  createMockSlackConnection({
+    id: 'conn-3',
     workspace_name: 'Workspace 3',
     team_name: 'Team Gamma',
     created_at: '2023-03-01T00:00:00Z'

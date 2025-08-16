@@ -6,10 +6,10 @@ import { SlackDisconnectionService } from '@/lib/services/SlackDisconnectionServ
 import { SlackDisconnectionEntity } from '@/lib/entities/SlackDisconnection'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { authLogger } from '@/lib/logger'
-import { 
+import {
   createMockNextRequest,
   setupTestEnvironment,
-  cleanupTestEnvironment,
+  cleanupTestEnvironment
 } from '@/__tests__/mocks'
 
 // Mock dependencies
@@ -211,9 +211,9 @@ describe('SlackDisconnectionService', () => {
     })
 
     it('should handle user ID validation failure', async () => {
-      mockEntity.validateRequest.mockReturnValue({ 
-        valid: false, 
-        errors: ['User ID is required'] 
+      mockEntity.validateRequest.mockReturnValue({
+        valid: false,
+        errors: ['User ID is required']
       })
 
       const result = await service.disconnectSlackIntegration(request, '')
@@ -247,8 +247,8 @@ describe('SlackDisconnectionService', () => {
           return { select: jest.fn(() => ({ eq: mockSelectEqWebhooks })) }
         }
         if (table === 'users') {
-          return { 
-            select: jest.fn(() => ({ 
+          return {
+            select: jest.fn(() => ({
               eq: jest.fn(() => ({ single: mockSelectSingleUser }))
             }))
           }

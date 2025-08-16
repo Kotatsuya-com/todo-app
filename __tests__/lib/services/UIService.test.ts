@@ -40,8 +40,8 @@ describe('UIService', () => {
     })
 
     it('should handle check connections failure', async () => {
-      mockRepository.checkSlackConnections.mockResolvedValue({ 
-        success: false, 
+      mockRepository.checkSlackConnections.mockResolvedValue({
+        success: false,
         error: 'Failed to check connections',
         statusCode: 500
       })
@@ -100,8 +100,8 @@ describe('UIService', () => {
 
     it('should handle fetch message failure', async () => {
       const slackUrl = 'https://workspace.slack.com/archives/C123/p123456789'
-      mockRepository.fetchSlackMessage.mockResolvedValue({ 
-        success: false, 
+      mockRepository.fetchSlackMessage.mockResolvedValue({
+        success: false,
         error: 'Message not found',
         statusCode: 404
       })
@@ -146,8 +146,8 @@ describe('UIService', () => {
 
     it('should handle title generation failure', async () => {
       const content = 'Test content'
-      mockRepository.generateTitle.mockResolvedValue({ 
-        success: false, 
+      mockRepository.generateTitle.mockResolvedValue({
+        success: false,
         error: 'OpenAI API error',
         statusCode: 500
       })

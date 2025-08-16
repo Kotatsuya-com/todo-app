@@ -1,9 +1,11 @@
 /**
  * Test Utilities
  * テスト共通ユーティリティ - 再利用可能なテストヘルパー関数とモック
- * 
+ *
  * @fileoverview This file contains test utilities and should not run as a test suite
  */
+
+import { LOADING_TIMEOUT_MS } from '@/src/constants/timeConstants'
 
 // Prevent Jest from treating this as a test file
 if (typeof describe === 'undefined') {
@@ -50,7 +52,7 @@ export function cleanupFakeTimers(): void {
  */
 export function createTestTodoData(overrides: Partial<TodoData> = {}): TodoData {
   const now = new Date().toISOString()
-  
+
   return {
     id: 'test-todo-id',
     user_id: 'test-user-id',
@@ -109,12 +111,12 @@ export function createTestTodoSet(): {
   notUrgentNotImportant: TodoEntity
   completed: TodoEntity
   overdue: TodoEntity
-} {
+  } {
   const today = new Date().toISOString().split('T')[0]
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const tomorrowStr = tomorrow.toISOString().split('T')[0]
-  
+
   const yesterday = new Date()
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayStr = yesterday.toISOString().split('T')[0]
@@ -180,7 +182,7 @@ export function createErrorResult(error: string) {
  * Common wait patterns for async testing
  * 非同期テスト用の共通待機パターン
  */
-export async function waitForLoadingToComplete(result: any, timeout: number = 3000): Promise<void> {
+export async function waitForLoadingToComplete(result: any, timeout: number = LOADING_TIMEOUT_MS): Promise<void> {
   const { waitFor } = await import('@testing-library/react')
   await waitFor(() => {
     expect(result.current.loading).toBe(false)
@@ -204,7 +206,7 @@ export async function actAsync(fn: () => Promise<void>): Promise<void> {
  */
 export function setupTestEnvironment(): void {
   setupCryptoMock()
-  
+
   // Suppress console warnings in tests unless explicitly needed
   const originalError = console.error
   beforeEach(() => {
@@ -215,7 +217,7 @@ export function setupTestEnvironment(): void {
       originalError.call(console, ...args)
     }
   })
-  
+
   afterEach(() => {
     console.error = originalError
     jest.clearAllMocks()
@@ -231,14 +233,14 @@ export const CommonMocks = {
    * Create a resolved promise mock
    */
   resolvedPromise: <T>(value: T) => jest.fn().mockResolvedValue(value),
-  
+
   /**
    * Create a rejected promise mock
    */
   rejectedPromise: (error: Error | string) => jest.fn().mockRejectedValue(
     error instanceof Error ? error : new Error(error)
   ),
-  
+
   /**
    * Create a factory function mock
    */

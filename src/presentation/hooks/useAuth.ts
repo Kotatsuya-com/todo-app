@@ -8,6 +8,7 @@ import { UserEntity } from '../../domain/entities/User'
 import { AuthUser } from '../../domain/repositories/AuthRepositoryInterface'
 import { createAuthUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 import { CurrentUserData } from '../../domain/use-cases/AuthUseCases'
+import { SESSION_VALIDATION_INTERVAL_MS } from '@/src/constants/timeConstants'
 
 export interface AuthState {
   user: UserEntity | null
@@ -251,7 +252,7 @@ export const useAuth = (): UseAuthReturn => {
     }
 
     // 5分おきにセッションの有効性をチェック
-    const interval = setInterval(checkSessionValidity, 5 * 60 * 1000)
+    const interval = setInterval(checkSessionValidity, SESSION_VALIDATION_INTERVAL_MS)
 
     return () => clearInterval(interval)
   }, [state.isAuthenticated, authUseCases, updateUserState])

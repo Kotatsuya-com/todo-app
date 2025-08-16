@@ -18,7 +18,7 @@ export const createMockUser = (overrides: Partial<User> = {}): User => ({
   ...overrides
 })
 
-export const createMockUserWithoutSlackId = (): User => 
+export const createMockUserWithoutSlackId = (): User =>
   createMockUser({ slack_user_id: null })
 
 export const createMockUserWithNotificationsDisabled = (): User =>
@@ -73,7 +73,7 @@ export const createMockInactiveSlackWebhook = (): SlackWebhook =>
   createMockSlackWebhook({ is_active: false })
 
 export const createMockSlackWebhookWithEvents = (eventCount: number = 5): SlackWebhook =>
-  createMockSlackWebhook({ 
+  createMockSlackWebhook({
     event_count: eventCount,
     last_event_at: '2023-01-15T12:00:00Z'
   })
@@ -95,31 +95,31 @@ export const createMockTodo = (overrides: Partial<Todo> = {}): Todo => ({
 })
 
 export const createMockCompletedTodo = (): Todo =>
-  createMockTodo({ 
+  createMockTodo({
     status: 'done',
     completed_at: '2023-01-15T12:00:00Z'
   })
 
 export const createMockOverdueTodo = (): Todo =>
-  createMockTodo({ 
+  createMockTodo({
     deadline: '2023-01-10', // Past date (YYYY-MM-DD format)
     importance_score: 0.7
   })
 
 export const createMockTodayTodo = (): Todo =>
-  createMockTodo({ 
+  createMockTodo({
     deadline: '2023-01-15', // Today (when mocked) (YYYY-MM-DD format)
     importance_score: 0.6
   })
 
 export const createMockTomorrowTodo = (): Todo =>
-  createMockTodo({ 
+  createMockTodo({
     deadline: '2023-01-16', // Tomorrow (when mocked) (YYYY-MM-DD format)
     importance_score: 0.4
   })
 
 export const createMockImportantTodo = (): Todo =>
-  createMockTodo({ 
+  createMockTodo({
     importance_score: 0.8,
     title: 'Important Task'
   })

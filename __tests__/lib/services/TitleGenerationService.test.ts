@@ -36,9 +36,9 @@ jest.mock('@/lib/logger', () => ({
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-      info: jest.fn(),
-    }),
-  },
+      info: jest.fn()
+    })
+  }
 }))
 
 import OpenAI from 'openai'
@@ -349,7 +349,7 @@ describe('TitleGenerationService', () => {
 
       expect(result.success).toBe(true)
       expect(result.data).toHaveLength(2)
-      
+
       // Verify all calls used the custom temperature
       const calls = mockOpenAIInstance.chat.completions.create.mock.calls
       calls.forEach(call => {
@@ -573,7 +573,7 @@ describe('TitleGenerationService', () => {
 
       const call = mockOpenAIInstance.chat.completions.create.mock.calls[0]
       const userMessage = call[0].messages.find(m => m.role === 'user')
-      
+
       expect(userMessage.content).toContain(content)
     })
   })

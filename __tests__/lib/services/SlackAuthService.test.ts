@@ -46,7 +46,7 @@ describe('SlackAuthService', () => {
     }
 
     service = new SlackAuthService(mockSlackRepo)
-    
+
     // Reset fetch mock
     jest.clearAllMocks()
   })
@@ -63,7 +63,7 @@ describe('SlackAuthService', () => {
       const userId = 'user-123'
       const mockConnection = createMockSlackConnection()
       const mockTokenData = createMockSlackOAuthTokenData()
-      
+
       // Mock successful user validation
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         success: true,
@@ -134,7 +134,7 @@ describe('SlackAuthService', () => {
 
     it('should fail when token exchange fails', async () => {
       const userId = 'user-123'
-      
+
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         success: true,
         data: { id: userId } as UserWithSettings
@@ -161,7 +161,7 @@ describe('SlackAuthService', () => {
       const userId = 'user-123'
       const mockConnection = createMockSlackConnection()
       const mockTokenData = createMockSlackOAuthTokenData()
-      
+
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
         success: true,
         data: { id: userId } as UserWithSettings
@@ -282,7 +282,7 @@ describe('SlackAuthService', () => {
     it('should exchange code for tokens successfully', async () => {
       const mockTokenData = createMockSlackOAuthTokenData()
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-      
+
       mockFetch.mockResolvedValue({
         ok: true,
         json: () => Promise.resolve(mockTokenData)
@@ -293,7 +293,7 @@ describe('SlackAuthService', () => {
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
       expect(result.data!.teamId).toBe('T1234567890')
-      
+
       expect(mockFetch).toHaveBeenCalledWith(
         'https://slack.com/api/oauth.v2.access',
         expect.objectContaining({

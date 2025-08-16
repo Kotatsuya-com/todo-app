@@ -7,6 +7,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useTodoDashboard } from '../../../../src/presentation/hooks/useTodoDashboard'
 import { TodoEntity } from '../../../../src/domain/entities/Todo'
 import { UserEntity } from '../../../../src/domain/entities/User'
+import { LOADING_TIMEOUT_MS } from '../../../../src/constants/timeConstants'
 
 // Mock dependencies
 jest.mock('../../../../src/presentation/hooks/useAuth')
@@ -83,7 +84,7 @@ const mockTodoUseCases = {
 describe('useTodoDashboard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    
+
     // Default mock implementations
     mockUseAuth.mockReturnValue({
       user: mockUser,
@@ -128,7 +129,7 @@ describe('useTodoDashboard', () => {
       // Wait for data to load
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
-      }, { timeout: 3000 })
+      }, { timeout: LOADING_TIMEOUT_MS })
 
       // Should have loaded todos
       expect(result.current.state.todos).toHaveLength(2) // Only active todos
@@ -459,11 +460,11 @@ describe('useTodoDashboard', () => {
   describe('Slack Redirect Handling', () => {
     beforeEach(() => {
       // Mock window.location
-      delete (window as any).location
+      delete (window as Window & typeof globalThis).location
       window.location = {
         search: '',
         href: ''
-      } as any
+      } as Location
     })
 
     it('should handle Slack auth redirect when parameters are present', async () => {

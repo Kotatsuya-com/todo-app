@@ -5,14 +5,14 @@
 
 import { AuthUseCases, CurrentUserData } from '../../../../src/domain/use-cases/AuthUseCases'
 import { UserEntity } from '../../../../src/domain/entities/User'
-import { 
-  AuthRepositoryInterface, 
-  AuthUser, 
-  SignInRequest, 
-  SignUpRequest 
+import {
+  AuthRepositoryInterface,
+  AuthUser,
+  SignInRequest,
+  SignUpRequest
 } from '../../../../src/domain/repositories/AuthRepositoryInterface'
-import { 
-  UserRepositoryInterface 
+import {
+  UserRepositoryInterface
 } from '../../../../src/domain/repositories/UserRepositoryInterface'
 
 // Mock Auth Repository
@@ -22,7 +22,7 @@ class MockAuthRepository implements AuthRepositoryInterface {
 
   async signInWithEmail(request: SignInRequest): Promise<{ success: boolean; data?: AuthUser; error?: string }> {
     const userEntry = Array.from(this.users.values()).find(u => u.email === request.email)
-    
+
     if (!userEntry) {
       return { success: false, error: 'User not found' }
     }
@@ -61,7 +61,7 @@ class MockAuthRepository implements AuthRepositoryInterface {
   }
 
   async getCurrentUser(): Promise<{ success: boolean; data?: AuthUser; error?: string }> {
-    return this.currentUser 
+    return this.currentUser
       ? { success: true, data: this.currentUser }
       : { success: false, error: 'No authenticated user' }
   }
@@ -72,7 +72,7 @@ class MockAuthRepository implements AuthRepositoryInterface {
 
   async sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
     const userExists = Array.from(this.users.values()).some(u => u.email === email)
-    return userExists 
+    return userExists
       ? { success: true }
       : { success: false, error: 'User not found' }
   }
@@ -474,7 +474,7 @@ describe('AuthUseCases', () => {
         id: 'test-user-id',
         email: 'test@example.com'
       }
-      
+
       mockAuthRepository.addUser('test@example.com', 'password123', authUser)
 
       // Simulate repository error
@@ -487,7 +487,7 @@ describe('AuthUseCases', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Database error')
-      
+
       // Reset error state
       mockUserRepository.setShouldError(false)
     })

@@ -19,9 +19,9 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
   const lastNotificationRef = useRef<string | null>(null)
 
   useEffect(() => {
-    apiLogger.debug({ 
-      enabled, 
-      userId: userId ? `${userId.substring(0, 8)}...` : 'null' 
+    apiLogger.debug({
+      enabled,
+      userId: userId ? `${userId.substring(0, 8)}...` : 'null'
     }, 'useWebhookNotifications: Hook called')
 
     if (!enabled || !userId) {
@@ -31,7 +31,7 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
 
     const setupRealtimeSubscription = async () => {
       apiLogger.debug({ userId: userId.substring(0, 8) + '...' }, 'useWebhookNotifications: Setting up realtime subscription')
-      
+
       // ユーザー設定をチェック
       try {
         const response = await fetch('/api/user/notifications')
@@ -54,7 +54,7 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
       try {
         // 既存のチャンネルがあれば削除
         if (channelRef.current) {
-          apiLogger.debug({ 
+          apiLogger.debug({
             oldChannelName: channelRef.current.topic,
             newChannelName: `webhook-notifications-${userId}`
           }, 'useWebhookNotifications: Removing existing channel before creating new one')
@@ -68,7 +68,7 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
         // ユーザー固有のtodosテーブルの変更を監視
         const channelName = `webhook-notifications-${userId}`
         apiLogger.debug({ channelName, userId: userId.substring(0, 8) + '...' }, 'useWebhookNotifications: Creating realtime channel')
-        
+
         const channel = supabase
           .channel(channelName)
           .on(
@@ -80,7 +80,7 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
               filter: `user_id=eq.${userId}`
             },
             async (payload) => {
-              apiLogger.debug({ 
+              apiLogger.debug({
                 payload,
                 payloadKeys: Object.keys(payload),
                 newRecord: payload.new,
@@ -88,9 +88,9 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
                 table: payload.table,
                 schema: payload.schema
               }, 'useWebhookNotifications: Realtime event received - DETAILED DEBUG')
-              
+
               const newTodo = payload.new as Todo
-              
+
               apiLogger.info({
                 todoId: newTodo.id,
                 title: newTodo.title,
@@ -102,9 +102,9 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
 
               // Slackウェブフック経由で作成されたタスクのみ通知
               if (newTodo.created_via !== 'slack_webhook') {
-                apiLogger.debug({ 
-                  todoId: newTodo.id, 
-                  createdVia: newTodo.created_via 
+                apiLogger.debug({
+                  todoId: newTodo.id,
+                  createdVia: newTodo.created_via
                 }, 'Skipping notification - not created via Slack webhook')
                 return
               }
@@ -120,7 +120,7 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
               // 通知を表示
               apiLogger.debug({ todoId: newTodo.id }, 'useWebhookNotifications: Calling showWebhookTaskNotification')
               const notification = await showWebhookTaskNotification(newTodo)
-              
+
               apiLogger.info({
                 todoId: newTodo.id,
                 title: newTodo.title,
@@ -129,29 +129,29 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
             }
           )
           .subscribe((status, err) => {
-            apiLogger.info({ 
+            apiLogger.info({
               status,
-              error: err, 
+              error: err,
               userId: userId.substring(0, 8) + '...',
               channelName,
               subscriptionDetails: {
                 event: 'INSERT',
-                schema: 'public', 
+                schema: 'public',
                 table: 'todos',
                 filter: `user_id=eq.${userId}`
               }
             }, 'useWebhookNotifications: Subscription status changed - DETAILED DEBUG')
-            
+
             if (status === 'SUBSCRIBED') {
-              apiLogger.info({ 
+              apiLogger.info({
                 channelName,
                 filter: `user_id=eq.${userId}`,
                 timestamp: new Date().toISOString()
               }, 'useWebhookNotifications: Successfully subscribed to realtime channel - READY FOR EVENTS')
             } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-              apiLogger.error({ 
-                status, 
-                error: err, 
+              apiLogger.error({
+                status,
+                error: err,
                 channelName,
                 errorDetails: err ? JSON.stringify(err, null, 2) : 'No error details'
               }, 'useWebhookNotifications: Subscription failed - DETAILED ERROR')
@@ -166,9 +166,9 @@ export function useWebhookNotifications({ enabled = true, userId }: UseWebhookNo
 
         channelRef.current = channel
 
-        apiLogger.info({ 
+        apiLogger.info({
           userId: userId.substring(0, 8) + '...',
-          channelName 
+          channelName
         }, 'useWebhookNotifications: Webhook notifications subscription setup initiated')
 
       } catch (error) {

@@ -14,7 +14,7 @@ jest.mock('@/lib/logger', () => ({
     error: jest.fn(),
     debug: jest.fn(),
     info: jest.fn(),
-    warn: jest.fn(),
+    warn: jest.fn()
   }
 }))
 
@@ -30,24 +30,24 @@ describe('slack-message.ts', () => {
     it('should parse basic channel message URL', () => {
       const url = 'https://workspace.slack.com/archives/C1234567890/p1609459200000100'
       const result = parseSlackUrl(url)
-      
+
       expect(result).toEqual({
         workspace: 'workspace',
         channel: 'C1234567890',
         timestamp: '1609459200000100',
-        threadTs: undefined,
+        threadTs: undefined
       })
     })
 
     it('should parse thread message URL', () => {
       const url = 'https://workspace.slack.com/archives/C1234567890/p1609459200000100?thread_ts=1609459100.000200'
       const result = parseSlackUrl(url)
-      
+
       expect(result).toEqual({
         workspace: 'workspace',
         channel: 'C1234567890',
         timestamp: '1609459200000100',
-        threadTs: '1609459100.000200',
+        threadTs: '1609459100.000200'
       })
     })
 
@@ -59,12 +59,12 @@ describe('slack-message.ts', () => {
     it('should handle different workspace names', () => {
       const url = 'https://my-company-workspace.slack.com/archives/C1234567890/p1609459200000100'
       const result = parseSlackUrl(url)
-      
+
       expect(result).toEqual({
         workspace: 'my-company-workspace',
         channel: 'C1234567890',
         timestamp: '1609459200000100',
-        threadTs: undefined,
+        threadTs: undefined
       })
     })
   })
@@ -292,7 +292,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'John Doe' },
             name: 'john'
           }
@@ -300,7 +300,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result).toEqual({
         text: 'John Doe (#general)\nHello world',
         user: 'U123',
@@ -342,7 +342,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { real_name: 'Jane Smith' },
             name: 'jane'
           }
@@ -350,7 +350,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100?thread_ts=1609459100.000200', 'xoxp-token')
-      
+
       expect(result).toEqual({
         text: 'Jane Smith (#general)\nThread reply',
         user: 'U456',
@@ -385,7 +385,7 @@ describe('slack-message.ts', () => {
     it('should handle user mentions in text with simple test', async () => {
       const mockMessage = {
         text: 'Hello <@U123>',
-        user: 'U789', 
+        user: 'U789',
         ts: '1609459200.000100'
       }
 
@@ -394,7 +394,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          messages: [mockMessage]  
+          messages: [mockMessage]
         })
       } as Response)
 
@@ -412,19 +412,19 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'Author' },
             name: 'author'
           }
         })
       } as Response)
 
-      // Mock user info fetch (mentioned user) - successful  
+      // Mock user info fetch (mentioned user) - successful
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'John' },
             name: 'john'
           }
@@ -432,7 +432,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       // Just check that the message contains the mention symbol and user
       expect(result?.text).toContain('@')
       expect(result?.text).toContain('Hello')
@@ -476,7 +476,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'John Doe' },
             name: 'john'
           }
@@ -484,7 +484,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('John Doe (#C123)\nHello world')
     })
 
@@ -581,7 +581,7 @@ describe('slack-message.ts', () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('U123 (#general)\nHello world')
     })
 
@@ -610,7 +610,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'John Doe' },
             name: 'john'
           }
@@ -618,7 +618,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('John Doe (#C123)\nHello world')
     })
 
@@ -653,7 +653,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'John Doe' },
             name: 'john'
           }
@@ -661,7 +661,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('John Doe (#general)\n')
     })
 
@@ -726,7 +726,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('U123 (#general)\nHello world')
     })
 
@@ -755,7 +755,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('Unknown User (#general)\nSystem message')
     })
 
@@ -789,7 +789,7 @@ describe('slack-message.ts', () => {
         ok: true,
         json: async () => ({
           ok: true,
-          user: { 
+          user: {
             profile: { display_name: 'Author' },
             name: 'author'
           }
@@ -797,7 +797,7 @@ describe('slack-message.ts', () => {
       } as Response)
 
       const result = await getSlackMessageFromUrl('https://workspace.slack.com/archives/C123/p1609459200000100', 'xoxp-token')
-      
+
       expect(result?.text).toBe('Author (#general)\nLine 1\nLine 2\nLine 3')
     })
 

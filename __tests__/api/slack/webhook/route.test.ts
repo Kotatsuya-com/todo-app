@@ -10,7 +10,7 @@ import {
   mockSlackConnection,
   mockSlackWebhook,
   setupTestEnvironment,
-  cleanupTestEnvironment,
+  cleanupTestEnvironment
 } from '@/__tests__/mocks'
 
 describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
@@ -20,15 +20,15 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
   beforeEach(() => {
     setupTestEnvironment()
     cleanupTestEnvironment()
-    
+
     // TestContainerを作成（モック付き）
     testContainer = new TestContainer()
-    
+
     // App Base URLの設定
     testContainer.updateUtilsMock({
       getAppBaseUrl: jest.fn().mockReturnValue('http://localhost:3000')
     })
-    
+
     // ハンドラーの作成
     webhookHandlers = createWebhookHandlers(testContainer)
   })
@@ -55,14 +55,14 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
     it('Webhookリストを正常に取得する', async () => {
       const mockWebhooks = [
         { ...mockSlackWebhook, id: '1' },
-        { ...mockSlackWebhook, id: '2' },
+        { ...mockSlackWebhook, id: '2' }
       ]
 
       // 認証成功をモック
       testContainer.updateAuthMock({
         requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
       })
-      
+
       // サービスがWebhookリストを返すようにモック
       testContainer.updateServiceMock('webhookService', {
         getUserWebhooks: jest.fn().mockResolvedValue({
@@ -84,7 +84,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
       testContainer.updateAuthMock({
         requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
       })
-      
+
       // サービスがエラーを返すようにモック
       testContainer.updateServiceMock('webhookService', {
         getUserWebhooks: jest.fn().mockResolvedValue({
@@ -112,7 +112,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { slack_connection_id: 'connection-id' },
+        body: { slack_connection_id: 'connection-id' }
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -130,7 +130,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: {},
+        body: {}
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -157,7 +157,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { slack_connection_id: 'invalid-id' },
+        body: { slack_connection_id: 'invalid-id' }
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -171,7 +171,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
       const createdWebhook = {
         ...mockSlackWebhook,
         webhook_id: 'generated-webhook-id',
-        webhook_secret: 'generated-secret',
+        webhook_secret: 'generated-secret'
       }
 
       // 認証成功をモック
@@ -193,7 +193,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { slack_connection_id: mockSlackConnection.id },
+        body: { slack_connection_id: mockSlackConnection.id }
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -207,12 +207,12 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
     it('既存のWebhookを再有効化する', async () => {
       const existingWebhook = {
         ...mockSlackWebhook,
-        is_active: false,
+        is_active: false
       }
 
       const reactivatedWebhook = {
         ...existingWebhook,
-        is_active: true,
+        is_active: true
       }
 
       // 認証成功をモック
@@ -234,7 +234,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { slack_connection_id: mockSlackConnection.id },
+        body: { slack_connection_id: mockSlackConnection.id }
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -262,7 +262,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { slack_connection_id: mockSlackConnection.id },
+        body: { slack_connection_id: mockSlackConnection.id }
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -282,7 +282,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'DELETE',
-        url: `http://localhost:3000/api/slack/webhook?id=webhook-id`,
+        url: `http://localhost:3000/api/slack/webhook?id=webhook-id`
       })
 
       const response = await webhookHandlers.DELETE(request as any)
@@ -300,7 +300,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'DELETE',
-        url: 'http://localhost:3000/api/slack/webhook',
+        url: 'http://localhost:3000/api/slack/webhook'
       })
 
       const response = await webhookHandlers.DELETE(request as any)
@@ -326,7 +326,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'DELETE',
-        url: `http://localhost:3000/api/slack/webhook?id=${mockSlackWebhook.webhook_id}`,
+        url: `http://localhost:3000/api/slack/webhook?id=${mockSlackWebhook.webhook_id}`
       })
 
       const response = await webhookHandlers.DELETE(request as any)
@@ -353,7 +353,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'DELETE',
-        url: `http://localhost:3000/api/slack/webhook?id=${mockSlackWebhook.webhook_id}`,
+        url: `http://localhost:3000/api/slack/webhook?id=${mockSlackWebhook.webhook_id}`
       })
 
       const response = await webhookHandlers.DELETE(request as any)
@@ -370,10 +370,10 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
       testContainer.updateUtilsMock({
         getAppBaseUrl: jest.fn().mockReturnValue('https://abc123.ngrok.io')
       })
-      
+
       const createdWebhook = {
         ...mockSlackWebhook,
-        webhook_id: 'test-id',
+        webhook_id: 'test-id'
       }
 
       // 認証成功をモック
@@ -396,7 +396,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: { slack_connection_id: mockSlackConnection.id },
+        body: { slack_connection_id: mockSlackConnection.id }
       })
 
       const response = await webhookHandlers.POST(request as any)
@@ -416,7 +416,7 @@ describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
 
       const request = createMockNextRequest({
         method: 'POST',
-        body: {},
+        body: {}
       })
 
       // JSON解析エラーをモック

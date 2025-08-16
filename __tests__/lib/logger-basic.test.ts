@@ -9,7 +9,7 @@ jest.mock('pino', () => {
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    child: jest.fn(() => mockLogger),
+    child: jest.fn(() => mockLogger)
   }
   const mockPino = jest.fn(() => mockLogger)
   mockPino.stdTimeFunctions = {
@@ -18,9 +18,8 @@ jest.mock('pino', () => {
   return mockPino
 })
 
-import { createLogger, apiLogger, slackLogger, webhookLogger, authLogger } from '@/lib/logger'
-import defaultLogger from '@/lib/logger'
-import pino from 'pino'
+import { createLogger, apiLogger, slackLogger, webhookLogger, authLogger, default as defaultLogger } from '@/lib/logger'
+import _pino from 'pino'
 
 describe('logger basic test', () => {
   beforeEach(() => {
@@ -29,7 +28,7 @@ describe('logger basic test', () => {
 
   it('should create logger with context', () => {
     const logger = createLogger({ module: 'test' })
-    
+
     // loggerが作成されることを確認
     expect(logger).toBeDefined()
     expect(typeof logger.debug).toBe('function')
@@ -45,7 +44,7 @@ describe('logger basic test', () => {
 
   it('should work with basic logging methods', () => {
     const logger = createLogger({ test: 'value' })
-    
+
     // 基本的なログメソッドがエラーなく実行されることを確認
     expect(() => {
       logger.info('test message')
@@ -58,10 +57,10 @@ describe('logger basic test', () => {
   it('should test all predefined loggers', () => {
     // 各専用ロガーが定義されていることを確認
     expect(slackLogger).toBeDefined()
-    expect(webhookLogger).toBeDefined() 
+    expect(webhookLogger).toBeDefined()
     expect(authLogger).toBeDefined()
     expect(apiLogger).toBeDefined()
-    
+
     // デフォルトロガーも確認
     expect(defaultLogger).toBeDefined()
   })

@@ -155,7 +155,7 @@ describe('SlackService', () => {
     it('should return connections successfully', async () => {
       const userId = 'user-123'
       const mockConnections = [createMockSlackConnection(), createMockSlackConnection()]
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue(
         mockRepositoryListSuccess(mockConnections)
       )
@@ -169,7 +169,7 @@ describe('SlackService', () => {
 
     it('should handle repository error', async () => {
       const userId = 'user-123'
-      
+
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue(
         mockRepositoryError('Database error')
       )
@@ -186,7 +186,7 @@ describe('SlackService', () => {
     it('should delete connection successfully', async () => {
       const connectionId = 'conn-123'
       const userId = 'user-123'
-      
+
       mockSlackRepo.deleteConnection.mockResolvedValue(
         mockRepositorySuccess(undefined)
       )
@@ -200,7 +200,7 @@ describe('SlackService', () => {
     it('should handle repository error', async () => {
       const connectionId = 'conn-123'
       const userId = 'user-123'
-      
+
       mockSlackRepo.deleteConnection.mockResolvedValue(
         mockRepositoryError('Database error')
       )
@@ -217,7 +217,7 @@ describe('SlackService', () => {
     it('should return webhooks successfully', async () => {
       const userId = 'user-123'
       const mockWebhooks = [createMockSlackWebhook(), createMockSlackWebhook()]
-      
+
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue(
         mockRepositoryListSuccess(mockWebhooks)
       )
@@ -231,7 +231,7 @@ describe('SlackService', () => {
 
     it('should handle repository error', async () => {
       const userId = 'user-123'
-      
+
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue(
         mockRepositoryError('Database error')
       )
@@ -282,7 +282,7 @@ describe('SlackService', () => {
 
     it('should return error when connection belongs to different user', async () => {
       const mockConnection = createMockSlackConnection({ user_id: 'different-user' })
-      
+
       mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
 
       const result = await slackService.createWebhook(userId, connectionId, mockRequest)
@@ -320,7 +320,7 @@ describe('SlackService', () => {
         user: 'U1234567890',
         ts: '1234567890.123456'
       })
-      
+
       mockGenerateTaskTitle.mockResolvedValue('Generated Task Title')
     })
 

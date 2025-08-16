@@ -60,7 +60,7 @@ describe('WebhookService', () => {
         createMockSlackWebhookWithEvents(3),
         createMockInactiveSlackWebhook()
       ]
-      
+
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
         success: true,
         data: mockWebhooks

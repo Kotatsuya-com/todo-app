@@ -22,7 +22,7 @@ describe('/api/slack API Routes', () => {
   beforeEach(() => {
     // Create test container
     container = new TestContainer()
-    
+
     // Create handlers with test container
     handlers = createSlackMessageHandlers(container)
 
