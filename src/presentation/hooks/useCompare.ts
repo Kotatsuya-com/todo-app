@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './useAuth'
 import { useTodoDashboard } from './useTodoDashboard'
 import { TodoEntity } from '@/src/domain/entities/Todo'
-import { createTodoUseCases } from '@/src/infrastructure/di/ServiceFactory'
+import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 
 export interface ComparisonPair {
   left: TodoEntity

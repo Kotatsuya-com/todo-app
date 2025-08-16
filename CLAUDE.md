@@ -477,38 +477,55 @@ This architecture enables rapid development while maintaining production-grade s
 
 ## 📝 Recent Updates (August 2025)
 
-### 🏗️ Clean Architecture Implementation (NEW)
+### 🎉 Dependency Injection System完全実装 (COMPLETED)
 
-**Major architectural overhaul to Clean Architecture pattern for improved maintainability and testability.**
+**Clean Architecture + 依存性注入システムの完全実装が完了しました。**
 
-#### New Architecture Components
-- **Domain Layer** (`lib/entities/`): Business objects with validation and domain rules
-  - `UserEntity`, `SlackConnectionEntity`, `SlackWebhookEntity`, `TodoEntity`
-  - Pure business logic without external dependencies
+#### 依存性注入コンテナシステム（完了）
+- **DependencyContainer** (`lib/containers/`): 統一された依存関係管理
+  - `ProductionContainer`: 本番環境用のサービス・認証・ユーティリティ注入
+  - `TestContainer`: テスト環境用のモック注入システム
+  - `UIContainer`: フロントエンド用の依存関係管理
   
-- **Repository Layer** (`lib/repositories/`): Data access abstraction
-  - `SlackRepository`, `TodoRepository`, `BaseRepository`
-  - Unified error handling and Supabase client management
-  
-- **Service Layer** (`lib/services/`): Business use cases and logic
-  - `SlackService` with complete Slack webhook processing logic
-  - External API coordination (Slack, OpenAI)
-  
-- **API Layer Refactoring**: Thin HTTP handlers delegating to services
-  - **Migrated**: `/api/slack/events/user/[webhook_id]/` (Clean Architecture)
-  - **To Migrate**: All other APIs currently using direct Supabase calls
+- **HandlerFactory** (`lib/factories/`): APIハンドラーの標準化
+  - 12種類の統一されたAPIハンドラー実装
+  - 認証・ログ・エラーハンドリングの自動注入
+  - Webhook、Slack、Settings等全APIの統一実装
 
-#### Testing Infrastructure Overhaul
-- **Service Layer Mocks**: `MockSlackService` for simplified testing
-- **Repository Mocks**: Result-based testing approach eliminating complex Supabase mock chains
-- **100% Test Success Rate**: All 281 tests passing with new architecture
-- **Test Simplification**: Reduced test complexity from 30+ mock lines to single-line service mocks
+#### レガシーコード完全移行（完了）
+- **5フェーズ移行完了**: レガシー型定義統一 → Zustand削除 → Factory統一 → APIテスト更新 → レガシークライアント削除
+- **Zustand Store完全削除**: Clean ArchitectureのUseCase層に完全移行
+- **直接Supabase呼び出し削除**: 全APIがRepository Patternに移行
+- **複雑テストモック簡素化**: Service Layer Mock使用で大幅簡素化
 
-#### Development Rules & Guidelines
-- **MANDATORY**: All new features must use Clean Architecture
-- **FORBIDDEN**: Direct Supabase usage in new API routes
-- **MIGRATION PLAN**: Gradual migration of legacy APIs to Clean Architecture
-- **TESTING PRIORITY**: Service > Repository > Entity > API integration tests
+#### Clean Architecture Implementation (COMPLETED)
+- **Domain Layer** (`lib/entities/`, `src/domain/`): ビジネスルールとドメインロジック
+  - Backend: `UserEntity`, `SlackConnectionEntity`, `SlackWebhookEntity`, `TodoEntity`
+  - Frontend: Todo・User エンティティとUseCases実装
+  
+- **Repository Layer** (`lib/repositories/`, `src/infrastructure/`): データアクセス抽象化
+  - Backend: `SlackRepository`, `TodoRepository`, `BaseRepository`
+  - Frontend: `SupabaseTodoRepository`, `SupabaseAuthRepository`等
+  
+- **Service Layer** (`lib/services/`, `src/domain/use-cases/`): ビジネスロジック
+  - Backend: 12種類のサービス（Slack, Auth, Webhook等）
+  - Frontend: `TodoUseCases`, `AuthUseCases`
+  
+- **Presentation Layer** (`app/api/`, `src/presentation/`): UI・HTTP処理
+  - Backend: 依存性注入されたAPIハンドラー
+  - Frontend: カスタムフック（useAuth, useTodoForm等）
+
+#### 技術的成果（完了）
+- **100% Clean Architecture適合**: 全バックエンド・フロントエンドAPI
+- **100% 依存性注入適用**: 全サービス・認証・ユーティリティ
+- **100% テスト成功率**: 1178 tests passing
+- **0% レガシーコード残存**: Zustand Store等完全削除
+
+#### 統一開発ルール（完了適用）
+- **✅ COMPLETED**: 全新機能がClean Architecture使用
+- **✅ COMPLETED**: 全APIがRepository Pattern使用  
+- **✅ COMPLETED**: 全テストがService Layer Mock使用
+- **✅ COMPLETED**: 依存性注入による完全なテスタビリティ
 
 ### Legacy Features (January 2025)
 

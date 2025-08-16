@@ -16,6 +16,8 @@ const customJestConfig = {
   // Module name mapping for absolute imports
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    // Mock problematic ES modules
+    'isows': '<rootDir>/__tests__/mocks/isows.js',
   },
   
   // Test file patterns
@@ -32,6 +34,7 @@ const customJestConfig = {
     '/__tests__/fixtures/',
     '/__tests__/helpers/',
     '/__tests__/mocks/',
+    '/__tests__/utils/',
     '\\.fixture\\.(ts|js)$',
     '\\.helper\\.(ts|js)$'
   ],
@@ -52,7 +55,7 @@ const customJestConfig = {
   
   // Transform ESM modules
   transformIgnorePatterns: [
-    'node_modules/(?!(isows|@supabase)/)',
+    'node_modules/(?!(isows|@supabase|@supabase/.*|ws)/)',
   ],
   
   // Module file extensions

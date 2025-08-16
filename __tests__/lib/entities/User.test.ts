@@ -18,7 +18,7 @@ describe('UserEntity', () => {
       const userEntity = new UserEntity(mockUser)
 
       expect(userEntity.id).toBe(mockUser.id)
-      expect(userEntity.email).toBe(mockUser.email)
+      expect(userEntity.displayName).toBe(mockUser.display_name)
       expect(userEntity.slackUserId).toBe(mockUser.slack_user_id)
       expect(userEntity.notificationsEnabled).toBe(mockUser.enable_webhook_notifications)
     })
@@ -164,7 +164,7 @@ describe('UserEntity', () => {
 
       expect(userEntity).toBeInstanceOf(UserEntity)
       expect(userEntity.id).toBe(mockUser.id)
-      expect(userEntity.email).toBe(mockUser.email)
+      expect(userEntity.displayName).toBe(mockUser.display_name)
       expect(userEntity.slackUserId).toBe(mockUser.slack_user_id)
     })
 
@@ -201,7 +201,7 @@ describe('UserEntity', () => {
       plainObject.email = 'modified@test.com'
 
       expect(mockUser).toEqual(originalUser)
-      expect(userEntity.email).toBe(originalUser.email)
+      expect(userEntity.displayName).toBe(originalUser.display_name)
     })
   })
 
@@ -215,11 +215,11 @@ describe('UserEntity', () => {
       expect(userEntity.validateSlackUserId('   ')).toBe(false) // Invalid format
     })
 
-    it('should handle special characters in email', () => {
-      const mockUser = createMockUser({ email: 'test+special@sub.domain.com' })
+    it('should handle special characters in display name', () => {
+      const mockUser = createMockUser({ display_name: 'User + Special (Name)' })
       const userEntity = new UserEntity(mockUser)
 
-      expect(userEntity.email).toBe('test+special@sub.domain.com')
+      expect(userEntity.displayName).toBe('User + Special (Name)')
     })
 
     it('should handle very long user IDs', () => {

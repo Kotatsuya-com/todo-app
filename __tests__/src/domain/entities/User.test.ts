@@ -6,6 +6,16 @@
 import { UserEntity } from '../../../../src/domain/entities/User'
 
 describe('UserEntity', () => {
+  beforeEach(() => {
+    // Fix the date to 2025-08-06 for consistent test results
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2025-08-06T00:00:00Z'))
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
   const mockUserData = {
     id: 'user-123',
     display_name: 'Test User',
@@ -112,12 +122,13 @@ describe('UserEntity', () => {
     it('should calculate user statistics correctly', () => {
       const user = new UserEntity(mockUserData)
       const todos = [
-        { status: 'open', deadline: '2025-08-10' },
-        { status: 'open', deadline: '2025-08-05' }, // overdue
+        { status: 'open', deadline: '2025-08-10' }, // Future date (not overdue)
+        { status: 'open', deadline: '2025-08-02' }, // overdue (before 2025-08-06)
         { status: 'completed', deadline: '2025-08-10' },
         { status: 'completed', deadline: null },
         { status: 'open', deadline: null }
       ]
+
 
       const stats = user.calculateStats(todos)
 

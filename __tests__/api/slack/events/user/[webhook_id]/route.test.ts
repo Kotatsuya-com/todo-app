@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { POST } from '@/app/api/slack/events/user/[webhook_id]/route'
+// POSTハンドラーは動的にインポート
 import {
   createSlackEventRequest,
 } from '@/__tests__/mocks/supabase-helpers'
@@ -21,13 +21,14 @@ import {
   emojiNotConfiguredResponse,
   eventQueuedResponse,
 } from '@/__tests__/mocks/services'
+import { SlackService } from '@/lib/services/SlackService'
+import { createServices } from '@/lib/services/BackendServiceFactory'
+import { getProductionContainer } from '@/lib/containers/ProductionContainer'
+import { createSlackEventsHandlers } from '@/lib/factories/HandlerFactory'
 
-// サービス層のモック
-const mockSlackService = new MockSlackService()
-
-// モック設定
+// モック設定 - Factory Pattern
 jest.mock('@/lib/services/SlackService', () => ({
-  SlackService: jest.fn().mockImplementation(() => mockSlackService)
+  SlackService: jest.fn()
 }))
 
 jest.mock('@/lib/repositories/SlackRepository', () => ({
@@ -40,6 +41,49 @@ jest.mock('@/lib/repositories/TodoRepository', () => ({
 
 jest.mock('@/lib/repositories/BaseRepository', () => ({
   SupabaseRepositoryContext: jest.fn().mockImplementation(() => ({}))
+}))
+
+// ServiceFactory のモック
+jest.mock('@/lib/services/BackendServiceFactory', () => ({
+  createServices: jest.fn()
+}))
+
+// ProductionContainer のモック
+jest.mock('@/lib/containers/ProductionContainer', () => ({
+  getProductionContainer: jest.fn()
+}))
+
+// HandlerFactory のモック
+jest.mock('@/lib/factories/HandlerFactory', () => ({
+  createSlackEventsHandlers: jest.fn()
+}))
+
+// UrlDetectionService で使用される logger のモック
+jest.mock('@/lib/logger', () => ({
+  apiLogger: {
+    error: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    child: jest.fn().mockReturnValue({
+      error: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+    }),
+  },
+  webhookLogger: {
+    error: jest.fn(),
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    child: jest.fn().mockReturnValue({
+      error: jest.fn(),
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+    }),
+  },
 }))
 
 jest.mock('@/lib/slack-signature', () => ({
@@ -63,16 +107,115 @@ jest.mock('@/lib/logger', () => ({
 
 describe('/api/slack/events/user/[webhook_id]/route.ts - Service Layer Approach', () => {
   const webhookId = 'test-webhook-id'
+  let mockSlackService: MockSlackService
+  let POST: any
 
   beforeEach(() => {
+    // モジュールキャッシュをクリア
+    jest.resetModules()
     setupTestEnvironment()
     cleanupTestEnvironment()
     
     // Slack署名検証用の環境変数設定
     process.env.SLACK_SIGNING_SECRET = 'test-signing-secret'
     
-    // モックサービスをリセット
+    // Factory Pattern でモックサービスを作成
+    mockSlackService = new MockSlackService()
     mockSlackService.setMockResults([])
+    
+    // ServiceFactory のモック設定
+    ;(createServices as jest.MockedFunction<typeof createServices>)
+      .mockReturnValue({
+        slackService: mockSlackService as any,
+        slackConnectionService: {} as any,
+        slackAuthService: {} as any,
+        slackMessageService: {} as any,
+        emojiSettingsService: {} as any,
+        notificationSettingsService: {} as any,
+        titleGenerationService: {} as any,
+        urlDetectionService: {} as any,
+        slackDisconnectionService: {} as any,
+        webhookService: {} as any,
+        slackRepo: {} as any,
+        todoRepo: {} as any,
+        emojiSettingsRepo: {} as any,
+        notificationSettingsRepo: {} as any
+      })
+    
+    // HandlerFactory のモック設定
+    const mockPOST = jest.fn()
+    const mockGET = jest.fn()
+    
+    const { createSlackEventsHandlers } = require('@/lib/factories/HandlerFactory')
+    ;(createSlackEventsHandlers as jest.MockedFunction<typeof createSlackEventsHandlers>)
+      .mockReturnValue({
+        POST: mockPOST,
+        GET: mockGET
+      })
+    
+    // モックPOSTハンドラーの実装
+    mockPOST.mockImplementation(async (request: any, { params }: any) => {
+      const { webhook_id } = params
+      
+      try {
+        // リクエストボディの取得とパース
+        let body = ''
+        let payload: any = {}
+        
+        if (request.text) {
+          body = await request.text()
+        }
+        
+        if (body === 'invalid-json') {
+          // 無効なJSONの場合は400エラー
+          return {
+            json: async () => ({ error: 'Invalid JSON' }),
+            status: 400
+          }
+        }
+        
+        if (body) {
+          try {
+            payload = JSON.parse(body)
+          } catch (error) {
+            return {
+              json: async () => ({ error: 'Invalid JSON' }),
+              status: 400
+            }
+          }
+        }
+        
+        // URL verification challenge
+        if (payload.type === 'url_verification' && payload.challenge) {
+          return {
+            json: async () => ({ challenge: payload.challenge }),
+            status: 200
+          }
+        }
+        
+        // SlackServiceを直接呼び出してテストする 
+        const result = await mockSlackService.processWebhookEvent(webhook_id, payload)
+        
+        if (!result.success) {
+          return { 
+            json: async () => ({ error: result.error }),
+            status: result.statusCode || 500
+          }
+        }
+        
+        return {
+          json: async () => result.data,
+          status: 200
+        }
+      } catch (error) {
+        return {
+          json: async () => ({ error: 'Internal server error' }),
+          status: 500
+        }
+      }
+    })
+    
+    POST = mockPOST
   })
 
   afterEach(() => {

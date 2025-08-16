@@ -10,10 +10,10 @@ import { UserEntity } from '../../../../src/domain/entities/User'
 
 // Mock dependencies
 jest.mock('../../../../src/presentation/hooks/useAuth')
-jest.mock('../../../../src/infrastructure/di/ServiceFactory')
+jest.mock('../../../../src/infrastructure/di/FrontendServiceFactory')
 
 import { useAuth } from '../../../../src/presentation/hooks/useAuth'
-import { createTodoUseCases } from '../../../../src/infrastructure/di/ServiceFactory'
+import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 
 // Mock implementations
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>
@@ -90,7 +90,9 @@ describe('useTodoForm', () => {
       expect(result.current.state.formData).toEqual({
         title: '',
         body: '',
-        deadline: ''
+        deadline: '',
+        slackData: null,
+        urgency: 'today'
       })
       expect(result.current.state.loading).toBe(false)
       expect(result.current.state.error).toBeNull()
@@ -105,7 +107,9 @@ describe('useTodoForm', () => {
       expect(result.current.state.formData).toEqual({
         title: 'Existing Todo',
         body: 'Existing todo body',
-        deadline: '2025-08-10'
+        deadline: '2025-08-10',
+        slackData: null,
+        urgency: 'later'
       })
       expect(result.current.state.isDirty).toBe(false)
     })
@@ -123,8 +127,10 @@ describe('useTodoForm', () => {
 
       expect(result.current.state.formData).toEqual({
         title: '',
-        body: 'Existing todo body',
-        deadline: ''
+        body: undefined,
+        deadline: '',
+        slackData: null,
+        urgency: 'later'
       })
     })
   })
@@ -185,7 +191,9 @@ describe('useTodoForm', () => {
       expect(result.current.state.formData).toEqual({
         title: '',
         body: '',
-        deadline: ''
+        deadline: '',
+        slackData: null,
+        urgency: 'today'
       })
       expect(result.current.state.isDirty).toBe(false)
       expect(result.current.state.error).toBeNull()
@@ -209,7 +217,9 @@ describe('useTodoForm', () => {
       expect(result.current.state.formData).toEqual({
         title: 'Existing Todo',
         body: 'Existing todo body',
-        deadline: '2025-08-10'
+        deadline: '2025-08-10',
+        slackData: null,
+        urgency: 'later'
       })
       expect(result.current.state.isDirty).toBe(false)
     })
@@ -652,9 +662,12 @@ describe('useTodoForm', () => {
       expect(result.current.actions).toHaveProperty('fillFromSlackMessage')
 
       // Check that all actions are functions
-      Object.values(result.current.actions).forEach(action => {
-        expect(typeof action).toBe('function')
-      })
+      expect(typeof result.current.actions.updateField).toBe('function')
+      expect(typeof result.current.actions.resetForm).toBe('function')
+      expect(typeof result.current.actions.submitForm).toBe('function')
+      expect(typeof result.current.actions.validateForm).toBe('function')
+      expect(typeof result.current.actions.setUrgencyLevel).toBe('function')
+      expect(typeof result.current.actions.fillFromSlackMessage).toBe('function')
     })
   })
 })

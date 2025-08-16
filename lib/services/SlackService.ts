@@ -12,11 +12,12 @@ import {
 } from '@/lib/entities/SlackConnection'
 import { UserWithSettings, UserEmojiSettings } from '@/lib/entities/User'
 import { TodoEntity, Urgency } from '@/lib/entities/Todo'
-import { SlackEventPayload, SlackReactionEvent } from '@/types'
+import { SlackEventPayload, SlackReactionEvent } from '@/src/domain/types'
 import { getSlackMessage } from '@/lib/slack-message'
 import { generateTaskTitle } from '@/lib/openai-title'
 import { getAppBaseUrl } from '@/lib/ngrok-url'
 import { NextRequest } from 'next/server'
+import { slackLogger } from '@/lib/logger'
 
 // デフォルト絵文字設定（ユーザー設定がない場合のフォールバック）
 const DEFAULT_EMOJI_SETTINGS = {
@@ -188,8 +189,28 @@ export class SlackService {
     }
   }
 
-  async deactivateWebhook(webhookId: string, _userId: string): Promise<SlackServiceResult<void>> {
-    // TODO: 実装では更新対象のWebhookがユーザーのものかを確認する必要がある
+  async deactivateWebhook(webhookId: string, userId: string): Promise<SlackServiceResult<void>> {
+    // 1. Webhookの所有者確認
+    const webhookResult = await this._slackRepo.findWebhookById(webhookId)
+    if (webhookResult.error || !webhookResult.data) {
+      return {
+        success: false,
+        error: webhookResult.error?.message || 'Webhook not found',
+        statusCode: 404
+      }
+    }
+
+    // 2. ユーザー所有権の確認
+    const webhook = webhookResult.data
+    if (webhook.user_id !== userId) {
+      return {
+        success: false,
+        error: 'Unauthorized access to webhook',
+        statusCode: 403
+      }
+    }
+
+    // 3. Webhook非アクティブ化
     const result = await this._slackRepo.updateWebhook(webhookId, {
       is_active: false,
       updated_at: new Date().toISOString()
@@ -357,11 +378,8 @@ export class SlackService {
       eventKey,
       userWithSettings?.enable_webhook_notifications ?? true
     ).catch((error) => {
-      // Log error for debugging in development only
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.error('Background task processing failed:', error)
-      }
+      // Log error for debugging
+      slackLogger.error({ error }, 'Background task processing failed')
     })
 
     return {
@@ -454,11 +472,8 @@ export class SlackService {
       return newTodo.id
 
     } catch (error) {
-      // Log error for debugging in development only
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.error('Error processing reaction event:', error)
-      }
+      // Log error for debugging
+      slackLogger.error({ error }, 'Error processing reaction event')
       throw error
     }
   }

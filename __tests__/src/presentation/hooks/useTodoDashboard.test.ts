@@ -10,10 +10,10 @@ import { UserEntity } from '../../../../src/domain/entities/User'
 
 // Mock dependencies
 jest.mock('../../../../src/presentation/hooks/useAuth')
-jest.mock('../../../../src/infrastructure/di/ServiceFactory')
+jest.mock('../../../../src/infrastructure/di/FrontendServiceFactory')
 
 import { useAuth } from '../../../../src/presentation/hooks/useAuth'
-import { createTodoUseCases } from '../../../../src/infrastructure/di/ServiceFactory'
+import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 
 // Mock implementations
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>
@@ -31,43 +31,43 @@ const mockUser = new UserEntity({
   updatedAt: '2025-08-03T10:00:00Z'
 })
 
-// Mock todos
+// Mock todos - using snake_case properties matching TodoData interface
 const mockTodos = [
   new TodoEntity({
     id: 'todo-1',
-    userId: 'test-user-id',
+    user_id: 'test-user-id',
     title: 'Urgent Important Todo',
     body: 'This is urgent and important',
     deadline: new Date().toISOString().split('T')[0], // Today
-    importanceScore: 1500,
-    status: 'active',
-    createdAt: '2025-08-01T10:00:00Z',
-    updatedAt: '2025-08-01T10:00:00Z',
-    createdVia: 'manual'
+    importance_score: 1500,
+    status: 'open',
+    created_at: '2025-08-01T10:00:00Z',
+    updated_at: '2025-08-01T10:00:00Z',
+    created_via: 'manual'
   }),
   new TodoEntity({
     id: 'todo-2',
-    userId: 'test-user-id',
+    user_id: 'test-user-id',
     title: 'Not Urgent Important Todo',
     body: 'This is important but not urgent',
     deadline: '2025-08-10',
-    importanceScore: 1500,
-    status: 'active',
-    createdAt: '2025-08-01T10:00:00Z',
-    updatedAt: '2025-08-01T10:00:00Z',
-    createdVia: 'manual'
+    importance_score: 1500,
+    status: 'open',
+    created_at: '2025-08-01T10:00:00Z',
+    updated_at: '2025-08-01T10:00:00Z',
+    created_via: 'manual'
   }),
   new TodoEntity({
     id: 'todo-3',
-    userId: 'test-user-id',
+    user_id: 'test-user-id',
     title: 'Completed Todo',
     body: 'This is completed',
     deadline: null,
-    importanceScore: 1000,
+    importance_score: 1000,
     status: 'completed',
-    createdAt: '2025-08-01T10:00:00Z',
-    updatedAt: '2025-08-02T10:00:00Z',
-    createdVia: 'manual'
+    created_at: '2025-08-01T10:00:00Z',
+    updated_at: '2025-08-02T10:00:00Z',
+    created_via: 'manual'
   })
 ]
 
@@ -104,11 +104,11 @@ describe('useTodoDashboard', () => {
     mockTodoUseCases.getTodoDashboard.mockResolvedValue({
       success: true,
       data: {
-        todos: mockTodos.filter(t => t.status === 'active'),
-        quadrants: TodoEntity.groupByQuadrant(mockTodos.filter(t => t.status === 'active')),
+        todos: mockTodos.filter(t => t.status === 'open'),
+        quadrants: TodoEntity.groupByQuadrant(mockTodos.filter(t => t.status === 'open')),
         stats: {
           total: mockTodos.length,
-          active: mockTodos.filter(t => t.status === 'active').length,
+          active: mockTodos.filter(t => t.status === 'open').length,
           completed: mockTodos.filter(t => t.status === 'completed').length,
           overdue: mockTodos.filter(t => t.isOverdue()).length
         }
@@ -128,7 +128,7 @@ describe('useTodoDashboard', () => {
       // Wait for data to load
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
-      })
+      }, { timeout: 3000 })
 
       // Should have loaded todos
       expect(result.current.state.todos).toHaveLength(2) // Only active todos

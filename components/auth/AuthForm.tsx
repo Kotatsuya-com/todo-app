@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/src/presentation/hooks/useAuth'
 import { Button } from '@/components/ui/Button'
 import { Mail, Lock, AlertCircle } from 'lucide-react'
 
@@ -9,37 +9,31 @@ export function AuthForm() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  const { signIn, signUp, loading } = useAuth()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
     setSuccess(null)
 
-    const supabase = createClient()
-
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password
-        })
-        if (error) {throw error}
+        const result = await signUp(email, password)
+        if (!result) {
+          throw new Error('Sign up failed')
+        }
         setSuccess('確認メールを送信しました。メールをご確認ください。')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        })
-        if (error) {throw error}
+        const result = await signIn(email, password)
+        if (!result) {
+          throw new Error('Sign in failed')
+        }
       }
     } catch (error: any) {
       setError(error.message)
-    } finally {
-      setLoading(false)
     }
   }
 

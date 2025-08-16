@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Sparkles, Calendar, Link } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Urgency } from '@/types'
+import { Urgency } from '@/src/domain/types'
 import { getDeadlineFromUrgency } from '@/lib/utils'
 import { apiLogger } from '@/lib/client-logger'
+import { getUIContainer, UIDependencyContainer } from '@/lib/containers/UIContainer'
 
 interface TodoFormProps {
   initialTitle?: string
@@ -22,6 +23,8 @@ interface TodoFormProps {
   onCancel: () => void
   submitLabel: string
   isSubmitting?: boolean
+  // 依存性注入のためのオプション（テスト時に使用）
+  uiContainer?: UIDependencyContainer
 }
 
 export function TodoForm({
@@ -32,7 +35,8 @@ export function TodoForm({
   onSubmit,
   onCancel,
   submitLabel,
-  isSubmitting = false
+  isSubmitting = false,
+  uiContainer = getUIContainer()
 }: TodoFormProps) {
   const [title, setTitle] = useState(initialTitle)
   const [body, setBody] = useState(initialBody)
@@ -48,18 +52,18 @@ export function TodoForm({
   // Slack連携状態をチェック
   const checkSlackConnection = useCallback(async () => {
     try {
-      const response = await fetch('/api/slack/connections')
-      if (response.ok) {
-        const data = await response.json()
-        setHasSlackConnection((data.connections || []).length > 0)
+      const result = await uiContainer.services.uiService.checkSlackConnections()
+      if (result.success) {
+        setHasSlackConnection((result.data?.connections || []).length > 0)
       } else {
         setHasSlackConnection(false)
+        apiLogger.error({ error: result.error }, 'Failed to check Slack connection')
       }
     } catch (error) {
       apiLogger.error({ error }, 'Failed to check Slack connection')
       setHasSlackConnection(false)
     }
-  }, [])
+  }, [uiContainer])
 
   // コンポーネントマウント時にSlack連携状態をチェック
   useEffect(() => {
@@ -94,15 +98,11 @@ export function TodoForm({
 
     setIsGeneratingTitle(true)
     try {
-      const response = await fetch('/api/generate-title', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setTitle(data.title)
+      const result = await uiContainer.services.uiService.generateTitle(content)
+      if (result.success) {
+        setTitle(result.data?.title || '')
+      } else {
+        apiLogger.error({ error: result.error }, 'Failed to generate title')
       }
     } catch (error) {
       apiLogger.error({ error }, 'Failed to generate title')
@@ -121,34 +121,26 @@ export function TodoForm({
     setIsLoadingSlack(true)
     setSlackError(null)
     try {
-      const response = await fetch('/api/slack', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slackUrl: body.trim() })
-      })
+      const result = await uiContainer.services.uiService.fetchSlackMessage(body.trim())
 
-      if (response.ok) {
-        const data = await response.json()
+      if (result.success) {
         setSlackData({
-          text: data.text,
-          url: data.url,
-          workspace: data.workspace
+          text: result.data?.text || '',
+          url: result.data?.url || '',
+          workspace: result.data?.workspace || ''
         })
         setSlackError(null)
 
         // Slackメッセージ取得成功時に自動でタイトル生成
-        if (data.text && !title.trim()) {
+        if (result.data?.text && !title.trim()) {
           setIsGeneratingTitle(true)
           try {
-            const titleResponse = await fetch('/api/generate-title', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content: data.text })
-            })
+            const titleResult = await uiContainer.services.uiService.generateTitle(result.data?.text || '')
 
-            if (titleResponse.ok) {
-              const titleData = await titleResponse.json()
-              setTitle(titleData.title)
+            if (titleResult.success) {
+              setTitle(titleResult.data?.title || '')
+            } else {
+              apiLogger.error({ error: titleResult.error }, 'Failed to generate title from Slack content')
             }
           } catch (titleError) {
             apiLogger.error({ error: titleError }, 'Failed to generate title from Slack content')
@@ -157,13 +149,12 @@ export function TodoForm({
           }
         }
       } else {
-        const errorData = await response.json()
-        const errorMessage = errorData.details || errorData.error || 'メッセージの取得に失敗しました'
+        const errorMessage = result.error || 'メッセージの取得に失敗しました'
         setSlackError(errorMessage)
-        apiLogger.error({ status: response.status, errorData }, 'Failed to fetch Slack message')
+        apiLogger.error({ error: result.error, statusCode: result.statusCode }, 'Failed to fetch Slack message')
 
         // 401または400エラーの場合は連携状態を再チェック
-        if (response.status === 401 || response.status === 400) {
+        if (result.statusCode === 401 || result.statusCode === 400) {
           await checkSlackConnection()
         }
       }
@@ -174,7 +165,7 @@ export function TodoForm({
     } finally {
       setIsLoadingSlack(false)
     }
-  }, [isSlackUrl, body, title, checkSlackConnection])
+  }, [isSlackUrl, body, title, checkSlackConnection, uiContainer])
 
   const handleBodyChange = (value: string) => {
     setBody(value)

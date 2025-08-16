@@ -13,6 +13,15 @@ Object.defineProperty(global, 'crypto', {
 })
 
 describe('TodoEntity', () => {
+  beforeAll(() => {
+    // Fix the date to 2025-08-03 for consistent test results
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2025-08-03T12:00:00Z'));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
   // テスト用のデータ
   const mockTodoData: TodoData = {
     id: 'test-id',
@@ -30,13 +39,13 @@ describe('TodoEntity', () => {
   const mockTodoToday: TodoData = {
     ...mockTodoData,
     id: 'today-todo',
-    deadline: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0] // 12 hours from now
+    deadline: '2025-08-03T23:59:59Z' // Today but later in the day (urgent)
   }
 
   const mockTodoTomorrow: TodoData = {
     ...mockTodoData,
     id: 'tomorrow-todo',
-    deadline: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    deadline: '2025-08-05' // 2 days later for clear non-urgent status
   }
 
   const mockTodoOverdue: TodoData = {
@@ -81,7 +90,11 @@ describe('TodoEntity', () => {
 
   describe('Business Rules - Urgency and Overdue', () => {
     it('should detect urgent todos (deadline within 24 hours)', () => {
-      const todoToday = new TodoEntity(mockTodoToday)
+      // For this test, deadline needs to be within 24 hours to be considered urgent
+      const todoToday = new TodoEntity({
+        ...mockTodoData,
+        deadline: '2025-08-03T23:59:59Z' // Today but later in the day
+      })
       expect(todoToday.isUrgent()).toBe(true)
     })
 

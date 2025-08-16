@@ -2,69 +2,23 @@
  * @jest-environment node
  */
 
-import { DELETE } from '@/app/api/slack/integration/disconnect/route'
-import {
-  mockSupabaseSuccess,
-  mockSupabaseError,
-  mockAuthError,
-  mockAuthSuccess,
-} from '@/__tests__/mocks/supabase-helpers'
+import { createDisconnectHandlers } from '@/lib/factories/HandlerFactory'
+import { TestContainer } from '@/lib/containers/TestContainer'
 import { createMockNextRequest, mockUser, setupTestEnvironment, cleanupTestEnvironment } from '@/__tests__/mocks'
 
-// モック設定
-jest.mock('@/lib/supabase-server')
-jest.mock('@/lib/logger', () => ({
-  authLogger: {
-    error: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    child: jest.fn(() => ({
-      error: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-    })),
-  },
-}))
-
-const mockCreateServerSupabaseClient = jest.fn()
-require('@/lib/supabase-server').createServerSupabaseClient = mockCreateServerSupabaseClient
-
-// シンプルなSupabaseクライアントモック（結果ベース）
-const createResultBasedSupabaseClient = (results: any[]) => {
-  let callIndex = 0
-  
-  const createChain = () => {
-    const result = results[callIndex++] || mockSupabaseSuccess(null)
-    
-    return {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      in: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue(result),
-      then: (resolve) => resolve(result),
-      catch: (reject) => reject,
-    }
-  }
-  
-  return {
-    auth: {
-      getUser: jest.fn().mockResolvedValue(mockAuthSuccess(mockUser)),
-    },
-    from: jest.fn(() => createChain()),
-    rpc: jest.fn(),
-  }
-}
-
-describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベースアプローチ)', () => {
-  let mockSupabaseClient: any
+describe('/api/slack/integration/disconnect/route.ts - 依存性注入アプローチ', () => {
+  let testContainer: TestContainer
+  let disconnectHandlers: any
 
   beforeEach(() => {
     setupTestEnvironment()
     cleanupTestEnvironment()
+    
+    // TestContainerを作成（モック付き）
+    testContainer = new TestContainer()
+    
+    // ハンドラーの作成
+    disconnectHandlers = createDisconnectHandlers(testContainer)
   })
 
   afterEach(() => {
@@ -73,12 +27,17 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
 
   describe('認証チェック', () => {
     it('認証されていない場合、401エラーを返す', async () => {
-      mockSupabaseClient = createResultBasedSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthError())
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証失敗をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'User not authenticated',
+          statusCode: 401
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -86,15 +45,17 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
     })
 
     it('ユーザーがnullの場合、401エラーを返す', async () => {
-      mockSupabaseClient = createResultBasedSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue({
-        data: { user: null },
-        error: null,
+      // 認証失敗をモック（ユーザーがnull）
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'User not authenticated',
+          statusCode: 401
+        })
       })
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(401)
@@ -104,14 +65,20 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
 
   describe('Supabaseクエリ結果による分岐', () => {
     it('Slack接続が存在しない場合、適切なメッセージを返す', async () => {
-      // 1つ目のクエリ（接続取得）で空の配列を返す
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseSuccess([]) // 接続取得で空
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: 'test-user-id', email: 'test@example.com' }
+        }),
+        disconnectSlackIntegration: jest.fn().mockResolvedValue({
+          success: true,
+          data: { message: 'No connections to disconnect' }
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -119,14 +86,21 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
     })
 
     it('Slack接続取得でエラーが発生した場合、500エラーを返す', async () => {
-      // 1つ目のクエリ（接続取得）でエラー
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseError(new Error('Connection fetch failed'))
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功、切断処理失敗をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: 'test-user-id', email: 'test@example.com' }
+        }),
+        disconnectSlackIntegration: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to fetch connections',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -134,24 +108,24 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
     })
 
     it('正常なケース - 1つのSlack接続が存在する場合', async () => {
-      const mockConnections = [
-        { id: 'connection-1', workspace_name: 'Test Workspace' }
-      ]
-
-      // 全ての操作が成功する想定
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseSuccess(mockConnections), // 1. 接続取得
-        mockSupabaseSuccess(null),            // 2. Webhook削除
-        mockSupabaseSuccess(null),            // 3. 接続削除
-        mockSupabaseSuccess(null),            // 4. ユーザー更新
-        mockSupabaseSuccess([]),              // 5. 接続検証
-        mockSupabaseSuccess([]),              // 6. Webhook検証
-        mockSupabaseSuccess({ slack_user_id: null }), // 7. ユーザー検証
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功、切断処理成功をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: 'test-user-id', email: 'test@example.com' }
+        }),
+        disconnectSlackIntegration: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            message: 'Slack integration completely disconnected',
+            disconnectedWorkspaces: ['Test Workspace'],
+            itemsRemoved: { connections: 1, webhooks: 1, emojiSettings: 1 }
+          }
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -161,16 +135,21 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
     })
 
     it('エラーケース - Webhook削除でエラーが発生', async () => {
-      const mockConnections = [{ id: 'connection-1', workspace_name: 'Test Workspace' }]
-
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseSuccess(mockConnections), // 1. 接続取得 → 成功
-        mockSupabaseError(new Error('Webhook delete failed')), // 2. Webhook削除 → 失敗
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功、切断処理失敗をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: 'test-user-id', email: 'test@example.com' }
+        }),
+        disconnectSlackIntegration: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to delete webhooks',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -178,17 +157,21 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
     })
 
     it('エラーケース - 接続削除でエラーが発生', async () => {
-      const mockConnections = [{ id: 'connection-1', workspace_name: 'Test Workspace' }]
-
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseSuccess(mockConnections), // 1. 接続取得 → 成功
-        mockSupabaseSuccess(null),            // 2. Webhook削除 → 成功
-        mockSupabaseError(new Error('Connection delete failed')), // 3. 接続削除 → 失敗
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功、切断処理失敗をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: 'test-user-id', email: 'test@example.com' }
+        }),
+        disconnectSlackIntegration: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to delete connections',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -196,18 +179,21 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
     })
 
     it('エラーケース - ユーザーのSlack IDリセットでエラーが発生', async () => {
-      const mockConnections = [{ id: 'connection-1', workspace_name: 'Test Workspace' }]
-
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseSuccess(mockConnections), // 1. 接続取得 → 成功
-        mockSupabaseSuccess(null),            // 2. Webhook削除 → 成功
-        mockSupabaseSuccess(null),            // 3. 接続削除 → 成功
-        mockSupabaseError(new Error('User update failed')), // 4. ユーザー更新 → 失敗
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功、切断処理失敗をモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockResolvedValue({
+          success: true,
+          data: { id: 'test-user-id', email: 'test@example.com' }
+        }),
+        disconnectSlackIntegration: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to reset user Slack ID',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -216,70 +202,20 @@ describe('/api/slack/integration/disconnect/route.ts - DELETE (結果ベース�
   })
 
   describe('エラーハンドリング', () => {
-    it('認証プロセスでエラーが発生した場合、500エラーを返す', async () => {
-      mockSupabaseClient = createResultBasedSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockRejectedValue(new Error('Auth service error'))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
-
-      const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(500)
-      expect(data.error).toBe('Internal server error')
-    })
-
     it('予期しないエラーが発生した場合、500エラーを返す', async () => {
-      // Supabaseクライアント自体を破損させる
-      mockCreateServerSupabaseClient.mockImplementation(() => {
-        throw new Error('Unexpected error')
+      // サービスが例外を投げるようにモック
+      testContainer.updateServiceMock('slackDisconnectionService', {
+        authenticateUser: jest.fn().mockImplementation(() => {
+          throw new Error('Unexpected error')
+        })
       })
 
       const request = createMockNextRequest({ method: 'DELETE' })
-      const response = await DELETE(request as any)
+      const response = await disconnectHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
       expect(data.error).toBe('Internal server error')
-    })
-  })
-
-  describe('APIの検証', () => {
-    it('正しいテーブル名でクエリを実行する', async () => {
-      mockSupabaseClient = createResultBasedSupabaseClient([mockSupabaseSuccess([])])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
-
-      const request = createMockNextRequest({ method: 'DELETE' })
-      await DELETE(request as any)
-
-      // slack_connectionsテーブルへのクエリを確認
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('slack_connections')
-    })
-
-    it('複数のテーブルにアクセスすることを確認', async () => {
-      const mockConnections = [{ id: 'connection-1', workspace_name: 'Test' }]
-      
-      // 全ての操作を成功として設定（7つのクエリ）
-      mockSupabaseClient = createResultBasedSupabaseClient([
-        mockSupabaseSuccess(mockConnections), // 1. 接続取得
-        mockSupabaseSuccess(null),            // 2. Webhook削除
-        mockSupabaseSuccess(null),            // 3. 接続削除
-        mockSupabaseSuccess(null),            // 4. ユーザー更新
-        mockSupabaseSuccess([]),              // 5. 接続検証
-        mockSupabaseSuccess([]),              // 6. Webhook検証
-        mockSupabaseSuccess({ slack_user_id: null }), // 7. ユーザー検証
-      ])
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
-
-      const request = createMockNextRequest({ method: 'DELETE' })
-      await DELETE(request as any)
-
-      // 複数のテーブルアクセスを確認
-      const fromCalls = mockSupabaseClient.from.mock.calls
-      expect(fromCalls.length).toBeGreaterThan(3) // 最低4つのテーブルアクセス
-      expect(fromCalls.some(call => call[0] === 'slack_connections')).toBe(true)
-      expect(fromCalls.some(call => call[0] === 'user_slack_webhooks')).toBe(true)
-      expect(fromCalls.some(call => call[0] === 'users')).toBe(true)
     })
   })
 })

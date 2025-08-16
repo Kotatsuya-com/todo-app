@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { Urgency, Quadrant } from '@/types'
+import { Urgency, Quadrant } from '@/src/domain/types'
 import { createLogger } from './logger'
 
 export function cn(...inputs: ClassValue[]) {

@@ -121,7 +121,7 @@ export default function ComparePage() {
                   urgency: currentPair.left.deadline ? 'today' : 'later',
                   deadline: currentPair.left.deadline || undefined,
                   importance_score: currentPair.left.importanceScore,
-                  status: currentPair.left.status === 'completed' ? 'done' : 'open',
+                  status: currentPair.left.status === 'completed' ? 'completed' : 'open',
                   created_at: currentPair.left.createdAt,
                   user_id: currentPair.left.userId,
                   created_via: currentPair.left.createdVia === 'slack_url' ? 'slack_webhook' : currentPair.left.createdVia as any
@@ -151,7 +151,7 @@ export default function ComparePage() {
                   urgency: currentPair.right.deadline ? 'today' : 'later',
                   deadline: currentPair.right.deadline || undefined,
                   importance_score: currentPair.right.importanceScore,
-                  status: currentPair.right.status === 'completed' ? 'done' : 'open',
+                  status: currentPair.right.status === 'completed' ? 'completed' : 'open',
                   created_at: currentPair.right.createdAt,
                   user_id: currentPair.right.userId,
                   created_via: currentPair.right.createdVia === 'slack_url' ? 'slack_webhook' : currentPair.right.createdVia as any

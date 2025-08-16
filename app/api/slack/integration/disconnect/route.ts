@@ -1,40 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServices } from '@/lib/services/ServiceFactory'
+/**
+ * Slack Integration Disconnect API Routes
+ * 依存性注入パターンを使用したSlack統合切断API
+ */
 
-export async function DELETE(request: NextRequest) {
-  try {
-    const { slackDisconnectionService } = createServices()
+import { createDisconnectHandlers } from '@/lib/factories/HandlerFactory'
+import { getProductionContainer } from '@/lib/containers/ProductionContainer'
 
-    // 1. ユーザー認証
-    const authResult = await slackDisconnectionService.authenticateUser(request)
-    if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: authResult.statusCode || 401 }
-      )
-    }
+// プロダクション用の依存関係コンテナを使用してハンドラーを作成
+const container = getProductionContainer()
+const { DELETE } = createDisconnectHandlers(container)
 
-    const user = authResult.data!
-
-    // 2. Slack統合の完全切断
-    const disconnectionResult = await slackDisconnectionService.disconnectSlackIntegration(
-      request,
-      user.id
-    )
-
-    if (!disconnectionResult.success) {
-      return NextResponse.json(
-        { error: disconnectionResult.error },
-        { status: disconnectionResult.statusCode || 500 }
-      )
-    }
-
-    return NextResponse.json(disconnectionResult.data)
-
-  } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
+// Next.js API Route handlers
+export { DELETE }

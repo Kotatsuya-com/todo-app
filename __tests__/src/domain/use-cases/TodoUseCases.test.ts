@@ -5,12 +5,36 @@
 
 import { TodoUseCases } from '../../../../src/domain/use-cases/TodoUseCases'
 import { TodoEntity } from '../../../../src/domain/entities/Todo'
-import { TodoRepositoryInterface } from '../../../../src/domain/repositories/TodoRepositoryInterface'
+import { TodoRepositoryInterface, CreateTodoRequest, UpdateTodoRequest, TodoFilters } from '../../../../src/domain/repositories/TodoRepositoryInterface'
+
+// Mock crypto.randomUUID for Node.js environment
+global.crypto = {
+  ...global.crypto,
+  randomUUID: () => `mock-uuid-${Math.random().toString(36).substr(2, 9)}`
+} as any
 
 // Mock Repository
 class MockTodoRepository implements TodoRepositoryInterface {
   private todos: TodoEntity[] = []
   private nextId = 1
+
+  async findTodos(filters: TodoFilters): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
+    let filteredTodos = this.todos.filter(t => t.userId === filters.userId)
+    
+    if (filters.status) {
+      filteredTodos = filteredTodos.filter(t => t.status === filters.status)
+    }
+    
+    if (filters.isOverdue) {
+      filteredTodos = filteredTodos.filter(t => t.isOverdue())
+    }
+    
+    if (filters.quadrant) {
+      filteredTodos = filteredTodos.filter(t => t.getQuadrant() === filters.quadrant)
+    }
+    
+    return { success: true, data: filteredTodos }
+  }
 
   async findById(id: string): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
     const todo = this.todos.find(t => t.id === id)
@@ -24,27 +48,53 @@ class MockTodoRepository implements TodoRepositoryInterface {
     return { success: true, data: userTodos }
   }
 
-  async create(todo: Omit<TodoEntity, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
+  async findActiveTodos(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
+    const activeTodos = this.todos.filter(t => t.userId === userId && t.status === 'open')
+    return { success: true, data: activeTodos }
+  }
+
+  async findCompletedTodos(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
+    const completedTodos = this.todos.filter(t => t.userId === userId && t.status === 'completed')
+    return { success: true, data: completedTodos }
+  }
+
+  async findOverdueTodos(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
+    const overdueTodos = this.todos.filter(t => t.userId === userId && t.isOverdue())
+    return { success: true, data: overdueTodos }
+  }
+
+  async create(todoData: CreateTodoRequest): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
     const newTodo = new TodoEntity({
-      ...todo,
       id: `todo-${this.nextId++}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      user_id: todoData.userId, // Fixed: use user_id
+      title: todoData.title || null,
+      body: todoData.body,
+      deadline: todoData.deadline || null,
+      importance_score: 1000, // Fixed: use importance_score
+      status: 'open', // Fixed: use 'open' instead of 'active'
+      created_at: new Date().toISOString(), // Fixed: use created_at
+      updated_at: new Date().toISOString(), // Fixed: use updated_at
+      created_via: todoData.createdVia || 'manual' // Fixed: use created_via
     })
     this.todos.push(newTodo)
     return { success: true, data: newTodo }
   }
 
-  async update(id: string, updates: Partial<Pick<TodoEntity, 'title' | 'body' | 'deadline' | 'importanceScore' | 'status'>>): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
-    const index = this.todos.findIndex(t => t.id === id)
+  async update(updateRequest: UpdateTodoRequest): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
+    const index = this.todos.findIndex(t => t.id === updateRequest.id)
     if (index === -1) {
       return { success: false, error: 'Todo not found' }
     }
 
+    const existingTodo = this.todos[index]
     const updatedTodo = new TodoEntity({
-      ...this.todos[index],
-      ...updates,
-      updatedAt: new Date().toISOString()
+      ...existingTodo.getData(),
+      title: updateRequest.title !== undefined ? updateRequest.title : existingTodo.title,
+      body: updateRequest.body !== undefined ? updateRequest.body : existingTodo.body,
+      deadline: updateRequest.deadline !== undefined ? updateRequest.deadline : existingTodo.deadline,
+      importance_score: updateRequest.importanceScore !== undefined ? updateRequest.importanceScore : existingTodo.importanceScore,
+      status: updateRequest.status !== undefined ? updateRequest.status : existingTodo.status,
+      updated_at: new Date().toISOString()
     })
     this.todos[index] = updatedTodo
     return { success: true, data: updatedTodo }
@@ -59,19 +109,96 @@ class MockTodoRepository implements TodoRepositoryInterface {
     return { success: true }
   }
 
-  async findActiveByUserId(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
-    const activeTodos = this.todos.filter(t => t.userId === userId && t.status === 'active')
-    return { success: true, data: activeTodos }
+  async complete(id: string): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
+    const index = this.todos.findIndex(t => t.id === id)
+    if (index === -1) {
+      return { success: false, error: 'Todo not found' }
+    }
+    
+    const existingTodo = this.todos[index]
+    const completedTodo = new TodoEntity({
+      ...existingTodo.getData(),
+      status: 'completed',
+      updated_at: new Date().toISOString()
+    })
+    this.todos[index] = completedTodo
+    return { success: true, data: completedTodo }
   }
 
-  async findCompletedByUserId(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
-    const completedTodos = this.todos.filter(t => t.userId === userId && t.status === 'completed')
-    return { success: true, data: completedTodos }
+  async reopen(id: string): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
+    const index = this.todos.findIndex(t => t.id === id)
+    if (index === -1) {
+      return { success: false, error: 'Todo not found' }
+    }
+    
+    const existingTodo = this.todos[index]
+    const reopenedTodo = new TodoEntity({
+      ...existingTodo.getData(),
+      status: 'open',
+      updated_at: new Date().toISOString()
+    })
+    this.todos[index] = reopenedTodo
+    return { success: true, data: reopenedTodo }
   }
 
-  async findOverdueByUserId(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
-    const overdueTodos = this.todos.filter(t => t.userId === userId && t.isOverdue())
-    return { success: true, data: overdueTodos }
+  async updateImportanceScores(updates: Array<{ id: string; importanceScore: number }>): Promise<{ success: boolean; error?: string }> {
+    for (const update of updates) {
+      const index = this.todos.findIndex(t => t.id === update.id)
+      if (index !== -1) {
+        const existingTodo = this.todos[index]
+        const updatedTodo = new TodoEntity({
+          ...existingTodo.getData(),
+          importance_score: update.importanceScore,
+          updated_at: new Date().toISOString()
+        })
+        this.todos[index] = updatedTodo
+      }
+    }
+    return { success: true }
+  }
+
+  async getTodoStats(userId: string): Promise<{ success: boolean; data?: { total: number; completed: number; active: number; overdue: number }; error?: string }> {
+    const userTodos = this.todos.filter(t => t.userId === userId)
+    const completed = userTodos.filter(t => t.status === 'completed').length
+    const active = userTodos.filter(t => t.status === 'open').length
+    const overdue = userTodos.filter(t => t.isOverdue()).length
+    
+    return { 
+      success: true, 
+      data: {
+        total: userTodos.length,
+        completed,
+        active,
+        overdue
+      }
+    }
+  }
+
+  async exists(id: string): Promise<{ success: boolean; data?: boolean; error?: string }> {
+    const exists = this.todos.some(t => t.id === id)
+    return { success: true, data: exists }
+  }
+
+  async isOwnedByUser(todoId: string, userId: string): Promise<{ success: boolean; data?: boolean; error?: string }> {
+    const todo = this.todos.find(t => t.id === todoId)
+    if (!todo) {
+      return { success: false, error: 'Todo not found' }
+    }
+    return { success: true, data: todo.userId === userId }
+  }
+
+  async getCompletionReport(userId: string, startDate: string, endDate: string): Promise<{ success: boolean; data?: Array<{ quadrant: string; count: number; todos: Array<{ id: string; title?: string; body: string; completed_at: string }> }>; error?: string }> {
+    // Simple mock implementation
+    return { success: true, data: [] }
+  }
+
+  async reopenTodo(todoId: string): Promise<{ success: boolean; data?: TodoEntity; error?: string }> {
+    return this.reopen(todoId)
+  }
+
+  async createComparison(winnerId: string, loserId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+    // Simple mock implementation
+    return { success: true }
   }
 
   // Helper method for tests
@@ -87,6 +214,7 @@ class MockTodoRepository implements TodoRepositoryInterface {
 describe('TodoUseCases', () => {
   let mockRepository: MockTodoRepository
   let todoUseCases: TodoUseCases
+  let existingTodo: TodoEntity
 
   const userId = 'test-user-id'
 
@@ -217,7 +345,7 @@ describe('TodoUseCases', () => {
       })
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Todo not found')
+      expect(result.error).toBe('Todo not found or access denied')
     })
   })
 
@@ -250,7 +378,7 @@ describe('TodoUseCases', () => {
       })
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Todo not found')
+      expect(result.error).toBe('Todo not found or access denied')
     })
   })
 
@@ -277,7 +405,7 @@ describe('TodoUseCases', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(result.data!.status).toBe('active')
+      expect(result.data!.status).toBe('open')
     })
   })
 
@@ -302,10 +430,7 @@ describe('TodoUseCases', () => {
       expect(result.success).toBe(true)
 
       // Verify todo is deleted
-      const getResult = await todoUseCases.getTodoById({
-        id: existingTodo.id,
-        userId
-      })
+      const getResult = await todoUseCases.getTodoById(existingTodo.id, userId)
       expect(getResult.success).toBe(false)
     })
   })
@@ -323,10 +448,7 @@ describe('TodoUseCases', () => {
     })
 
     it('should retrieve todo by ID', async () => {
-      const result = await todoUseCases.getTodoById({
-        id: existingTodo.id,
-        userId
-      })
+      const result = await todoUseCases.getTodoById(existingTodo.id, userId)
 
       expect(result.success).toBe(true)
       expect(result.data!.id).toBe(existingTodo.id)
@@ -334,50 +456,55 @@ describe('TodoUseCases', () => {
     })
 
     it('should handle non-existent todo', async () => {
-      const result = await todoUseCases.getTodoById({
-        id: 'non-existent-id',
-        userId
-      })
+      const result = await todoUseCases.getTodoById('non-existent-id', userId)
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Todo not found')
+      expect(result.error).toBe('Todo not found or access denied')
     })
   })
 
   describe('getTodoDashboard', () => {
     beforeEach(async () => {
       // Create test todos with different characteristics
-      await todoUseCases.createTodo({
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      const yesterdayStr = yesterday.toISOString().split('T')[0]
+      
+      const urgentImportant = await todoUseCases.createTodo({
         userId,
         body: 'Urgent and important',
-        deadline: new Date().toISOString().split('T')[0], // Today
-        importanceScore: 1500,
+        deadline: yesterdayStr, // Yesterday - definitely overdue/urgent
         createdVia: 'manual'
       })
 
-      await todoUseCases.createTodo({
+      const notUrgentImportant = await todoUseCases.createTodo({
         userId,
         body: 'Not urgent but important',
-        deadline: '2025-08-10',
-        importanceScore: 1500,
+        deadline: '2025-12-31', // Future date to make it not urgent
         createdVia: 'manual'
       })
 
-      await todoUseCases.createTodo({
+      const urgentNotImportant = await todoUseCases.createTodo({
         userId,
         body: 'Urgent but not important',
-        deadline: new Date().toISOString().split('T')[0], // Today
-        importanceScore: 800,
+        deadline: yesterdayStr, // Yesterday - definitely overdue/urgent
         createdVia: 'manual'
       })
 
-      await todoUseCases.createTodo({
+      const notUrgentNotImportant = await todoUseCases.createTodo({
         userId,
         body: 'Not urgent and not important',
-        deadline: '2025-08-10',
-        importanceScore: 800,
+        deadline: '2025-12-31', // Future date to make it not urgent
         createdVia: 'manual'
       })
+
+      // Update importance scores to create proper quadrants
+      await todoUseCases.updateImportanceScores([
+        { id: urgentImportant.data!.id, importanceScore: 1500 }, // Important (>=1200)
+        { id: notUrgentImportant.data!.id, importanceScore: 1500 }, // Important (>=1200)
+        { id: urgentNotImportant.data!.id, importanceScore: 800 }, // Not important (<1200)
+        { id: notUrgentNotImportant.data!.id, importanceScore: 800 } // Not important (<1200)
+      ], userId)
 
       // Create a completed todo
       const completeResult = await todoUseCases.createTodo({
@@ -462,7 +589,7 @@ describe('TodoUseCases', () => {
     })
   })
 
-  describe('getUserTodos', () => {
+  describe('getTodos', () => {
     beforeEach(async () => {
       await todoUseCases.createTodo({
         userId,
@@ -485,7 +612,7 @@ describe('TodoUseCases', () => {
     })
 
     it('should return todos for specific user only', async () => {
-      const result = await todoUseCases.getUserTodos({ userId })
+      const result = await todoUseCases.getTodos({ userId })
 
       expect(result.success).toBe(true)
       expect(result.data).toHaveLength(2)
@@ -495,7 +622,7 @@ describe('TodoUseCases', () => {
     })
 
     it('should return empty array for user with no todos', async () => {
-      const result = await todoUseCases.getUserTodos({ userId: 'no-todos-user' })
+      const result = await todoUseCases.getTodos({ userId: 'no-todos-user' })
 
       expect(result.success).toBe(true)
       expect(result.data).toHaveLength(0)
@@ -505,15 +632,13 @@ describe('TodoUseCases', () => {
   describe('Error Handling', () => {
     it('should handle repository errors gracefully', async () => {
       const errorRepository = {
-        findById: jest.fn().mockRejectedValue(new Error('Database connection failed'))
+        findById: jest.fn().mockRejectedValue(new Error('Database connection failed')),
+        isOwnedByUser: jest.fn().mockRejectedValue(new Error('Database connection failed'))
       } as any
 
       const useCases = new TodoUseCases(errorRepository)
 
-      const result = await useCases.getTodoById({
-        id: 'test-id',
-        userId: 'test-user'
-      })
+      const result = await useCases.getTodoById('test-id', 'test-user')
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Database connection failed')
@@ -521,15 +646,13 @@ describe('TodoUseCases', () => {
 
     it('should handle unexpected errors', async () => {
       const errorRepository = {
-        findById: jest.fn().mockRejectedValue('Unexpected error')
+        findById: jest.fn().mockRejectedValue('Unexpected error'),
+        isOwnedByUser: jest.fn().mockRejectedValue('Unexpected error')
       } as any
 
       const useCases = new TodoUseCases(errorRepository)
 
-      const result = await useCases.getTodoById({
-        id: 'test-id',
-        userId: 'test-user'
-      })
+      const result = await useCases.getTodoById('test-id', 'test-user')
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Unknown error occurred')

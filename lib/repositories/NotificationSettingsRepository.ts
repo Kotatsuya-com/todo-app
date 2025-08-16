@@ -14,7 +14,7 @@ import { NotificationSettings } from '@/lib/entities/NotificationSettings'
 
 export interface NotificationSettingsRepositoryInterface {
   findByUserId(_userId: string): Promise<RepositoryResult<NotificationSettings | null>>
-  update(_userId: string, _settings: Omit<NotificationSettings, 'user_id' | 'updated_at'>): Promise<RepositoryResult<NotificationSettings>>
+  update(_userId: string, _settings: Omit<NotificationSettings, 'user_id'>): Promise<RepositoryResult<NotificationSettings>>
   getNotificationStats(): Promise<RepositoryResult<{
     totalUsers: number
     enabledUsers: number
@@ -36,7 +36,7 @@ export class NotificationSettingsRepository implements NotificationSettingsRepos
   async findByUserId(_userId: string): Promise<RepositoryResult<NotificationSettings | null>> {
     const result = await this.client
       .from('users')
-      .select('id, enable_webhook_notifications, updated_at')
+      .select('id, enable_webhook_notifications')
       .eq('id', _userId)
       .single()
 
@@ -56,8 +56,7 @@ export class NotificationSettingsRepository implements NotificationSettingsRepos
     // データを NotificationSettings 形式に変換
     const notificationSettings: NotificationSettings = {
       user_id: result.data.id,
-      enable_webhook_notifications: result.data.enable_webhook_notifications ?? true,
-      updated_at: result.data.updated_at
+      enable_webhook_notifications: result.data.enable_webhook_notifications ?? true
     }
 
     return RepositoryUtils.success(notificationSettings)
@@ -66,15 +65,14 @@ export class NotificationSettingsRepository implements NotificationSettingsRepos
   /**
    * ユーザーの通知設定を更新
    */
-  async update(_userId: string, _settings: Omit<NotificationSettings, 'user_id' | 'updated_at'>): Promise<RepositoryResult<NotificationSettings>> {
+  async update(_userId: string, _settings: Omit<NotificationSettings, 'user_id'>): Promise<RepositoryResult<NotificationSettings>> {
     const result = await this.client
       .from('users')
       .update({
-        enable_webhook_notifications: _settings.enable_webhook_notifications,
-        updated_at: new Date().toISOString()
+        enable_webhook_notifications: _settings.enable_webhook_notifications
       })
       .eq('id', _userId)
-      .select('id, enable_webhook_notifications, updated_at')
+      .select('id, enable_webhook_notifications')
       .single()
 
     if (result.error) {
@@ -91,8 +89,7 @@ export class NotificationSettingsRepository implements NotificationSettingsRepos
     // データを NotificationSettings 形式に変換
     const notificationSettings: NotificationSettings = {
       user_id: result.data.id,
-      enable_webhook_notifications: result.data.enable_webhook_notifications,
-      updated_at: result.data.updated_at
+      enable_webhook_notifications: result.data.enable_webhook_notifications
     }
 
     return RepositoryUtils.success(notificationSettings)

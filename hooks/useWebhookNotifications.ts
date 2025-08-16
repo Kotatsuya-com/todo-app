@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { showWebhookTaskNotification } from '@/lib/notifications'
-import { Todo } from '@/types'
+import { Todo } from '@/src/domain/types'
 import { apiLogger } from '@/lib/client-logger'
 
 interface UseWebhookNotificationsOptions {

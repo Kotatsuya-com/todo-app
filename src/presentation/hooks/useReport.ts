@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './useAuth'
-import { createTodoUseCases } from '@/src/infrastructure/di/ServiceFactory'
+import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 import { UserEntity } from '@/src/domain/entities/User'
 
 export type TimeRange = 'day' | 'week' | 'month'

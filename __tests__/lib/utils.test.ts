@@ -7,7 +7,7 @@ import {
   extractUrls, 
   linkifyText 
 } from '@/lib/utils'
-import type { Urgency, Quadrant } from '@/types'
+import type { Urgency, Quadrant } from '@/src/domain/types'
 
 // Mock the logger to avoid console output during tests
 jest.mock('@/lib/logger', () => ({

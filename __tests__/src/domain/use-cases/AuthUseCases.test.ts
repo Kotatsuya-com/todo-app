@@ -99,44 +99,45 @@ class MockAuthRepository implements AuthRepositoryInterface {
 // Mock User Repository
 class MockUserRepository implements UserRepositoryInterface {
   private users: Map<string, UserEntity> = new Map()
+  private shouldError = false
 
-  async findById(id: string): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
+  async findById(id: string): Promise<{ success: boolean; data?: UserEntity | null; error?: string }> {
+    if (this.shouldError) {
+      return { success: false, error: 'Database error' }
+    }
     const user = this.users.get(id)
-    return user 
-      ? { success: true, data: user }
-      : { success: false, error: 'User not found' }
+    return { success: true, data: user || null }
   }
 
-  async findByEmail(email: string): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
-    const user = Array.from(this.users.values()).find(u => u.email === email)
-    return user 
-      ? { success: true, data: user }
-      : { success: false, error: 'User not found' }
-  }
-
-  async create(user: Omit<UserEntity, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
+  async create(request: { id: string; display_name?: string | null; avatar_url?: string | null; slack_user_id?: string | null; enable_webhook_notifications?: boolean }): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
+    if (this.shouldError) {
+      return { success: false, error: 'Database error' }
+    }
     const newUser = new UserEntity({
-      ...user,
-      id: `user-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      id: request.id,
+      display_name: request.display_name || null,
+      avatar_url: request.avatar_url || null,
+      slack_user_id: request.slack_user_id || null,
+      enable_webhook_notifications: request.enable_webhook_notifications ?? true,
+      created_at: new Date().toISOString()
     })
     this.users.set(newUser.id, newUser)
     return { success: true, data: newUser }
   }
 
-  async update(id: string, updates: Partial<Pick<UserEntity, 'displayName' | 'avatarUrl' | 'totalTodos' | 'completedTodos'>>): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
-    const existingUser = this.users.get(id)
+  async update(request: { id: string; display_name?: string | null; avatar_url?: string | null; slack_user_id?: string | null; enable_webhook_notifications?: boolean }): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
+    const existingUser = this.users.get(request.id)
     if (!existingUser) {
       return { success: false, error: 'User not found' }
     }
 
-    const updatedUser = new UserEntity({
-      ...existingUser,
-      ...updates,
-      updatedAt: new Date().toISOString()
+    const updatedUser = existingUser.update({
+      display_name: request.display_name,
+      avatar_url: request.avatar_url,
+      slack_user_id: request.slack_user_id,
+      enable_webhook_notifications: request.enable_webhook_notifications
     })
-    this.users.set(id, updatedUser)
+    this.users.set(request.id, updatedUser)
     return { success: true, data: updatedUser }
   }
 
@@ -152,13 +153,6 @@ class MockUserRepository implements UserRepositoryInterface {
     return { success: true, data: this.users.has(id) }
   }
 
-  async isEmailTaken(email: string, excludeUserId?: string): Promise<{ success: boolean; data?: boolean; error?: string }> {
-    const userWithEmail = Array.from(this.users.values()).find(u => 
-      u.email === email && (!excludeUserId || u.id !== excludeUserId)
-    )
-    return { success: true, data: !!userWithEmail }
-  }
-
   async findAll(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
     return { success: true, data: Array.from(this.users.values()) }
   }
@@ -171,13 +165,17 @@ class MockUserRepository implements UserRepositoryInterface {
     return { success: true, data: [] }
   }
 
-  async findInactiveUsers(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
-    return { success: true, data: [] }
+  async findSlackUsers(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
+    return { success: true, data: Array.from(this.users.values()).filter(u => u.hasSlackUserId()) }
   }
 
-  // Helper method for testing
+  // Helper methods for testing
   addUser(user: UserEntity) {
     this.users.set(user.id, user)
+  }
+
+  setShouldError(shouldError: boolean) {
+    this.shouldError = shouldError
   }
 }
 
@@ -204,7 +202,7 @@ describe('AuthUseCases', () => {
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
       expect(result.data!.authUser.email).toBe(params.email)
-      expect(result.data!.userEntity.email).toBe(params.email)
+      expect(result.data!.userEntity.id).toBe(result.data!.authUser.id)
     })
 
     it('should handle existing user registration', async () => {
@@ -264,7 +262,7 @@ describe('AuthUseCases', () => {
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
       expect(result.data!.authUser.email).toBe(params.email)
-      expect(result.data!.userEntity.email).toBe(params.email)
+      expect(result.data!.userEntity.id).toBe(result.data!.authUser.id)
     })
 
     it('should handle invalid credentials', async () => {
@@ -291,7 +289,7 @@ describe('AuthUseCases', () => {
       expect(result.error).toBe('User not found')
     })
 
-    it('should handle missing user profile', async () => {
+    it('should create missing user profile automatically', async () => {
       // Add auth user without user profile
       const authUser: AuthUser = {
         id: 'orphaned-auth-user',
@@ -310,8 +308,10 @@ describe('AuthUseCases', () => {
 
       const result = await authUseCases.signInWithEmail(params)
 
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('User profile not found')
+      expect(result.success).toBe(true)
+      expect(result.data).toBeDefined()
+      expect(result.data!.authUser.email).toBe('orphaned@example.com')
+      expect(result.data!.userEntity.id).toBe('orphaned-auth-user')
     })
   })
 
@@ -346,7 +346,7 @@ describe('AuthUseCases', () => {
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
       expect(result.data!.authUser.email).toBe('testuser@example.com')
-      expect(result.data!.userEntity.email).toBe('testuser@example.com')
+      expect(result.data!.userEntity.id).toBe(result.data!.authUser.id)
     })
 
     it('should handle no authenticated user', async () => {
@@ -356,7 +356,7 @@ describe('AuthUseCases', () => {
       expect(result.error).toBe('No authenticated user')
     })
 
-    it('should handle missing user profile for authenticated user', async () => {
+    it('should create missing user profile for authenticated user', async () => {
       // Set auth user without corresponding user profile
       const authUser: AuthUser = {
         id: 'auth-without-profile',
@@ -370,8 +370,10 @@ describe('AuthUseCases', () => {
 
       const result = await authUseCases.getCurrentUser()
 
-      expect(result.success).toBe(false)
-      expect(result.error).toBe('User profile not found')
+      expect(result.success).toBe(true)
+      expect(result.data).toBeDefined()
+      expect(result.data!.authUser.email).toBe('noProfile@example.com')
+      expect(result.data!.userEntity.id).toBe('auth-without-profile')
     })
   })
 
@@ -467,25 +469,27 @@ describe('AuthUseCases', () => {
     })
 
     it('should handle user repository errors', async () => {
-      const errorUserRepository = {
-        findByEmail: jest.fn().mockRejectedValue(new Error('Database error'))
-      } as any
-
-      const useCases = new AuthUseCases(mockAuthRepository, errorUserRepository)
-
       // First create auth user
-      await mockAuthRepository.signUpWithEmail({
-        email: 'test@example.com',
-        password: 'password123'
-      })
+      const authUser: AuthUser = {
+        id: 'test-user-id',
+        email: 'test@example.com'
+      }
+      
+      mockAuthRepository.addUser('test@example.com', 'password123', authUser)
 
-      const result = await useCases.signInWithEmail({
+      // Simulate repository error
+      mockUserRepository.setShouldError(true)
+
+      const result = await authUseCases.signInWithEmail({
         email: 'test@example.com',
         password: 'password123'
       })
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Database error')
+      
+      // Reset error state
+      mockUserRepository.setShouldError(false)
     })
 
     it('should handle unexpected errors', async () => {

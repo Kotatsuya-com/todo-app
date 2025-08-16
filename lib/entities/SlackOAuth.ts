@@ -3,6 +3,30 @@
  * Slack OAuth認証に関するビジネスルールとバリデーションを定義
  */
 
+export interface MaskedTokenData {
+  ok: boolean
+  app_id?: string
+  team: {
+    id: string
+    name: string
+  }
+  authed_user?: {
+    id: string
+    scope: string
+    access_token?: string
+    token_type?: string
+  } | null
+  scope: string
+  bot_user_id?: string
+  access_token?: string
+  token_type?: string
+  refresh_token?: string
+  expires_in?: number
+  enterprise?: any
+  is_enterprise_install?: boolean
+  error?: string
+}
+
 export interface SlackOAuthTokenData {
   ok: boolean
   app_id?: string
@@ -184,7 +208,7 @@ export class SlackOAuthEntity {
   /**
    * デバッグ用のマスクされたトークンデータを取得
    */
-  getMaskedTokenData(): any {
+  getMaskedTokenData(): MaskedTokenData {
     return {
       ok: this._tokenData.ok,
       app_id: this._tokenData.app_id,
@@ -246,7 +270,7 @@ export class SlackOAuthEntity {
     }
   }
 
-  static fromTokenResponse(tokenData: any): SlackOAuthEntity {
+  static fromTokenResponse(tokenData: unknown): SlackOAuthEntity {
     return new SlackOAuthEntity(tokenData as SlackOAuthTokenData)
   }
 }

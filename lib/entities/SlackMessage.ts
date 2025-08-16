@@ -17,6 +17,13 @@ export interface SlackConnectionMatch {
   access_token: string
 }
 
+export interface SlackMessageResult {
+  text: string
+  user: string
+  timestamp: string
+  channel: string
+}
+
 export interface SlackMessageData {
   text: string
   user: string
@@ -184,7 +191,7 @@ export class SlackMessageEntity {
    * メッセージデータの作成
    */
   createMessageData(
-    messageResult: any,
+    messageResult: SlackMessageResult,
     selectedConnection: SlackConnectionMatch
   ): SlackMessageData {
     return {

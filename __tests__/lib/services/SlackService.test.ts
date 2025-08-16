@@ -5,7 +5,7 @@
 
 import { SlackService } from '@/lib/services/SlackService'
 import { NextRequest } from 'next/server'
-import { SlackEventPayload } from '@/types'
+import { SlackEventPayload } from '@/src/domain/types'
 
 // Mock external dependencies
 jest.mock('@/lib/slack-message', () => ({

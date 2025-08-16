@@ -6,7 +6,6 @@
 export interface NotificationSettings {
   user_id: string
   enable_webhook_notifications: boolean
-  updated_at?: string
 }
 
 export interface NotificationUpdateRequest {
@@ -29,9 +28,6 @@ export class NotificationSettingsEntity {
     return this._settings.enable_webhook_notifications
   }
 
-  get updatedAt(): string | undefined {
-    return this._settings.updated_at
-  }
 
   /**
    * 設定がデフォルト設定かどうかを判定
@@ -69,7 +65,7 @@ export class NotificationSettingsEntity {
   /**
    * デフォルト設定で新しいエンティティを作成
    */
-  static createWithDefaults(userId: string): Omit<NotificationSettings, 'updated_at'> {
+  static createWithDefaults(userId: string): NotificationSettings {
     return {
       user_id: userId,
       ...DEFAULT_NOTIFICATION_SETTINGS
@@ -82,7 +78,7 @@ export class NotificationSettingsEntity {
   static createFromUpdateRequest(
     userId: string,
     request: NotificationUpdateRequest
-  ): Omit<NotificationSettings, 'updated_at'> {
+  ): NotificationSettings {
     return {
       user_id: userId,
       enable_webhook_notifications: request.enable_webhook_notifications
@@ -95,8 +91,7 @@ export class NotificationSettingsEntity {
   updateSettings(request: NotificationUpdateRequest): NotificationSettingsEntity {
     return new NotificationSettingsEntity({
       ...this._settings,
-      enable_webhook_notifications: request.enable_webhook_notifications,
-      updated_at: new Date().toISOString()
+      enable_webhook_notifications: request.enable_webhook_notifications
     })
   }
 
@@ -106,8 +101,7 @@ export class NotificationSettingsEntity {
   resetToDefaults(): NotificationSettingsEntity {
     return new NotificationSettingsEntity({
       ...this._settings,
-      ...DEFAULT_NOTIFICATION_SETTINGS,
-      updated_at: new Date().toISOString()
+      ...DEFAULT_NOTIFICATION_SETTINGS
     })
   }
 
@@ -142,8 +136,7 @@ export class NotificationSettingsEntity {
     } {
     return {
       webhookNotifications: this._settings.enable_webhook_notifications ? 'enabled' : 'disabled',
-      isDefault: this.isDefaultSetting(),
-      lastUpdated: this._settings.updated_at
+      isDefault: this.isDefaultSetting()
     }
   }
 }

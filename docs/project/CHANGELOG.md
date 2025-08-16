@@ -2,6 +2,32 @@
 
 ## 🚀 2025年8月 - 最新アップデート
 
+### v4.0.0 - 依存性注入システム完全実装 (2025/08/16)
+
+#### 🏗️ 依存性注入コンテナシステム実装
+- **DependencyContainer**: 統一された依存関係管理インターフェース
+- **ProductionContainer**: 本番環境用サービス・認証・ユーティリティ注入
+- **TestContainer**: テスト環境用モック注入システム
+- **UIContainer**: フロントエンド用依存関係管理
+
+#### 🔧 HandlerFactory統一APIシステム
+- **12種類のAPIハンドラー**: Webhook、Slack、Settings等の統一実装
+- **認証・ログ・エラーハンドリング**: 自動注入による標準化
+- **テスタビリティ向上**: 完全なモック化対応
+- **保守性向上**: 一元化された依存関係管理
+
+#### 🧹 レガシーコード完全移行
+- **5フェーズ移行完了**: 型統一 → Zustand削除 → Factory統一 → テスト更新 → クライアント削除
+- **Zustand Store完全削除**: Clean ArchitectureのUseCase層に完全移行
+- **直接Supabase呼び出し削除**: 全APIがRepository Patternに移行
+- **複雑テストモック簡素化**: Service Layer Mock使用で大幅簡素化
+
+#### 📊 技術的成果
+- **100% Clean Architecture適合**: 全バックエンド・フロントエンドAPI
+- **100% 依存性注入適用**: 全サービス・認証・ユーティリティ
+- **100% テスト成功率**: 1178 tests passing
+- **0% レガシーコード残存**: Zustand Store等完全削除
+
 ### v3.0.0 - フロントエンドClean Architecture完全移行 (2025/08/04)
 
 #### 🏗️ アーキテクチャ完全刷新

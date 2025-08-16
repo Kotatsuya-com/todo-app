@@ -27,16 +27,14 @@ describe('NotificationSettingsEntity', () => {
 
       expect(entity.userId).toBe(mockSettings.user_id)
       expect(entity.webhookNotificationsEnabled).toBe(mockSettings.enable_webhook_notifications)
-      expect(entity.updatedAt).toBe(mockSettings.updated_at)
     })
 
-    it('should handle settings without updated_at', () => {
+    it('should handle settings correctly', () => {
       const mockSettings = createMockNotificationSettingsWithoutUpdatedAt()
       const entity = new NotificationSettingsEntity(mockSettings)
 
       expect(entity.userId).toBe(mockSettings.user_id)
       expect(entity.webhookNotificationsEnabled).toBe(mockSettings.enable_webhook_notifications)
-      expect(entity.updatedAt).toBeUndefined()
     })
   })
 
@@ -122,17 +120,15 @@ describe('NotificationSettingsEntity', () => {
       expect(updatedEntity.userId).toBe(mockSettings.user_id)
     })
 
-    it('should update the updated_at timestamp', () => {
+    it('should update notification settings correctly', () => {
       const mockSettings = createMockNotificationSettings()
       const entity = new NotificationSettingsEntity(mockSettings)
       const updateRequest = createMockValidNotificationUpdateRequest()
       
       const updatedEntity = entity.updateSettings(updateRequest)
 
-      expect(updatedEntity.updatedAt).not.toBe(mockSettings.updated_at)
-      expect(new Date(updatedEntity.updatedAt!).getTime()).toBeGreaterThan(
-        new Date(mockSettings.updated_at!).getTime()
-      )
+      expect(updatedEntity.webhookNotificationsEnabled).toBe(updateRequest.enable_webhook_notifications)
+      expect(updatedEntity.userId).toBe(mockSettings.user_id)
     })
 
     it('should not modify original entity', () => {
@@ -177,16 +173,14 @@ describe('NotificationSettingsEntity', () => {
       expect(resetEntity.userId).toBe(mockSettings.user_id)
     })
 
-    it('should update the updated_at timestamp', () => {
+    it('should reset to default settings correctly', () => {
       const mockSettings = createMockCustomNotificationSettings()
       const entity = new NotificationSettingsEntity(mockSettings)
       
       const resetEntity = entity.resetToDefaults()
 
-      expect(resetEntity.updatedAt).not.toBe(mockSettings.updated_at)
-      expect(new Date(resetEntity.updatedAt!).getTime()).toBeGreaterThan(
-        new Date(mockSettings.updated_at!).getTime()
-      )
+      expect(resetEntity.webhookNotificationsEnabled).toBe(DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications)
+      expect(resetEntity.isDefaultSetting()).toBe(true)
     })
 
     it('should not modify original entity', () => {
@@ -212,7 +206,6 @@ describe('NotificationSettingsEntity', () => {
 
       expect(summary.webhookNotifications).toBe('enabled')
       expect(summary.isDefault).toBe(true)
-      expect(summary.lastUpdated).toBe('2023-01-01T00:00:00Z')
     })
 
     it('should return correct summary for disabled notifications', () => {
@@ -226,10 +219,9 @@ describe('NotificationSettingsEntity', () => {
 
       expect(summary.webhookNotifications).toBe('disabled')
       expect(summary.isDefault).toBe(false)
-      expect(summary.lastUpdated).toBe('2023-01-15T12:00:00Z')
     })
 
-    it('should handle missing updated_at gracefully', () => {
+    it('should handle settings gracefully', () => {
       const mockSettings = createMockNotificationSettingsWithoutUpdatedAt()
       const entity = new NotificationSettingsEntity(mockSettings)
       
@@ -237,7 +229,6 @@ describe('NotificationSettingsEntity', () => {
 
       expect(summary.webhookNotifications).toBe('enabled')
       expect(summary.isDefault).toBe(true)
-      expect(summary.lastUpdated).toBeUndefined()
     })
   })
 
@@ -470,20 +461,15 @@ describe('NotificationSettingsEntity', () => {
       expect(entity.userId).toBe(emptyUserId)
     })
 
-    it('should handle various timestamp formats', () => {
-      const timestamps = [
-        '2023-01-01T00:00:00Z',
-        '2023-01-01T00:00:00.000Z',
-        '2023-01-01 00:00:00',
-        '',
-        undefined
-      ]
+    it('should handle various notification states', () => {
+      const states = [true, false]
 
-      timestamps.forEach(timestamp => {
-        const mockSettings = createMockNotificationSettings({ updated_at: timestamp })
+      states.forEach(enabled => {
+        const mockSettings = createMockNotificationSettings({ enable_webhook_notifications: enabled })
         const entity = new NotificationSettingsEntity(mockSettings)
         
-        expect(entity.updatedAt).toBe(timestamp)
+        expect(entity.webhookNotificationsEnabled).toBe(enabled)
+        expect(entity.canReceiveWebhookNotifications()).toBe(enabled)
       })
     })
   })

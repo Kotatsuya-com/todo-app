@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { TodoEntity } from '../../domain/entities/Todo'
 import { UserEntity } from '../../domain/entities/User'
-import { createTodoUseCases } from '../../infrastructure/di/ServiceFactory'
+import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 import { useAuth } from './useAuth'
 
 export interface DashboardFilters {

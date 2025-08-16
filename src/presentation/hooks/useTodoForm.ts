@@ -5,8 +5,9 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { TodoEntity } from '../../domain/entities/Todo'
-import { createTodoUseCases } from '../../infrastructure/di/ServiceFactory'
+import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 import { useAuth } from './useAuth'
+import { getUIContainer, UIDependencyContainer } from '@/lib/containers/UIContainer'
 
 export interface TodoFormData {
   title: string
@@ -58,6 +59,8 @@ export interface UseTodoFormOptions {
   initialTodo?: TodoEntity | null
   onSuccess?: (_todo: TodoEntity) => void
   onError?: (_error: string) => void
+  // 依存性注入のためのオプション（テスト時に使用）
+  uiContainer?: UIDependencyContainer
 }
 
 const INITIAL_FORM_DATA: TodoFormData = {
@@ -71,7 +74,7 @@ const INITIAL_FORM_DATA: TodoFormData = {
 export const useTodoForm = (options: UseTodoFormOptions = {}): UseTodoFormReturn => {
   const { user } = useAuth()
   const todoUseCases = createTodoUseCases()
-  const { initialTodo, onSuccess, onError } = options
+  const { initialTodo, onSuccess, onError, uiContainer = getUIContainer() } = options
 
   const [formData, setFormData] = useState<TodoFormData>(INITIAL_FORM_DATA)
   const [loading, setLoading] = useState(false)
@@ -274,32 +277,26 @@ export const useTodoForm = (options: UseTodoFormOptions = {}): UseTodoFormReturn
     setError(null)
 
     try {
-      const response = await fetch('/api/slack', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slackUrl: slackUrl.trim() })
-      })
+      const result = await uiContainer.services.uiService.fetchSlackMessage(slackUrl.trim())
 
-      if (response.ok) {
-        const data = await response.json()
+      if (result.success) {
         setFormData(prev => ({
           ...prev,
           slackData: {
-            text: data.text,
-            url: data.url
+            text: result.data?.text || '',
+            url: result.data?.url || ''
           }
         }))
-        updateField('body', data.text)
+        updateField('body', result.data?.text || '')
       } else {
-        const errorData = await response.json()
-        setError(errorData.error || 'Slackメッセージの取得に失敗しました')
+        setError(result.error || 'Slackメッセージの取得に失敗しました')
       }
     } catch (err) {
       setError('Slackメッセージの取得中にエラーが発生しました')
     } finally {
       setLoading(false)
     }
-  }, [slackUrl, updateField, setLoading, setError])
+  }, [slackUrl, updateField, setLoading, setError, uiContainer])
 
   /**
    * Slackデータをクリア
@@ -323,25 +320,20 @@ export const useTodoForm = (options: UseTodoFormOptions = {}): UseTodoFormReturn
     setError(null)
 
     try {
-      const response = await fetch('/api/generate-title', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content })
-      })
+      const result = await uiContainer.services.uiService.generateTitle(content)
 
-      if (response.ok) {
-        const data = await response.json()
-        updateField('title', data.title)
-        setTitleSuggestions([data.title])
+      if (result.success) {
+        updateField('title', result.data?.title || '')
+        setTitleSuggestions([result.data?.title || ''])
       } else {
-        setError('タイトル生成に失敗しました')
+        setError(result.error || 'タイトル生成に失敗しました')
       }
     } catch (err) {
       setError('タイトル生成中にエラーが発生しました')
     } finally {
       setGeneratingTitle(false)
     }
-  }, [formData, updateField, setError])
+  }, [formData, updateField, setError, uiContainer])
 
   /**
    * タイトル候補を選択

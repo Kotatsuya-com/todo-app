@@ -143,9 +143,80 @@ export const createTodoUseCases = (): TodoUseCases => {
 **主要クラス**:
 - `SlackService`: Slack連携の全ビジネスロジック
 - `EmojiSettingsService`: 絵文字設定管理
-- `ServiceFactory`: 依存性注入とサービス生成
+- `BackendServiceFactory`: バックエンドサービス生成
+- 12種類の専門特化サービス（Auth, Webhook, Message等）
 
-#### フロントエンド
+#### 🔧 依存性注入コンテナシステム (完全実装済み)
+
+**統一された依存関係管理システムでテスタビリティと保守性を大幅向上**
+
+**コンテナ構造** (`lib/containers/`):
+```typescript
+// DependencyContainer.ts - 基底インターフェース
+export interface DependencyContainer {
+  services: ServiceDependencies      // 12種類のビジネスサービス
+  auth: AuthDependencies            // 認証・ユーザー管理
+  utils: UtilityDependencies        // ログ・URL・署名検証
+}
+
+// ProductionContainer.ts - 本番環境実装
+export class ProductionContainer extends BaseDependencyContainer {
+  constructor() {
+    this.services = createServices()           // 実際のサービス注入
+    this.auth = { requireAuthentication, authenticateUser }
+    this.utils = { webhookLogger, getAppBaseUrl, verifySlackSignature }
+  }
+}
+
+// TestContainer.ts - テスト環境実装  
+export class TestContainer extends BaseDependencyContainer {
+  constructor() {
+    this.services = createMockServices()       // モックサービス注入
+    this.auth = createMockAuth()
+    this.utils = createMockUtils()
+  }
+}
+```
+
+**HandlerFactory** (`lib/factories/HandlerFactory.ts`):
+```typescript
+// 統一されたAPIハンドラー生成
+export function createWebhookHandlers(container: DependencyContainer) {
+  const POST: APIHandler = async (request: NextRequest) => {
+    // 1. 依存関係から認証サービス取得
+    const userId = await container.auth.requireAuthentication(request)
+    
+    // 2. 依存関係からビジネスサービス取得
+    const result = await container.services.webhookService.createUserWebhook({
+      userId, slackConnectionId, appBaseUrl: container.utils.getAppBaseUrl(request)
+    })
+    
+    // 3. 統一されたレスポンス処理
+    if (!result.success) {
+      container.utils.webhookLogger.error({ error: result.error })
+      return NextResponse.json({ error: result.error }, { status: result.statusCode })
+    }
+    
+    return NextResponse.json(result.data)
+  }
+  return { GET, POST, DELETE }
+}
+```
+
+**12種類の統一APIハンドラー**:
+- `createWebhookHandlers`: Slack Webhook管理
+- `createSlackEventsHandlers`: Slack Events API処理
+- `createSlackAuthHandlers`: Slack OAuth認証
+- `createSlackConnectionsHandlers`: Slack接続管理
+- `createSlackMessageHandlers`: Slackメッセージ取得
+- `createTitleGenerationHandlers`: AIタイトル生成
+- `createEmojiSettingsHandlers`: 絵文字設定管理
+- `createNotificationSettingsHandlers`: 通知設定管理
+- `createDisconnectHandlers`: Slack統合切断
+- `createAppUrlDetectionHandlers`: アプリURL検出
+- `createGenericHandlers`: 汎用ハンドラー作成
+
+#### フロントエンド (`src/domain/use-cases/`)
 
 **フロントエンドはApplication Layerを実装していません。**
 

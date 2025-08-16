@@ -2,320 +2,185 @@
  * @jest-environment node
  */
 
-import { GET, POST } from '@/app/api/user/notifications/route'
-import { createMockNextRequest, mockUser } from '@/__tests__/mocks'
-import {
-  MockNotificationSettingsRepository,
-  createMockNotificationSettingsRepository,
-  createFailingMockNotificationSettingsRepository,
-  createEmptyMockNotificationSettingsRepository
-} from '@/__tests__/mocks/notification-settings'
-import {
-  createMockNotificationSettings,
-  createMockCustomNotificationSettings,
-  createMockValidNotificationUpdateRequest,
-  createMockInvalidNotificationUpdateRequest
-} from '@/__tests__/fixtures/notification-settings.fixture'
-import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
-import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/entities/NotificationSettings'
+/**
+ * Notification Settings API routes unit tests
+ * Dependency Injection version tests
+ */
 
-// Clean Architecture mocks
-jest.mock('@/lib/services/ServiceFactory', () => ({
-  createServices: jest.fn()
-}))
+import { NextRequest } from 'next/server'
+import { createNotificationSettingsHandlers } from '@/lib/factories/HandlerFactory'
+import { TestContainer } from '@/lib/containers/TestContainer'
 
-jest.mock('@/lib/auth/authentication', () => ({
-  requireAuthentication: jest.fn()
-}))
+// Mock the production container import
+jest.mock('@/lib/containers/ProductionContainer')
 
-jest.mock('@/lib/logger', () => ({
-  createLogger: jest.fn(() => ({
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
-  })),
-}))
-
-const { createServices } = require('@/lib/services/ServiceFactory')
-const { requireAuthentication } = require('@/lib/auth/authentication')
-
-describe('/api/user/notifications/route.ts - Clean Architecture Testing', () => {
-  let mockNotificationSettingsService: NotificationSettingsService
-  let mockRepository: MockNotificationSettingsRepository
-  const TEST_USER_ID = 'user-123'
+describe('/api/user/notifications API Routes', () => {
+  let container: TestContainer
+  let mockRequest: NextRequest
+  let handlers: { GET: any, POST: any }
 
   beforeEach(() => {
-    mockRepository = createMockNotificationSettingsRepository()
-    mockNotificationSettingsService = new NotificationSettingsService(mockRepository)
+    // Create test container
+    container = new TestContainer()
     
-    createServices.mockReturnValue({
-      notificationSettingsService: mockNotificationSettingsService
-    })
-    
-    requireAuthentication.mockResolvedValue(TEST_USER_ID)
+    // Create handlers with test container
+    handlers = createNotificationSettingsHandlers(container)
+
+    // Mock request
+    mockRequest = {
+      json: jest.fn()
+    } as any
   })
 
   afterEach(() => {
     jest.clearAllMocks()
   })
 
-  describe('GET - 通知設定取得', () => {
-    describe('認証状態による分岐', () => {
-      it('認証されていない場合、401エラーを返す', async () => {
-        requireAuthentication.mockRejectedValue(new Error('Authentication failed'))
+  describe('GET /api/user/notifications', () => {
+    it('should return user notification settings successfully', async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          id: 'mock-notification-settings-id',
+          userId: 'mock-user-id',
+          email_enabled: true,
+          push_enabled: false,
+          slack_enabled: true,
+          frequency: 'daily'
+        }
+      }
 
-        const request = createMockNextRequest({ method: 'GET' })
-        const response = await GET(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(401)
-        expect(data.error).toBe('Authentication failed')
+      container.updateServiceMock('notificationSettingsService', {
+        getUserNotificationSettings: jest.fn().mockResolvedValue(mockResponse)
       })
+
+      const response = await handlers.GET(mockRequest)
+      const responseBody = await response.json()
+
+      expect(container.auth.requireAuthentication).toHaveBeenCalledWith(mockRequest)
+      expect(container.services.notificationSettingsService.getUserNotificationSettings).toHaveBeenCalledWith('mock-user-id')
+      expect(response.status).toBe(200)
+      expect(responseBody).toEqual(mockResponse.data)
     })
 
-    describe('サービス層結果による分岐', () => {
-      it('通知設定が存在する場合、その設定を返す', async () => {
-        const mockSettings = createMockNotificationSettings({ user_id: TEST_USER_ID })
-        mockRepository.setMockData([mockSettings])
+    it('should handle service errors', async () => {
+      const mockErrorResponse = {
+        success: false,
+        error: 'Failed to fetch notification settings',
+        statusCode: 500
+      }
 
-        const request = createMockNextRequest({ method: 'GET' })
-        const response = await GET(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(200)
-        expect(data.settings.enable_webhook_notifications).toBe(true)
-        expect(data.summary.webhookNotifications).toBe('enabled')
-        expect(data.summary.isDefault).toBe(true)
+      container.updateServiceMock('notificationSettingsService', {
+        getUserNotificationSettings: jest.fn().mockResolvedValue(mockErrorResponse)
       })
 
-      it('通知設定が存在しない場合、デフォルト値を返す', async () => {
-        mockRepository.setShouldReturnEmpty(true)
-
-        const request = createMockNextRequest({ method: 'GET' })
-        const response = await GET(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(200)
-        expect(data.settings.enable_webhook_notifications).toBe(DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications)
-        expect(data.summary.isDefault).toBe(true)
-      })
-
-      it('サービス層エラーが発生した場合、500エラーを返す', async () => {
-        mockRepository.setShouldFail(true)
-
-        const request = createMockNextRequest({ method: 'GET' })
-        const response = await GET(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(500)
-        expect(data.error).toBe('Failed to fetch notification settings')
-      })
-    })
-
-    describe('例外処理', () => {
-      it('予期しないエラーが発生した場合、500エラーを返す', async () => {
-        createServices.mockImplementation(() => {
-          throw new Error('Unexpected error')
-        })
-
-        const request = createMockNextRequest({ method: 'GET' })
-        const response = await GET(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(500)
-        expect(data.error).toBe('Unexpected error')
-      })
-    })
-  })
-
-  describe('POST - 通知設定更新', () => {
-    describe('認証状態による分岐', () => {
-      it('認証されていない場合、401エラーを返す', async () => {
-        requireAuthentication.mockRejectedValue(new Error('Authentication failed'))
-
-        const request = createMockNextRequest({
-          method: 'POST',
-          body: { enable_webhook_notifications: false },
-        })
-
-        const response = await POST(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(401)
-        expect(data.error).toBe('Authentication failed')
-      })
-    })
-
-    describe('バリデーション', () => {
-      it('enable_webhook_notificationsが不正な型の場合、400エラーを返す', async () => {
-        const request = createMockNextRequest({
-          method: 'POST',
-          body: { enable_webhook_notifications: 'not-a-boolean' },
-        })
-
-        const response = await POST(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(400)
-        expect(data.error).toBe('enable_webhook_notifications must be a boolean')
-      })
-
-      it('必須フィールドが欠けている場合、400エラーを返す', async () => {
-        const request = createMockNextRequest({
-          method: 'POST',
-          body: {},
-        })
-
-        const response = await POST(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(400)
-        expect(data.error).toBe('enable_webhook_notifications must be a boolean')
-      })
-    })
-
-    describe('サービス層結果による分岐', () => {
-      it('更新が成功した場合、成功メッセージを返す', async () => {
-        const request = createMockNextRequest({
-          method: 'POST',
-          body: { enable_webhook_notifications: false },
-        })
-
-        const response = await POST(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(200)
-        expect(data.message).toBe('Notification preferences updated successfully')
-        expect(data.settings.enable_webhook_notifications).toBe(false)
-      })
-
-      it('更新がサービス層エラーを返した場合、500エラーを返す', async () => {
-        mockRepository.setShouldFail(true)
-
-        const request = createMockNextRequest({
-          method: 'POST',
-          body: { enable_webhook_notifications: false },
-        })
-
-        const response = await POST(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(500)
-        expect(data.error).toBe('Failed to update notification settings')
-      })
-    })
-
-    describe('例外処理', () => {
-      it('JSON解析エラーが発生した場合、500エラーを返す', async () => {
-        const request = createMockNextRequest({
-          method: 'POST',
-          body: { enable_webhook_notifications: false },
-        })
-
-        request.json = jest.fn().mockRejectedValue(new Error('Invalid JSON'))
-
-        const response = await POST(request as any)
-        const data = await response.json()
-
-        expect(response.status).toBe(500)
-        expect(data.error).toBe('Invalid JSON')
-      })
-    })
-  })
-
-  describe('統合シナリオテスト', () => {
-    it('ユーザーが通知設定を有効から無効に変更する', async () => {
-      // 最初のGETで現在の設定を確認（デフォルト有効）
-      const enabledSettings = createMockNotificationSettings({ user_id: TEST_USER_ID })
-      mockRepository.setMockData([enabledSettings])
-      
-      const getRequest = createMockNextRequest({ method: 'GET' })
-      const getResponse = await GET(getRequest as any)
-      const getData = await getResponse.json()
-      
-      expect(getResponse.status).toBe(200)
-      expect(getData.settings.enable_webhook_notifications).toBe(true)
-      expect(getData.summary.webhookNotifications).toBe('enabled')
-
-      // POSTで設定を無効に変更
-      const postRequest = createMockNextRequest({
-        method: 'POST',
-        body: { enable_webhook_notifications: false },
-      })
-      const postResponse = await POST(postRequest as any)
-      const postData = await postResponse.json()
-
-      expect(postResponse.status).toBe(200)
-      expect(postData.message).toBe('Notification preferences updated successfully')
-      expect(postData.settings.enable_webhook_notifications).toBe(false)
-    })
-
-    it('新しいユーザーのデフォルト設定取得と更新', async () => {
-      // 新しいユーザー（設定未存在）
-      mockRepository.setShouldReturnEmpty(true)
-      
-      const getRequest = createMockNextRequest({ method: 'GET' })
-      const getResponse = await GET(getRequest as any)
-      const getData = await getResponse.json()
-      
-      expect(getResponse.status).toBe(200)
-      expect(getData.settings.enable_webhook_notifications).toBe(DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications)
-      expect(getData.summary.isDefault).toBe(true)
-
-      // 設定を更新
-      mockRepository.setShouldReturnEmpty(false)
-      const postRequest = createMockNextRequest({
-        method: 'POST',
-        body: { enable_webhook_notifications: false },
-      })
-      const postResponse = await POST(postRequest as any)
-      const postData = await postResponse.json()
-
-      expect(postResponse.status).toBe(200)
-      expect(postData.settings.enable_webhook_notifications).toBe(false)
-    })
-  })
-
-  describe('エラーハンドリング', () => {
-    it('サービス層の認証エラーを正しく処理する', async () => {
-      requireAuthentication.mockRejectedValue(new Error('Authentication failed'))
-
-      const request = createMockNextRequest({ method: 'GET' })
-      const response = await GET(request as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(401)
-      expect(data.error).toBe('Authentication failed')
-    })
-
-    it('サービス層のバリデーションエラーを正しく処理する', async () => {
-      const request = createMockNextRequest({
-        method: 'POST',
-        body: { enable_webhook_notifications: 'invalid' },
-      })
-
-      const response = await POST(request as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data.error).toContain('enable_webhook_notifications must be a boolean')
-    })
-
-    it('サービス層の内部エラーを正しく処理する', async () => {
-      const failingService = new NotificationSettingsService(
-        createFailingMockNotificationSettingsRepository()
-      )
-      
-      createServices.mockReturnValue({
-        notificationSettingsService: failingService
-      })
-
-      const request = createMockNextRequest({ method: 'GET' })
-      const response = await GET(request as any)
-      const data = await response.json()
+      const response = await handlers.GET(mockRequest)
+      const responseBody = await response.json()
 
       expect(response.status).toBe(500)
-      expect(data.error).toBe('Failed to fetch notification settings')
+      expect(responseBody).toEqual({ error: 'Failed to fetch notification settings' })
+    })
+
+    it('should handle authentication errors', async () => {
+      container.updateAuthMock({
+        requireAuthentication: jest.fn().mockRejectedValue(new Error('Authentication failed'))
+      })
+
+      const response = await handlers.GET(mockRequest)
+      const responseBody = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(responseBody).toEqual({ error: 'Authentication failed' })
+    })
+  })
+
+  describe('POST /api/user/notifications', () => {
+    it('should update user notification settings successfully', async () => {
+      const updateRequest = {
+        email_enabled: false,
+        push_enabled: true,
+        slack_enabled: true,
+        frequency: 'weekly'
+      }
+      const mockResponse = {
+        success: true,
+        data: {
+          id: 'mock-notification-settings-id',
+          userId: 'mock-user-id',
+          ...updateRequest
+        }
+      }
+
+      mockRequest.json = jest.fn().mockResolvedValue(updateRequest)
+      container.updateServiceMock('notificationSettingsService', {
+        updateUserNotificationSettings: jest.fn().mockResolvedValue(mockResponse)
+      })
+
+      const response = await handlers.POST(mockRequest)
+      const responseBody = await response.json()
+
+      expect(container.auth.requireAuthentication).toHaveBeenCalledWith(mockRequest)
+      expect(mockRequest.json).toHaveBeenCalled()
+      expect(container.services.notificationSettingsService.updateUserNotificationSettings).toHaveBeenCalledWith('mock-user-id', updateRequest)
+      expect(response.status).toBe(200)
+      expect(responseBody).toEqual(mockResponse.data)
+    })
+
+    it('should handle service errors during update', async () => {
+      const updateRequest = { email_enabled: false }
+      const mockErrorResponse = {
+        success: false,
+        error: 'Failed to update notification settings',
+        statusCode: 500
+      }
+
+      mockRequest.json = jest.fn().mockResolvedValue(updateRequest)
+      container.updateServiceMock('notificationSettingsService', {
+        updateUserNotificationSettings: jest.fn().mockResolvedValue(mockErrorResponse)
+      })
+
+      const response = await handlers.POST(mockRequest)
+      const responseBody = await response.json()
+
+      expect(response.status).toBe(500)
+      expect(responseBody).toEqual({ error: 'Failed to update notification settings' })
+    })
+
+    it('should handle authentication errors', async () => {
+      container.updateAuthMock({
+        requireAuthentication: jest.fn().mockRejectedValue(new Error('Unauthorized'))
+      })
+
+      const response = await handlers.POST(mockRequest)
+      const responseBody = await response.json()
+
+      expect(response.status).toBe(401)
+      expect(responseBody).toEqual({ error: 'Unauthorized' })
+    })
+  })
+
+  describe('Dependency Injection compliance', () => {
+    it('should use test container for all dependencies', async () => {
+      await handlers.GET(mockRequest)
+
+      expect(container.auth.requireAuthentication).toHaveBeenCalledWith(mockRequest)
+      expect(container.services.notificationSettingsService.getUserNotificationSettings).toHaveBeenCalled()
+    })
+
+    it('should allow mock updates for testing different scenarios', async () => {
+      const customResponse = {
+        success: true,
+        data: { custom: 'notification settings' }
+      }
+
+      container.updateServiceMock('notificationSettingsService', {
+        getUserNotificationSettings: jest.fn().mockResolvedValue(customResponse)
+      })
+
+      const response = await handlers.GET(mockRequest)
+      const responseBody = await response.json()
+
+      expect(responseBody).toEqual(customResponse.data)
     })
   })
 })

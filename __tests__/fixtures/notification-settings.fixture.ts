@@ -9,19 +9,16 @@ import { NotificationSettings, NotificationUpdateRequest, DEFAULT_NOTIFICATION_S
 export const createMockNotificationSettings = (overrides: Partial<NotificationSettings> = {}): NotificationSettings => ({
   user_id: 'user-123',
   enable_webhook_notifications: DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications,
-  updated_at: '2023-01-01T00:00:00Z',
   ...overrides
 })
 
 export const createMockCustomNotificationSettings = (): NotificationSettings =>
   createMockNotificationSettings({
-    enable_webhook_notifications: false,
-    updated_at: '2023-01-15T12:00:00Z'
+    enable_webhook_notifications: false
   })
 
 export const createMockNotificationSettingsWithoutUpdatedAt = (): NotificationSettings => {
-  const { updated_at, ...rest } = createMockNotificationSettings()
-  return rest
+  return createMockNotificationSettings()
 }
 
 // NotificationUpdateRequest fixtures
@@ -98,6 +95,5 @@ export const EDGE_CASE_USER_IDS = [
 // Test notification settings summary
 export const createMockNotificationSummary = (enabled: boolean) => ({
   webhookNotifications: enabled ? 'enabled' as const : 'disabled' as const,
-  isDefault: enabled === DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications,
-  lastUpdated: '2023-01-01T00:00:00Z'
+  isDefault: enabled === DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications
 })

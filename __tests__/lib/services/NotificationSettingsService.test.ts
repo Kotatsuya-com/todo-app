@@ -44,8 +44,7 @@ describe('NotificationSettingsService', () => {
       expect(result.data?.settings).toEqual(mockSettings)
       expect(result.data?.summary).toEqual({
         webhookNotifications: 'enabled',
-        isDefault: true,
-        lastUpdated: mockSettings.updated_at
+        isDefault: true
       })
     })
 
@@ -71,8 +70,7 @@ describe('NotificationSettingsService', () => {
       expect(result.data?.settings).toEqual(mockSettings)
       expect(result.data?.summary).toEqual({
         webhookNotifications: 'disabled',
-        isDefault: false,
-        lastUpdated: mockSettings.updated_at
+        isDefault: false
       })
     })
 

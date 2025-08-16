@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { UserEntity } from '../../domain/entities/User'
 import { AuthUser } from '../../domain/repositories/AuthRepositoryInterface'
-import { createAuthUseCases } from '../../infrastructure/di/ServiceFactory'
+import { createAuthUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 import { CurrentUserData } from '../../domain/use-cases/AuthUseCases'
 
 export interface AuthState {

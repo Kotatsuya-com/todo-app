@@ -4,7 +4,7 @@
  */
 
 import { SlackServiceResult, WebhookProcessingResult } from '@/lib/services/SlackService'
-import { SlackEventPayload } from '@/types'
+import { SlackEventPayload } from '@/src/domain/types'
 
 export class MockSlackService {
   private mockResults: any[] = []

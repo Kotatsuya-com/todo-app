@@ -111,8 +111,14 @@ export function validateUserId(userId: string): boolean {
  * 管理者権限の確認（将来の拡張用）
  */
 export async function isAdminUser(_userId: string): Promise<boolean> {
-  // TODO: 管理者権限のチェックロジックを実装
-  // 現在は全てのユーザーを一般ユーザーとして扱う
+  // 将来の管理者機能拡張用の関数
+  // 現在のシステムでは管理者・一般ユーザーの区別は行わず、
+  // 全てのユーザーが同等の権限を持つ設計となっている
+  //
+  // 管理者機能が必要になった場合は以下を実装:
+  // 1. usersテーブルにroleカラム追加
+  // 2. 管理者ユーザーのrole='admin'設定
+  // 3. このメソッドでroleチェック実装
   return false
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Todo } from '@/types'
+import { Todo } from '@/src/domain/types'
 import { TodoEntity } from '@/src/domain/entities/Todo'
 import { Button } from '@/components/ui/Button'
 import { Check, Trash2, Calendar, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
@@ -94,7 +94,7 @@ export function TodoCard({ todo, onEdit, onComplete, onDelete, onUpdate }: TodoC
     <div
       className={`
         bg-white rounded-lg shadow-soft p-4 transition-all duration-200 cursor-pointer
-        ${todo.status === 'done' ? 'opacity-60' : ''}
+        ${todo.status === 'completed' ? 'opacity-60' : ''}
         ${overdue ? 'border-2 border-red-300' : 'border border-gray-200'}
         ${isDeleting ? 'scale-95 opacity-50' : 'hover:shadow-md'}
         ${isHovered || isExpanded ? 'transform scale-105 shadow-lg z-10' : ''}

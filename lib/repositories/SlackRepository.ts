@@ -240,11 +240,9 @@ export class SlackRepository implements SlackRepositoryInterface, BaseRepository
       .from('users')
       .select(`
         id,
-        email,
         slack_user_id,
         enable_webhook_notifications,
         created_at,
-        updated_at,
         user_emoji_settings (
           id,
           user_id,

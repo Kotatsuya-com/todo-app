@@ -167,17 +167,14 @@ export class TodoUseCases {
    */
   async createTodo(request: CreateTodoUseCaseRequest): Promise<UseCaseResult<TodoEntity>> {
     try {
-      // ビジネスルール検証用のエンティティを作成
-      const tempEntity = TodoEntity.create({
+      // ビジネスルール検証（ID生成なし）
+      const validation = TodoEntity.validateData({
         userId: request.userId,
         title: request.title,
         body: request.body,
         deadline: request.deadline,
         createdVia: request.createdVia
       })
-
-      // バリデーション実行
-      const validation = tempEntity.validate()
       if (!validation.valid) {
         return {
           success: false,

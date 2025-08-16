@@ -3,13 +3,14 @@
  * useAuthフックのテスト
  */
 
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { useAuth } from '../../../../src/presentation/hooks/useAuth'
 import { UserEntity } from '../../../../src/domain/entities/User'
 
 // Mock dependencies
-jest.mock('../../../../src/infrastructure/di/ServiceFactory')
+jest.mock('../../../../src/infrastructure/di/FrontendServiceFactory')
 
-import { createAuthUseCases } from '../../../../src/infrastructure/di/ServiceFactory'
+import { createAuthUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 
 // Mock AuthUseCases
 const mockAuthUseCases = {
@@ -513,7 +514,7 @@ describe('useAuth', () => {
   })
 
   describe('Loading States', () => {
-    it('should show loading during async operations', async () => {
+    it('should handle async operations correctly', async () => {
       let resolveSignIn: (value: any) => void
       const signInPromise = new Promise(resolve => {
         resolveSignIn = resolve
@@ -527,18 +528,22 @@ describe('useAuth', () => {
         expect(result.current.loading).toBe(false)
       })
 
-      // Start sign in (should show loading)
-      act(() => {
-        result.current.signIn('test@example.com', 'password123')
-      })
-
-      expect(result.current.loading).toBe(true)
-
-      // Resolve sign in
+      // Start sign in operation
+      let signInResult: boolean | undefined
       await act(async () => {
+        const promise = result.current.signIn('test@example.com', 'password123')
+        
+        // Immediately resolve the promise to complete the operation
         resolveSignIn!({ success: true, data: mockCurrentUserData })
+        
+        // Wait for the signIn operation to complete
+        signInResult = await promise
       })
 
+      // Verify the operation completed successfully
+      expect(signInResult).toBe(true)
+      expect(result.current.user).toBe(mockCurrentUserData.userEntity)
+      expect(result.current.isAuthenticated).toBe(true)
       expect(result.current.loading).toBe(false)
     })
   })

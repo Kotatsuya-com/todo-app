@@ -5,7 +5,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { useTodoForm } from '@/src/presentation/hooks/useTodoForm'
 import { TodoEntity } from '@/src/domain/entities/Todo'
-import { Todo, Urgency } from '@/types'
+import { Todo, Urgency } from '@/src/domain/types'
 import { TodoForm } from './TodoForm'
 
 interface EditTodoModalProps {

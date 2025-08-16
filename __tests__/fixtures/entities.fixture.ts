@@ -10,11 +10,11 @@ import { Todo } from '@/lib/entities/Todo'
 // User fixtures
 export const createMockUser = (overrides: Partial<User> = {}): User => ({
   id: 'user-123',
-  email: 'test@example.com',
+  display_name: 'Test User',
+  avatar_url: 'https://example.com/avatar.jpg',
   slack_user_id: 'U1234567890',
   enable_webhook_notifications: true,
   created_at: '2023-01-01T00:00:00Z',
-  updated_at: '2023-01-01T00:00:00Z',
   ...overrides
 })
 

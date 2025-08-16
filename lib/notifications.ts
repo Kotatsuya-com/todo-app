@@ -1,4 +1,4 @@
-import { Todo } from '@/types'
+import { Todo } from '@/src/domain/types'
 import { apiLogger } from '@/lib/client-logger'
 
 export interface NotificationOptions {

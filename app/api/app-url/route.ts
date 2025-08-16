@@ -1,32 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServices } from '@/lib/services/ServiceFactory'
+/**
+ * App URL Detection API Routes
+ * 依存性注入パターンを使用したアプリURL検出API
+ */
 
-export async function GET(request: NextRequest) {
-  try {
-    // サービス層でURL検出処理
-    const { urlDetectionService } = createServices()
-    const result = await urlDetectionService.detectAppUrlSimple(
-      request.url,
-      {
-        protocol: request.nextUrl.protocol,
-        hostname: request.nextUrl.hostname,
-        port: request.nextUrl.port
-      }
-    )
+import { createAppUrlDetectionHandlers } from '@/lib/factories/HandlerFactory'
+import { getProductionContainer } from '@/lib/containers/ProductionContainer'
 
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.statusCode || 500 }
-      )
-    }
+// プロダクション用の依存関係コンテナを使用してハンドラーを作成
+const container = getProductionContainer()
+const { GET } = createAppUrlDetectionHandlers(container)
 
-    return NextResponse.json(result.data)
-
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: 'Failed to detect app URL' },
-      { status: 500 }
-    )
-  }
-}
+// Next.js API Route handlers
+export { GET }

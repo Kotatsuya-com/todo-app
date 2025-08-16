@@ -312,6 +312,35 @@ export class TodoEntity {
   }
 
   /**
+   * バリデーション専用メソッド: データ検証のみ実行（ID生成なし）
+   */
+  static validateData(params: {
+    userId: string
+    title?: string
+    body: string
+    deadline?: string
+    createdVia?: TodoCreatedVia
+  }): TodoValidationResult {
+    const now = new Date().toISOString()
+
+    const data: TodoData = {
+      id: 'validation-temp-id', // バリデーション用ダミーID
+      user_id: params.userId,
+      title: params.title || null,
+      body: params.body,
+      deadline: params.deadline || null,
+      importance_score: TodoEntity.DEFAULT_IMPORTANCE_SCORE,
+      status: 'open',
+      created_at: now,
+      updated_at: now,
+      created_via: params.createdVia || 'manual'
+    }
+
+    const tempEntity = new TodoEntity(data)
+    return tempEntity.validate()
+  }
+
+  /**
    * ファクトリーメソッド: 新しいTodoを作成
    */
   static create(params: {

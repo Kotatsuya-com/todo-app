@@ -2,15 +2,8 @@
  * @jest-environment node
  */
 
-import { GET, POST, DELETE } from '@/app/api/slack/webhook/route'
-import {
-  mockSupabaseSuccess,
-  mockSupabaseError,
-  mockSupabaseNotFound,
-  createSlackEventsSupabaseClient,
-  mockAuthSuccess,
-  mockAuthError,
-} from '@/__tests__/mocks/supabase-helpers'
+import { createWebhookHandlers } from '@/lib/factories/HandlerFactory'
+import { TestContainer } from '@/lib/containers/TestContainer'
 import {
   createMockNextRequest,
   mockUser,
@@ -20,37 +13,24 @@ import {
   cleanupTestEnvironment,
 } from '@/__tests__/mocks'
 
-// モック設定
-jest.mock('@/lib/supabase-server')
-jest.mock('@/lib/ngrok-url')
-jest.mock('@/lib/logger', () => ({
-  webhookLogger: {
-    error: jest.fn(),
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    child: jest.fn(() => ({
-      error: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-    })),
-  },
-}))
-
-const mockCreateServerSupabaseClient = jest.fn()
-const mockGetAppBaseUrl = jest.fn()
-
-require('@/lib/supabase-server').createServerSupabaseClient = mockCreateServerSupabaseClient
-require('@/lib/ngrok-url').getAppBaseUrl = mockGetAppBaseUrl
-
-describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
-  let mockSupabaseClient: any
+describe('/api/slack/webhook/route.ts - 依存性注入アプローチ', () => {
+  let testContainer: TestContainer
+  let webhookHandlers: any
 
   beforeEach(() => {
     setupTestEnvironment()
     cleanupTestEnvironment()
-    mockGetAppBaseUrl.mockReturnValue('http://localhost:3000')
+    
+    // TestContainerを作成（モック付き）
+    testContainer = new TestContainer()
+    
+    // App Base URLの設定
+    testContainer.updateUtilsMock({
+      getAppBaseUrl: jest.fn().mockReturnValue('http://localhost:3000')
+    })
+    
+    // ハンドラーの作成
+    webhookHandlers = createWebhookHandlers(testContainer)
   })
 
   afterEach(() => {
@@ -59,16 +39,17 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
 
   describe('GET - Webhookリスト取得', () => {
     it('認証されていない場合、401エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthError())
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証失敗をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockRejectedValue(new Error('Authentication failed'))
+      })
 
       const request = createMockNextRequest({ method: 'GET' })
-      const response = await GET(request as any)
+      const response = await webhookHandlers.GET(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(401)
-      expect(data.error).toBe('Unauthorized')
+      expect(data.error).toBe('Authentication failed')
     })
 
     it('Webhookリストを正常に取得する', async () => {
@@ -77,29 +58,44 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
         { ...mockSlackWebhook, id: '2' },
       ]
 
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess(mockWebhooks), // Webhookリスト取得
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
+      
+      // サービスがWebhookリストを返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        getUserWebhooks: jest.fn().mockResolvedValue({
+          success: true,
+          data: { webhooks: mockWebhooks }
+        })
+      })
 
       const request = createMockNextRequest({ method: 'GET' })
-      const response = await GET(request as any)
+      const response = await webhookHandlers.GET(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
-      expect(data.webhooks).toEqual(mockWebhooks)
+      expect(data).toEqual({ webhooks: mockWebhooks })
     })
 
     it('データベースエラーの場合、500エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseError(new Error('Database error')), // データベースエラー
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
+      
+      // サービスがエラーを返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        getUserWebhooks: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to fetch webhooks',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({ method: 'GET' })
-      const response = await GET(request as any)
+      const response = await webhookHandlers.GET(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -109,33 +105,35 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
 
   describe('POST - Webhook作成', () => {
     it('認証されていない場合、401エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthError())
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証失敗をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockRejectedValue(new Error('Authentication failed'))
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: { slack_connection_id: 'connection-id' },
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(401)
-      expect(data.error).toBe('Unauthorized')
+      expect(data.error).toBe('Authentication failed')
     })
 
     it('slack_connection_idが提供されていない場合、400エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: {},
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -143,18 +141,26 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
     })
 
     it('存在しないSlack接続IDの場合、404エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseNotFound(), // Slack接続が見つからない
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
+
+      // サービスが404エラーを返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        createUserWebhook: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Slack connection not found',
+          statusCode: 404
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: { slack_connection_id: 'invalid-id' },
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(404)
@@ -168,30 +174,34 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
         webhook_secret: 'generated-secret',
       }
 
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess(mockSlackConnection), // 1. Slack接続確認
-        mockSupabaseNotFound(), // 2. 既存webhook確認（なし）
-        mockSupabaseSuccess(createdWebhook), // 3. RPC関数でWebhook作成
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      // RPC関数のモック
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: createdWebhook,
-        error: null,
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
       })
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+
+      // サービスがWebhook作成成功を返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        createUserWebhook: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            webhook: createdWebhook,
+            message: 'Webhook created successfully'
+          },
+          statusCode: 201
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: { slack_connection_id: mockSlackConnection.id },
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(201)
       expect(data.webhook).toEqual(createdWebhook)
-      expect(data.webhook_url).toContain('/api/slack/events/user/')
+      expect(data.message).toBe('Webhook created successfully')
     })
 
     it('既存のWebhookを再有効化する', async () => {
@@ -205,20 +215,29 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
         is_active: true,
       }
 
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess(mockSlackConnection), // 1. Slack接続確認
-        mockSupabaseSuccess(existingWebhook), // 2. 既存webhook確認（あり）
-        mockSupabaseSuccess(reactivatedWebhook), // 3. Webhook再有効化
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
+
+      // サービスがWebhook再有効化を返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        createUserWebhook: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            webhook: reactivatedWebhook,
+            message: 'Webhook reactivated successfully'
+          },
+          statusCode: 200
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: { slack_connection_id: mockSlackConnection.id },
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -227,24 +246,26 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
     })
 
     it('Webhook作成に失敗した場合、500エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess(mockSlackConnection), // 1. Slack接続確認
-        mockSupabaseNotFound(), // 2. 既存webhook確認（なし）
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      // RPC関数のモック（失敗）
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: null,
-        error: new Error('RPC failed'),
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
       })
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+
+      // サービスが500エラーを返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        createUserWebhook: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to create webhook',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: { slack_connection_id: mockSlackConnection.id },
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -254,33 +275,35 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
 
   describe('DELETE - Webhook削除', () => {
     it('認証されていない場合、401エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthError())
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証失敗をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockRejectedValue(new Error('Authentication failed'))
+      })
 
       const request = createMockNextRequest({
         method: 'DELETE',
         url: `http://localhost:3000/api/slack/webhook?id=webhook-id`,
       })
 
-      const response = await DELETE(request as any)
+      const response = await webhookHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(401)
-      expect(data.error).toBe('Unauthorized')
+      expect(data.error).toBe('Authentication failed')
     })
 
     it('webhook_idが提供されていない場合、400エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
 
       const request = createMockNextRequest({
         method: 'DELETE',
         url: 'http://localhost:3000/api/slack/webhook',
       })
 
-      const response = await DELETE(request as any)
+      const response = await webhookHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(400)
@@ -288,18 +311,25 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
     })
 
     it('Webhookを正常に無効化する', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess(null), // Webhook無効化成功
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
+
+      // サービスがWebhook無効化成功を返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        deactivateWebhook: jest.fn().mockResolvedValue({
+          success: true,
+          data: {}
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'DELETE',
         url: `http://localhost:3000/api/slack/webhook?id=${mockSlackWebhook.webhook_id}`,
       })
 
-      const response = await DELETE(request as any)
+      const response = await webhookHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(200)
@@ -307,18 +337,26 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
     })
 
     it('Webhook削除に失敗した場合、500エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseError(new Error('Delete failed')), // Webhook削除失敗
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
+
+      // サービスが500エラーを返すようにモック
+      testContainer.updateServiceMock('webhookService', {
+        deactivateWebhook: jest.fn().mockResolvedValue({
+          success: false,
+          error: 'Failed to deactivate webhook',
+          statusCode: 500
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'DELETE',
         url: `http://localhost:3000/api/slack/webhook?id=${mockSlackWebhook.webhook_id}`,
       })
 
-      const response = await DELETE(request as any)
+      const response = await webhookHandlers.DELETE(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
@@ -328,30 +366,40 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
 
   describe('外部依存関係のテスト', () => {
     it('ngrok環境でのWebhook URL生成', async () => {
-      mockGetAppBaseUrl.mockReturnValue('https://abc123.ngrok.io')
+      // ngrok URLをモック
+      testContainer.updateUtilsMock({
+        getAppBaseUrl: jest.fn().mockReturnValue('https://abc123.ngrok.io')
+      })
       
       const createdWebhook = {
         ...mockSlackWebhook,
         webhook_id: 'test-id',
       }
 
-      mockSupabaseClient = createSlackEventsSupabaseClient([
-        mockSupabaseSuccess(mockSlackConnection), // 1. Slack接続確認
-        mockSupabaseNotFound(), // 2. 既存webhook確認（なし）
-      ])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockSupabaseClient.rpc.mockResolvedValue({
-        data: createdWebhook,
-        error: null,
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
       })
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+
+      // サービスがWebhook作成成功を返すようにモック（ngrok URL使用）
+      testContainer.updateServiceMock('webhookService', {
+        createUserWebhook: jest.fn().mockResolvedValue({
+          success: true,
+          data: {
+            webhook: createdWebhook,
+            webhook_url: 'https://abc123.ngrok.io/api/slack/events/user/test-id',
+            message: 'Webhook created successfully'
+          },
+          statusCode: 201
+        })
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: { slack_connection_id: mockSlackConnection.id },
       })
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(201)
@@ -361,36 +409,39 @@ describe('/api/slack/webhook/route.ts - 結果ベースアプローチ', () => {
 
   describe('エラーハンドリング', () => {
     it('JSON解析エラーの場合、500エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockResolvedValue(mockAuthSuccess(mockUser))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+      // 認証成功をモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockResolvedValue('test-user-id')
+      })
 
       const request = createMockNextRequest({
         method: 'POST',
         body: {},
       })
 
+      // JSON解析エラーをモック
       request.json = jest.fn().mockRejectedValue(new Error('JSON parse error'))
 
-      const response = await POST(request as any)
+      const response = await webhookHandlers.POST(request as any)
       const data = await response.json()
 
       expect(response.status).toBe(500)
       expect(data.error).toBe('Internal server error')
     })
 
-    it('認証サービスエラーの場合、500エラーを返す', async () => {
-      mockSupabaseClient = createSlackEventsSupabaseClient([])
-      mockSupabaseClient.auth.getUser.mockRejectedValue(new Error('Auth service error'))
-      mockCreateServerSupabaseClient.mockReturnValue(mockSupabaseClient)
+    it('認証サービスエラーの場合、401エラーを返す', async () => {
+      // 認証サービスエラーをモック
+      testContainer.updateAuthMock({
+        requireAuthentication: jest.fn().mockRejectedValue(new Error('Auth service error'))
+      })
 
       const request = createMockNextRequest({ method: 'GET' })
 
-      const response = await GET(request as any)
+      const response = await webhookHandlers.GET(request as any)
       const data = await response.json()
 
-      expect(response.status).toBe(500)
-      expect(data.error).toBe('Internal server error')
+      expect(response.status).toBe(401)
+      expect(data.error).toBe('Auth service error')
     })
   })
 })

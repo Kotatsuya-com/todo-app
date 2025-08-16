@@ -95,7 +95,7 @@ describe('WebhookService', () => {
       const result = await service.getUserWebhooks('user-123')
 
       expect(result.success).toBe(false)
-      expect(result.error).toEqual({ message: 'Database error', code: 'DB_ERROR' })
+      expect(result.error).toBe('Database error')
       expect(result.statusCode).toBe(500)
     })
 
@@ -326,7 +326,7 @@ describe('WebhookService', () => {
       const result = await service.deactivateWebhook('webhook-123', 'user-123')
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Failed to fetch user webhooks')
+      expect(result.error).toBe('Database error')
       expect(result.statusCode).toBe(500)
     })
 
