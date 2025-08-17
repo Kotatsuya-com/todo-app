@@ -51,6 +51,7 @@ describe('ClientLogger', () => {
 
     it('should use warn level in production by default', () => {
       mockProcessEnv({ NODE_ENV: 'production' })
+      delete process.env.NEXT_PUBLIC_CLIENT_LOG_LEVEL
 
       const logger = createClientLogger({})
 

@@ -3,18 +3,19 @@
  * AIタイトル生成のビジネスロジックとOrchestrationを担当
  */
 
-import OpenAI from 'openai'
 import { apiLogger } from '@/lib/logger'
 import {
   TitleGenerationEntity,
   TitleGenerationOptions
 } from '@/lib/entities/TitleGeneration'
-export interface TitleGenerationServiceResult<T> {
-  success: boolean
-  data?: T
-  error?: string
-  statusCode?: number
-}
+import {
+  ServiceResult,
+  createServiceSuccess,
+  createServiceError
+} from '@/__tests__/utils/typeHelpers'
+import { LLMRepositoryInterface } from '@/lib/repositories/LLMRepository'
+import { LLMRequestEntity } from '@/lib/entities/LLMRequest'
+import { LLMRepositoryFactory } from '@/lib/repositories/LLMRepositoryFactory'
 
 export interface TitleGenerationResponse {
   title: string
@@ -23,20 +24,18 @@ export interface TitleGenerationResponse {
     contentLength: number
     complexity: string
     temperature: number
+    provider?: string
+    quality?: string
+    processingTime?: number
   }
 }
 
 export class TitleGenerationService {
-  private openai: OpenAI
+  private llmRepository: LLMRepositoryInterface
 
-  constructor(apiKey?: string) {
-    if (!apiKey && !process.env.OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is required')
-    }
-
-    this.openai = new OpenAI({
-      apiKey: apiKey || process.env.OPENAI_API_KEY
-    })
+  constructor(llmRepository?: LLMRepositoryInterface) {
+    // Dependency Injection - LLMRepositoryを外部から注入
+    this.llmRepository = llmRepository || LLMRepositoryFactory.create()
   }
 
   /**
@@ -45,7 +44,7 @@ export class TitleGenerationService {
   async generateTitle(
     content: string,
     options?: TitleGenerationOptions
-  ): Promise<TitleGenerationServiceResult<TitleGenerationResponse>> {
+  ): Promise<ServiceResult<TitleGenerationResponse>> {
     const logger = apiLogger.child({ service: 'TitleGenerationService', method: 'generateTitle' })
 
     try {
@@ -55,28 +54,29 @@ export class TitleGenerationService {
 
       if (!validation.valid) {
         logger.warn({ errors: validation.errors }, 'Title generation validation failed')
-        return {
-          success: false,
-          error: validation.errors.join(', '),
-          statusCode: 400
-        }
+        return createServiceError<TitleGenerationResponse>(
+          'VALIDATION_ERROR',
+          validation.errors.join(', '),
+          400
+        )
       }
 
-      // 2. OpenAI API呼び出し
-      const generatedTitle = await this.callOpenAIAPI(entity)
+      // 2. LLM Repository呼び出し
+      const llmResult = await this.callLLMRepository(entity)
+      const generatedTitle = llmResult.content
 
       if (!generatedTitle) {
         logger.error('OpenAI API returned null or undefined result')
-        return {
-          success: false,
-          error: 'Failed to generate title from AI service',
-          statusCode: 500
-        }
+        return createServiceError<TitleGenerationResponse>(
+          'GENERATION_FAILED',
+          'Failed to generate title from AI service',
+          500
+        )
       }
 
       // 3. タイトル処理とレスポンス作成
       const processedTitle = entity.processGeneratedTitle(generatedTitle)
-      const response = this.createResponse(entity, processedTitle)
+      const response = this.createResponse(entity, processedTitle, llmResult.metadata)
 
       logger.info({
         contentLength: entity.contentLength,
@@ -84,10 +84,7 @@ export class TitleGenerationService {
         model: entity.options.model
       }, 'Title generated successfully')
 
-      return {
-        success: true,
-        data: response
-      }
+      return createServiceSuccess(response)
 
     } catch (error: any) {
       logger.error({
@@ -96,66 +93,98 @@ export class TitleGenerationService {
         contentLength: content?.length
       }, 'Title generation service error')
 
-      // OpenAI特有のエラーハンドリング
-      if (error.code === 'insufficient_quota') {
-        return {
-          success: false,
-          error: 'AI service quota exceeded',
-          statusCode: 429
-        }
+      // LLM Repository特有のエラーハンドリング
+      if (error.code === 'LLM_QUOTA_EXCEEDED') {
+        return createServiceError<TitleGenerationResponse>(
+          'QUOTA_EXCEEDED',
+          'LLM service quota exceeded',
+          429,
+          undefined,
+          error
+        )
       }
 
-      if (error.code === 'rate_limit_exceeded') {
-        return {
-          success: false,
-          error: 'AI service rate limit exceeded',
-          statusCode: 429
-        }
+      if (error.code === 'LLM_RATE_LIMIT') {
+        return createServiceError<TitleGenerationResponse>(
+          'RATE_LIMIT_EXCEEDED',
+          'LLM service rate limit exceeded',
+          429,
+          undefined,
+          error
+        )
       }
 
-      return {
-        success: false,
-        error: 'Internal server error during title generation',
-        statusCode: 500
+      if (error.code === 'LLM_AUTH_ERROR') {
+        return createServiceError<TitleGenerationResponse>(
+          'AUTH_ERROR',
+          'LLM authentication failed',
+          401,
+          undefined,
+          error
+        )
       }
+
+      return createServiceError<TitleGenerationResponse>(
+        'INTERNAL_ERROR',
+        'Internal server error during title generation',
+        500,
+        undefined,
+        error
+      )
     }
   }
 
   /**
-   * OpenAI APIを呼び出してタイトルを生成
+   * LLM Repositoryを呼び出してタイトルを生成
    */
-  private async callOpenAIAPI(entity: TitleGenerationEntity): Promise<string | null> {
-    const logger = apiLogger.child({ service: 'TitleGenerationService', method: 'callOpenAIAPI' })
+  private async callLLMRepository(entity: TitleGenerationEntity): Promise<{ content: string | null; metadata: any }> {
+    const logger = apiLogger.child({ service: 'TitleGenerationService', method: 'callLLMRepository' })
 
     try {
-      const apiParams = entity.generateApiParameters()
+      // TitleGenerationEntityからLLMRequestEntityを作成
+      const llmRequest = LLMRequestEntity.createTitleGenerationRequest(
+        entity.content,
+        {
+          model: entity.options.model,
+          temperature: entity.options.temperature,
+          maxTokens: entity.options.maxTokens
+        }
+      )
 
       logger.debug({
-        model: apiParams.model,
-        temperature: apiParams.temperature,
-        maxTokens: apiParams.max_tokens,
+        provider: this.llmRepository.getProviderInfo().name,
+        model: llmRequest.options.model,
+        temperature: llmRequest.options.temperature,
+        maxTokens: llmRequest.options.maxTokens,
         contentLength: entity.contentLength
-      }, 'Calling OpenAI API')
+      }, 'Calling LLM Repository')
 
-      const completion = await this.openai.chat.completions.create(apiParams)
+      const result = await this.llmRepository.executeRequest(llmRequest)
 
-      const generatedContent = completion.choices[0]?.message?.content
+      if (result.error) {
+        throw result.error
+      }
+
+      const response = result.data!
+      const generatedContent = response.getTitleContent()
+      const metadata = response.createMetadata()
 
       logger.debug({
         hasResult: !!generatedContent,
         resultLength: generatedContent?.length,
-        usage: completion.usage
-      }, 'OpenAI API response received')
+        quality: metadata.quality,
+        processingTime: metadata.processingTime
+      }, 'LLM Repository response received')
 
-      return generatedContent
+      return { content: generatedContent, metadata }
 
     } catch (error: any) {
       logger.error({
         error: error.message,
         code: error.code,
-        type: error.type,
+        provider: this.llmRepository.getProviderInfo().name,
         contentLength: entity.contentLength
-      }, 'OpenAI API call failed')
+      }, 'LLM Repository call failed')
 
       // エラーを再スローして上位でハンドリング
       throw error
@@ -167,17 +196,21 @@ export class TitleGenerationService {
    */
   private createResponse(
     entity: TitleGenerationEntity,
-    generatedTitle: string
+    generatedTitle: string,
+    llmMetadata?: any
   ): TitleGenerationResponse {
     const complexity = entity.getContentComplexity()
 
     return {
       title: generatedTitle,
       metadata: {
-        model: entity.options.model!,
+        model: llmMetadata?.model || entity.options.model!,
         contentLength: entity.contentLength,
         complexity,
-        temperature: entity.options.temperature!
+        temperature: entity.options.temperature!,
+        provider: llmMetadata?.provider,
+        quality: llmMetadata?.quality,
+        processingTime: llmMetadata?.processingTime
       }
     }
   }
@@ -188,24 +221,24 @@ export class TitleGenerationService {
   async generateTitlesBatch(
     contents: string[],
     options?: TitleGenerationOptions
-  ): Promise<TitleGenerationServiceResult<TitleGenerationResponse[]>> {
+  ): Promise<ServiceResult<TitleGenerationResponse[]>> {
     const logger = apiLogger.child({ service: 'TitleGenerationService', method: 'generateTitlesBatch' })
 
     if (!contents || contents.length === 0) {
-      return {
-        success: false,
-        error: 'No content provided for batch processing',
-        statusCode: 400
-      }
+      return createServiceError<TitleGenerationResponse[]>(
+        'EMPTY_BATCH',
+        'No content provided for batch processing',
+        400
+      )
     }
 
     const maxBatchSize = 10
     if (contents.length > maxBatchSize) {
-      return {
-        success: false,
-        error: `Batch size cannot exceed ${maxBatchSize} items`,
-        statusCode: 400
-      }
+      return createServiceError<TitleGenerationResponse[]>(
+        'BATCH_SIZE_EXCEEDED',
+        `Batch size cannot exceed ${maxBatchSize} items`,
+        400
+      )
     }
 
     try {
@@ -219,11 +252,11 @@ export class TitleGenerationService {
       const errors: string[] = []
 
       results.forEach((result, index) => {
-        if (result.status === 'fulfilled' && result.value.success) {
-          responses.push(result.value.data!)
+        if (result.status === 'fulfilled' && result.value.data) {
+          responses.push(result.value.data)
         } else {
           const errorMsg = result.status === 'fulfilled'
-            ? result.value.error
+            ? result.value.error?.message || 'Unknown error'
             : result.reason?.message || 'Unknown error'
           errors.push(`Item ${index}: ${errorMsg}`)
         }
@@ -232,11 +265,11 @@ export class TitleGenerationService {
       if (errors.length === results.length) {
         // 全て失敗
         logger.error({ errors }, 'All batch items failed')
-        return {
-          success: false,
-          error: 'All items in batch failed to process',
-          statusCode: 500
-        }
+        return createServiceError<TitleGenerationResponse[]>(
+          'BATCH_ALL_FAILED',
+          'All items in batch failed to process',
+          500
+        )
       }
 
       if (errors.length > 0) {
@@ -250,45 +283,48 @@ export class TitleGenerationService {
         logger.info({ successCount: responses.length }, 'Batch completed successfully')
       }
 
-      return {
-        success: true,
-        data: responses
-      }
+      return createServiceSuccess(responses)
 
     } catch (error: any) {
       logger.error({ error: error.message, batchSize: contents.length }, 'Batch processing failed')
-      return {
-        success: false,
-        error: 'Batch processing failed',
-        statusCode: 500
-      }
+      return createServiceError<TitleGenerationResponse[]>(
+        'BATCH_ERROR',
+        'Batch processing failed',
+        500,
+        undefined,
+        error
+      )
     }
   }
 
   /**
    * サービスのヘルスチェック
    */
-  async healthCheck(): Promise<TitleGenerationServiceResult<{ status: string; model: string }>> {
+  async healthCheck(): Promise<ServiceResult<{ status: string; model: string }>> {
     try {
-      const testEntity = TitleGenerationEntity.fromContent('テストタスク')
-      const apiParams = testEntity.generateApiParameters()
+      // LLM Repositoryのヘルスチェック
+      const healthResult = await this.llmRepository.checkHealth()
 
-      // モデル情報のみ取得してサービスが利用可能か確認
-      const response = await this.openai.models.retrieve(apiParams.model)
-
-      return {
-        success: true,
-        data: {
-          status: 'healthy',
-          model: response.id
-        }
+      if (healthResult.error) {
+        throw healthResult.error
       }
+
+      const healthData = healthResult.data!
+
+      return createServiceSuccess({
+        status: healthData.status,
+        model: healthData.model,
+        provider: healthData.provider,
+        latency: healthData.latency
+      })
     } catch (error: any) {
-      return {
-        success: false,
-        error: 'Service unavailable',
-        statusCode: 503
-      }
+      return createServiceError<{ status: string; model: string }>(
+        'SERVICE_UNAVAILABLE',
+        'Service unavailable',
+        503,
+        undefined,
+        error
+      )
     }
   }
 }

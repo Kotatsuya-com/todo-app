@@ -45,11 +45,13 @@ describe('SlackAuthService', () => {
       getDirectSlackUserId: jest.fn()
     }
 
-    service = new SlackAuthService(mockSlackRepo)
+    // Use very short retry delay for testing (1ms instead of 1000ms)
+    service = new SlackAuthService(mockSlackRepo, 1)
 
     // Reset fetch mock
     jest.clearAllMocks()
   })
+
 
   describe('processOAuthCallback', () => {
     const validTokenExchangeRequest = {
@@ -66,8 +68,8 @@ describe('SlackAuthService', () => {
 
       // Mock successful user validation
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: true,
-        data: { id: userId } as UserWithSettings
+        data: { id: userId } as UserWithSettings,
+        error: null
       })
 
       // Mock successful token exchange
@@ -79,26 +81,26 @@ describe('SlackAuthService', () => {
 
       // Mock successful connection creation
       mockSlackRepo.upsertConnection.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       // Mock successful user update
       mockSlackRepo.updateUserSlackId.mockResolvedValue({
-        success: true,
-        data: undefined
+        data: undefined,
+        error: null
       })
 
       // Mock successful verification
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: 'U1234567890' }
+        data: { slack_user_id: 'U1234567890' },
+        error: null
       })
 
       // Mock successful webhook creation
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: true,
-        data: { webhook_id: 'webhook-123' } as any
+        data: { webhook_id: 'webhook-123' } as any,
+        error: null
       })
 
       const result = await service.processOAuthCallback(
@@ -117,8 +119,8 @@ describe('SlackAuthService', () => {
 
     it('should fail when user does not exist', async () => {
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: false,
-        error: { code: 'PGRST116', message: 'User not found' }
+        data: null,
+        error: { code: 'PGRST116', message: 'User not found' } as any
       })
 
       const result = await service.processOAuthCallback(
@@ -136,8 +138,8 @@ describe('SlackAuthService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: true,
-        data: { id: userId } as UserWithSettings
+        data: { id: userId } as UserWithSettings,
+        error: null
       })
 
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
@@ -163,8 +165,8 @@ describe('SlackAuthService', () => {
       const mockTokenData = createMockSlackOAuthTokenData()
 
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: true,
-        data: { id: userId } as UserWithSettings
+        data: { id: userId } as UserWithSettings,
+        error: null
       })
 
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
@@ -174,24 +176,24 @@ describe('SlackAuthService', () => {
       } as Response)
 
       mockSlackRepo.upsertConnection.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       mockSlackRepo.updateUserSlackId.mockResolvedValue({
-        success: true,
-        data: undefined
+        data: undefined,
+        error: null
       })
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: 'U1234567890' }
+        data: { slack_user_id: 'U1234567890' },
+        error: null
       })
 
       // Mock webhook creation failure
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: false,
-        error: { message: 'Webhook creation failed' }
+        data: null,
+        error: new Error('Webhook creation failed')
       })
 
       const result = await service.processOAuthCallback(
@@ -224,8 +226,8 @@ describe('SlackAuthService', () => {
     it('should validate existing user successfully', async () => {
       const userId = 'user-123'
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: true,
-        data: { id: userId } as UserWithSettings
+        data: { id: userId } as UserWithSettings,
+        error: null
       })
 
       const result = await service.validateUserExists(userId)
@@ -236,8 +238,8 @@ describe('SlackAuthService', () => {
 
     it('should return 404 for non-existent user', async () => {
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: false,
-        error: { code: 'PGRST116', message: 'User not found' }
+        data: null,
+        error: { code: 'PGRST116', message: 'User not found' } as any
       })
 
       const result = await service.validateUserExists('non-existent')
@@ -249,8 +251,8 @@ describe('SlackAuthService', () => {
 
     it('should return 500 for other database errors', async () => {
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: false,
-        error: { code: 'DB_ERROR', message: 'Database connection failed' }
+        data: null,
+        error: new Error('Database connection failed')
       })
 
       const result = await service.validateUserExists('user-123')
@@ -367,8 +369,8 @@ describe('SlackAuthService', () => {
       })
 
       mockSlackRepo.upsertConnection.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       // Create a mock OAuth entity
@@ -406,8 +408,8 @@ describe('SlackAuthService', () => {
       }
 
       mockSlackRepo.upsertConnection.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error' }
+        data: null,
+        error: new Error('Database error')
       })
 
       const result = await service.createSlackConnection(userId, mockOAuthEntity as any)
@@ -440,13 +442,13 @@ describe('SlackAuthService', () => {
       const slackUserId = 'U1234567890'
 
       mockSlackRepo.updateUserSlackId.mockResolvedValue({
-        success: true,
-        data: undefined
+        data: undefined,
+        error: null
       })
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: slackUserId }
+        data: { slack_user_id: slackUserId },
+        error: null
       })
 
       const result = await service.updateUserSlackId(userId, slackUserId)
@@ -474,13 +476,13 @@ describe('SlackAuthService', () => {
 
       // First two attempts fail, third succeeds
       mockSlackRepo.updateUserSlackId
-        .mockResolvedValueOnce({ success: false, error: { message: 'DB Error 1' } })
-        .mockResolvedValueOnce({ success: false, error: { message: 'DB Error 2' } })
-        .mockResolvedValueOnce({ success: true, data: undefined })
+        .mockResolvedValueOnce({ data: null, error: new Error('DB Error 1') })
+        .mockResolvedValueOnce({ data: null, error: new Error('DB Error 2') })
+        .mockResolvedValueOnce({ data: undefined, error: null })
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: slackUserId }
+        data: { slack_user_id: slackUserId },
+        error: null
       })
 
       const result = await service.updateUserSlackId(userId, slackUserId)
@@ -494,8 +496,8 @@ describe('SlackAuthService', () => {
       const slackUserId = 'U1234567890'
 
       mockSlackRepo.updateUserSlackId.mockResolvedValue({
-        success: false,
-        error: { message: 'Persistent DB Error' }
+        data: null,
+        error: new Error('Persistent DB Error')
       })
 
       const result = await service.updateUserSlackId(userId, slackUserId)
@@ -511,13 +513,13 @@ describe('SlackAuthService', () => {
       const slackUserId = 'U1234567890'
 
       mockSlackRepo.updateUserSlackId.mockResolvedValue({
-        success: true,
-        data: undefined
+        data: undefined,
+        error: null
       })
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: 'U9999999999' } // Different ID
+        data: { slack_user_id: 'U9999999999' }, // Different ID
+        error: null
       })
 
       const result = await service.updateUserSlackId(userId, slackUserId)
@@ -533,8 +535,8 @@ describe('SlackAuthService', () => {
       const slackUserId = 'U1234567890'
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: slackUserId }
+        data: { slack_user_id: slackUserId },
+        error: null
       })
 
       const result = await service.verifyUserSlackIdUpdate(userId, slackUserId)
@@ -547,8 +549,8 @@ describe('SlackAuthService', () => {
       const slackUserId = 'U1234567890'
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: null }
+        data: { slack_user_id: null },
+        error: null
       })
 
       const result = await service.verifyUserSlackIdUpdate(userId, slackUserId)
@@ -563,8 +565,8 @@ describe('SlackAuthService', () => {
       const actualSlackUserId = 'U9999999999'
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: true,
-        data: { slack_user_id: actualSlackUserId }
+        data: { slack_user_id: actualSlackUserId },
+        error: null
       })
 
       const result = await service.verifyUserSlackIdUpdate(userId, expectedSlackUserId)
@@ -578,8 +580,8 @@ describe('SlackAuthService', () => {
       const slackUserId = 'U1234567890'
 
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error' }
+        data: null,
+        error: new Error('Database error')
       })
 
       const result = await service.verifyUserSlackIdUpdate(userId, slackUserId)
@@ -595,8 +597,8 @@ describe('SlackAuthService', () => {
       const connectionId = 'conn-123'
 
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: true,
-        data: { webhook_id: 'webhook-123' } as any
+        data: { webhook_id: 'webhook-123' } as any,
+        error: null
       })
 
       const result = await service.autoCreateWebhook(userId, connectionId)
@@ -618,8 +620,8 @@ describe('SlackAuthService', () => {
       const connectionId = 'conn-123'
 
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: false,
-        error: { message: 'Webhook creation failed' }
+        data: null,
+        error: new Error('Webhook creation failed')
       })
 
       const result = await service.autoCreateWebhook(userId, connectionId)
@@ -653,8 +655,8 @@ describe('SlackAuthService', () => {
       ]
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: mockConnections
+        data: mockConnections,
+        error: null
       })
 
       const result = await service.findConnectionByWorkspace(userId, workspaceId)
@@ -671,8 +673,8 @@ describe('SlackAuthService', () => {
       ]
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: mockConnections
+        data: mockConnections,
+        error: null
       })
 
       const result = await service.findConnectionByWorkspace(userId, workspaceId)
@@ -687,8 +689,8 @@ describe('SlackAuthService', () => {
       const workspaceId = 'T1234567890'
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error' }
+        data: [],
+        error: new Error('Database error')
       })
 
       const result = await service.findConnectionByWorkspace(userId, workspaceId)
@@ -709,8 +711,8 @@ describe('SlackAuthService', () => {
     it('should handle special characters in user IDs', async () => {
       const specialUserId = 'user-with-special@chars#123'
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: true,
-        data: { id: specialUserId } as UserWithSettings
+        data: { id: specialUserId } as UserWithSettings,
+        error: null
       })
 
       const result = await service.validateUserExists(specialUserId)

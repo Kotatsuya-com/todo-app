@@ -64,7 +64,8 @@ export class EmojiSettingsService {
         data: {
           settings,
           availableEmojis: EmojiSettingsEntity.getAvailableEmojis()
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -118,7 +119,8 @@ export class EmojiSettingsService {
         data: {
           message: 'Settings updated successfully',
           settings: result.data
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -161,7 +163,8 @@ export class EmojiSettingsService {
         data: {
           message: 'Settings reset to default',
           settings: result.data
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -249,7 +252,8 @@ export class EmojiSettingsService {
           defaultUsers,
           customUsers,
           popularEmojis
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -286,7 +290,8 @@ export class EmojiSettingsService {
 
       return {
         success: true,
-        data: result.data || []
+        data: result.data || [],
+        error: undefined
       }
     } catch (error) {
       return {

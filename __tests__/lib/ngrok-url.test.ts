@@ -4,6 +4,7 @@
 import fs from 'fs'
 import path from 'path'
 import { getNgrokUrl, getAppBaseUrl } from '@/lib/ngrok-url'
+import { MockNextRequest } from '@/__tests__/utils/typeHelpers'
 
 // Mock fs module
 jest.mock('fs')
@@ -165,15 +166,15 @@ describe('ngrok-url.ts', () => {
     })
 
     it('should extract origin from request URL when environment variables are not available', () => {
-      const mockRequest = {
+      const mockRequest: MockNextRequest = {
         url: 'https://example.com/api/test?param=value'
-      } as Request
+      }
 
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(false)
       delete process.env.NEXT_PUBLIC_APP_URL
 
-      const result = getAppBaseUrl(mockRequest)
+      const result = getAppBaseUrl(mockRequest as any)
 
       expect(result).toBe('https://example.com')
     })
@@ -202,14 +203,14 @@ describe('ngrok-url.ts', () => {
     })
 
     it('should handle complex request URLs correctly', () => {
-      const mockRequest = {
+      const mockRequest: MockNextRequest = {
         url: 'https://subdomain.example.com:3000/api/webhooks/slack?id=123&timestamp=456'
-      } as Request
+      }
 
       mockPath.join.mockReturnValue('/mock/project/.env.runtime')
       mockFs.existsSync.mockReturnValue(false)
 
-      const result = getAppBaseUrl(mockRequest)
+      const result = getAppBaseUrl(mockRequest as any)
 
       expect(result).toBe('https://subdomain.example.com:3000')
     })

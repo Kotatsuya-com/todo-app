@@ -4,14 +4,14 @@
 
 // pinoをモック
 jest.mock('pino', () => {
-  const mockLogger = {
+  const mockLogger: any = {
     debug: jest.fn(),
     info: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
-    child: jest.fn(() => mockLogger)
+    child: jest.fn((): any => mockLogger)
   }
-  const mockPino = jest.fn(() => mockLogger)
+  const mockPino = jest.fn(() => mockLogger) as any
   mockPino.stdTimeFunctions = {
     isoTime: jest.fn()
   }

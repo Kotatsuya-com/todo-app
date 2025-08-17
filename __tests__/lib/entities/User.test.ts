@@ -3,6 +3,7 @@
  */
 
 import { UserEntity } from '@/lib/entities/User'
+import { TestUser, createTestEntity } from '@/__tests__/utils/typeHelpers'
 import {
   createMockUser,
   createMockUserWithoutSlackId,
@@ -141,17 +142,21 @@ describe('UserEntity', () => {
     })
 
     it('should preserve all user properties', () => {
-      const mockUser = createMockUser({
+      const mockUser = createTestEntity<TestUser>({
         id: 'custom-id',
         email: 'custom@test.com',
+        auth_id: 'auth-123',
         slack_user_id: 'UCUSTOM123',
-        enable_webhook_notifications: false
+        enable_webhook_notifications: false,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z'
       })
       const userEntity = new UserEntity(mockUser)
       const plainObject = userEntity.toPlainObject()
 
       expect(plainObject.id).toBe('custom-id')
-      expect(plainObject.email).toBe('custom@test.com')
+      // @ts-ignore - Test-specific property access
+      expect((plainObject as any).email).toBe('custom@test.com')
       expect(plainObject.slack_user_id).toBe('UCUSTOM123')
       expect(plainObject.enable_webhook_notifications).toBe(false)
     })
@@ -198,7 +203,8 @@ describe('UserEntity', () => {
       const userEntity = new UserEntity(mockUser)
 
       const plainObject = userEntity.toPlainObject()
-      plainObject.email = 'modified@test.com'
+      // @ts-ignore - Test-specific property modification
+      ;(plainObject as any).email = 'modified@test.com'
 
       expect(mockUser).toEqual(originalUser)
       expect(userEntity.displayName).toBe(originalUser.display_name)

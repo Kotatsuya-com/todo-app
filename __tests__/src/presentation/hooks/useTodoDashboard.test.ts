@@ -23,13 +23,11 @@ const mockCreateTodoUseCases = createTodoUseCases as jest.MockedFunction<typeof 
 // Mock user
 const mockUser = new UserEntity({
   id: 'test-user-id',
-  email: 'test@example.com',
-  displayName: 'Test User',
-  avatarUrl: null,
-  totalTodos: 5,
-  completedTodos: 2,
-  createdAt: '2025-08-01T10:00:00Z',
-  updatedAt: '2025-08-03T10:00:00Z'
+  display_name: 'Test User',
+  avatar_url: null,
+  slack_user_id: null,
+  enable_webhook_notifications: false,
+  created_at: '2025-08-01T10:00:00Z'
 })
 
 // Mock todos - using snake_case properties matching TodoData interface
@@ -51,7 +49,7 @@ const mockTodos = [
     user_id: 'test-user-id',
     title: 'Not Urgent Important Todo',
     body: 'This is important but not urgent',
-    deadline: '2025-08-10',
+    deadline: '2025-09-15', // 更に未来の日付にして確実に緊急でないようにする
     importance_score: 1500,
     status: 'open',
     created_at: '2025-08-01T10:00:00Z',
@@ -74,12 +72,20 @@ const mockTodos = [
 
 // Mock TodoUseCases
 const mockTodoUseCases = {
-  getTodoDashboard: jest.fn(),
+  getTodos: jest.fn(),
+  getTodoById: jest.fn(),
+  createTodo: jest.fn(),
+  updateTodo: jest.fn(),
   completeTodo: jest.fn(),
   reopenTodo: jest.fn(),
   deleteTodo: jest.fn(),
-  updateTodo: jest.fn()
-}
+  getTodoDashboard: jest.fn(),
+  updateImportanceScores: jest.fn(),
+  getActiveTodos: jest.fn(),
+  getOverdueTodos: jest.fn(),
+  getCompletionReport: jest.fn(),
+  createComparison: jest.fn()
+} as any
 
 describe('useTodoDashboard', () => {
   beforeEach(() => {
@@ -460,11 +466,11 @@ describe('useTodoDashboard', () => {
   describe('Slack Redirect Handling', () => {
     beforeEach(() => {
       // Mock window.location
-      delete (window as Window & typeof globalThis).location
-      window.location = {
+      delete (window as any).location;
+      (window as any).location = {
         search: '',
         href: ''
-      } as Location
+      }
     })
 
     it('should handle Slack auth redirect when parameters are present', async () => {

@@ -70,7 +70,7 @@ describe('UrlDetectionService', () => {
   describe('detectAppUrl', () => {
     beforeEach(() => {
       // Set up default environment
-      process.env.NEXT_PUBLIC_APP_URL = null
+      delete process.env.NEXT_PUBLIC_APP_URL
     })
 
     it('should detect app URL successfully with ngrok file', async () => {

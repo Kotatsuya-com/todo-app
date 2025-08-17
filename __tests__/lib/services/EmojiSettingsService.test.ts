@@ -5,13 +5,6 @@
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { DEFAULT_EMOJI_SETTINGS, AVAILABLE_EMOJIS } from '@/lib/entities/EmojiSettings'
 import {
-  MockEmojiSettingsRepository,
-  createMockEmojiSettingsRepository,
-  createMockEmojiSettingsRepositoryWithMultipleUsers,
-  createFailingMockEmojiSettingsRepository,
-  createEmptyMockEmojiSettingsRepository
-} from '@/__tests__/mocks/emoji-settings'
-import {
   createMockEmojiSetting,
   createMockCustomEmojiSetting,
   createMockValidEmojiUpdateRequest,
@@ -19,6 +12,13 @@ import {
   createMockDuplicateEmojiUpdateRequest,
   EXPECTED_EMOJI_STATISTICS
 } from '@/__tests__/fixtures/emoji-settings.fixture'
+import {
+  MockEmojiSettingsRepository,
+  createMockEmojiSettingsRepository,
+  createMockEmojiSettingsRepositoryWithMultipleUsers,
+  createEmptyMockEmojiSettingsRepository,
+  createFailingMockEmojiSettingsRepository
+} from '@/__tests__/mocks/repositories/EmojiSettingsRepository.mock'
 
 describe('EmojiSettingsService', () => {
   let service: EmojiSettingsService
@@ -36,21 +36,21 @@ describe('EmojiSettingsService', () => {
   describe('getUserEmojiSettings', () => {
     it('should return existing user settings with available emojis', async () => {
       const mockSettings = createMockEmojiSetting()
-      mockRepository.setMockData([mockSettings])
+      mockRepository.setUserSettings('user-123', mockSettings)
 
       const result = await service.getUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.settings).toEqual(mockSettings)
       expect(result.data?.availableEmojis).toEqual(AVAILABLE_EMOJIS)
     })
 
     it('should return default settings when user has no settings', async () => {
-      mockRepository.setShouldReturnEmpty(true)
+      mockRepository.setUserNotFound('user-123')
 
       const result = await service.getUserEmojiSettings('new-user')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.settings.user_id).toBe('new-user')
       expect(result.data?.settings.today_emoji).toBe(DEFAULT_EMOJI_SETTINGS.today_emoji)
       expect(result.data?.settings.tomorrow_emoji).toBe(DEFAULT_EMOJI_SETTINGS.tomorrow_emoji)
@@ -59,11 +59,11 @@ describe('EmojiSettingsService', () => {
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setShouldFail(true)
+      mockRepository.setMockError('findByUserId:user-123', 'Database error')
 
       const result = await service.getUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to fetch emoji settings')
       expect(result.statusCode).toBe(500)
     })
@@ -78,7 +78,7 @@ describe('EmojiSettingsService', () => {
       const serviceWithThrowingRepo = new EmojiSettingsService(throwingRepository)
       const result = await serviceWithThrowingRepo.getUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
       expect(result.statusCode).toBe(500)
     })
@@ -86,7 +86,7 @@ describe('EmojiSettingsService', () => {
     it('should return copy of available emojis, not reference', async () => {
       const result = await service.getUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.availableEmojis).not.toBe(AVAILABLE_EMOJIS)
       expect(result.data?.availableEmojis).toEqual(AVAILABLE_EMOJIS)
     })
@@ -96,10 +96,11 @@ describe('EmojiSettingsService', () => {
     it('should update user settings with valid request', async () => {
       const updateRequest = createMockValidEmojiUpdateRequest()
       const updatedSettings = createMockCustomEmojiSetting()
+      mockRepository.setUpsertSuccess('user-123', updatedSettings)
 
       const result = await service.updateUserEmojiSettings('user-123', updateRequest)
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.message).toBe('Settings updated successfully')
       expect(result.data?.settings.today_emoji).toBe(updateRequest.today_emoji)
       expect(result.data?.settings.tomorrow_emoji).toBe(updateRequest.tomorrow_emoji)
@@ -111,7 +112,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await service.updateUserEmojiSettings('user-123', invalidRequest)
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toContain('Invalid emoji selection')
       expect(result.statusCode).toBe(400)
     })
@@ -121,19 +122,19 @@ describe('EmojiSettingsService', () => {
 
       const result = await service.updateUserEmojiSettings('user-123', duplicateRequest)
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toContain('Invalid emoji selection')
       expect(result.error).toContain('must be unique')
       expect(result.statusCode).toBe(400)
     })
 
     it('should handle repository errors during update', async () => {
-      mockRepository.setShouldFail(true)
+      mockRepository.setMockError('upsert:user-123', 'Database error')
       const validRequest = createMockValidEmojiUpdateRequest()
 
       const result = await service.updateUserEmojiSettings('user-123', validRequest)
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to update emoji settings')
       expect(result.statusCode).toBe(500)
     })
@@ -148,7 +149,7 @@ describe('EmojiSettingsService', () => {
       const validRequest = createMockValidEmojiUpdateRequest()
       const result = await service.updateUserEmojiSettings('user-123', validRequest)
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to update emoji settings - no data returned')
       expect(result.statusCode).toBe(500)
 
@@ -167,18 +168,28 @@ describe('EmojiSettingsService', () => {
       const validRequest = createMockValidEmojiUpdateRequest()
       const result = await serviceWithThrowingRepo.updateUserEmojiSettings('user-123', validRequest)
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
       expect(result.statusCode).toBe(500)
     })
 
     it('should create new settings for user without existing settings', async () => {
-      mockRepository.clearMockData() // Start with empty repository
+      mockRepository.setUserNotFound('new-user') // Start with empty repository
       const validRequest = createMockValidEmojiUpdateRequest()
+      const expectedSettings = {
+        id: 'emoji-new',
+        user_id: 'new-user',
+        today_emoji: validRequest.today_emoji,
+        tomorrow_emoji: validRequest.tomorrow_emoji,
+        later_emoji: validRequest.later_emoji,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z'
+      }
+      mockRepository.setUpsertSuccess('new-user', expectedSettings)
 
       const result = await service.updateUserEmojiSettings('new-user', validRequest)
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.settings.user_id).toBe('new-user')
       expect(result.data?.settings.today_emoji).toBe(validRequest.today_emoji)
     })
@@ -186,9 +197,20 @@ describe('EmojiSettingsService', () => {
 
   describe('resetUserEmojiSettings', () => {
     it('should reset user settings to defaults', async () => {
+      const expectedSettings = {
+        id: 'emoji-1',
+        user_id: 'user-123',
+        today_emoji: DEFAULT_EMOJI_SETTINGS.today_emoji,
+        tomorrow_emoji: DEFAULT_EMOJI_SETTINGS.tomorrow_emoji,
+        later_emoji: DEFAULT_EMOJI_SETTINGS.later_emoji,
+        created_at: '2023-01-01T00:00:00Z',
+        updated_at: '2023-01-01T00:00:00Z'
+      }
+      mockRepository.setUpsertSuccess('user-123', expectedSettings)
+
       const result = await service.resetUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.message).toBe('Settings reset to default')
       expect(result.data?.settings.today_emoji).toBe(DEFAULT_EMOJI_SETTINGS.today_emoji)
       expect(result.data?.settings.tomorrow_emoji).toBe(DEFAULT_EMOJI_SETTINGS.tomorrow_emoji)
@@ -196,11 +218,11 @@ describe('EmojiSettingsService', () => {
     })
 
     it('should handle repository errors during reset', async () => {
-      mockRepository.setShouldFail(true)
+      mockRepository.setMockError('upsert:user-123', 'Database error')
 
       const result = await service.resetUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to reset emoji settings')
       expect(result.statusCode).toBe(500)
     })
@@ -214,7 +236,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await service.resetUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to reset emoji settings - no data returned')
       expect(result.statusCode).toBe(500)
 
@@ -232,18 +254,28 @@ describe('EmojiSettingsService', () => {
       const serviceWithThrowingRepo = new EmojiSettingsService(throwingRepository)
       const result = await serviceWithThrowingRepo.resetUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
       expect(result.statusCode).toBe(500)
     })
 
     it('should reset custom settings to defaults', async () => {
       const customSettings = createMockCustomEmojiSetting()
-      mockRepository.setMockData([customSettings])
+      mockRepository.setUserSettings('user-123', customSettings)
+      const expectedSettings = {
+        id: customSettings.id,
+        user_id: customSettings.user_id,
+        today_emoji: DEFAULT_EMOJI_SETTINGS.today_emoji,
+        tomorrow_emoji: DEFAULT_EMOJI_SETTINGS.tomorrow_emoji,
+        later_emoji: DEFAULT_EMOJI_SETTINGS.later_emoji,
+        created_at: customSettings.created_at,
+        updated_at: '2023-01-01T00:00:00Z'
+      }
+      mockRepository.setUpsertSuccess(customSettings.user_id, expectedSettings)
 
       const result = await service.resetUserEmojiSettings(customSettings.user_id)
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.settings.today_emoji).toBe(DEFAULT_EMOJI_SETTINGS.today_emoji)
       expect(result.data?.settings.tomorrow_emoji).toBe(DEFAULT_EMOJI_SETTINGS.tomorrow_emoji)
       expect(result.data?.settings.later_emoji).toBe(DEFAULT_EMOJI_SETTINGS.later_emoji)
@@ -316,7 +348,7 @@ describe('EmojiSettingsService', () => {
     it('should return correct usage statistics', async () => {
       const result = await service.getEmojiUsageStats()
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.totalUsers).toEqual(EXPECTED_EMOJI_STATISTICS.totalUsers)
       expect(result.data?.defaultUsers).toEqual(EXPECTED_EMOJI_STATISTICS.defaultUsers)
       expect(result.data?.customUsers).toEqual(EXPECTED_EMOJI_STATISTICS.customUsers)
@@ -332,14 +364,14 @@ describe('EmojiSettingsService', () => {
     it('should limit popular emojis to top 10', async () => {
       const result = await service.getEmojiUsageStats()
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.popularEmojis.length).toBeLessThanOrEqual(10)
     })
 
     it('should sort popular emojis by count descending', async () => {
       const result = await service.getEmojiUsageStats()
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       const popularEmojis = result.data?.popularEmojis || []
 
       for (let i = 1; i < popularEmojis.length; i++) {
@@ -348,11 +380,11 @@ describe('EmojiSettingsService', () => {
     })
 
     it('should handle repository error for default users count', async () => {
-      mockRepository.setShouldFail(true)
+      mockRepository.setMockError('countDefaultUsers', 'Database error')
 
       const result = await service.getEmojiUsageStats()
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to fetch usage statistics')
       expect(result.statusCode).toBe(500)
     })
@@ -367,7 +399,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await service.getEmojiUsageStats()
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to fetch usage statistics')
       expect(result.statusCode).toBe(500)
 
@@ -381,7 +413,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await emptyService.getEmojiUsageStats()
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.totalUsers).toBe(0)
       expect(result.data?.defaultUsers).toBe(0)
       expect(result.data?.customUsers).toBe(0)
@@ -398,7 +430,7 @@ describe('EmojiSettingsService', () => {
       const serviceWithThrowingRepo = new EmojiSettingsService(throwingRepository)
       const result = await serviceWithThrowingRepo.getEmojiUsageStats()
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
       expect(result.statusCode).toBe(500)
     })
@@ -413,7 +445,7 @@ describe('EmojiSettingsService', () => {
     it('should find users using specific emoji', async () => {
       const result = await service.findUsersByEmoji('fire')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data).toEqual(expect.any(Array))
       expect(result.data?.length).toBeGreaterThan(0)
     })
@@ -421,17 +453,17 @@ describe('EmojiSettingsService', () => {
     it('should reject invalid emoji names', async () => {
       const result = await service.findUsersByEmoji('invalid_emoji')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Unknown emoji: invalid_emoji')
       expect(result.statusCode).toBe(400)
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setShouldFail(true)
+      mockRepository.setMockError('findByEmoji:fire', 'Database error')
 
       const result = await service.findUsersByEmoji('fire')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to search emoji usage')
       expect(result.statusCode).toBe(500)
     })
@@ -442,7 +474,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await emptyService.findUsersByEmoji('fire')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data).toEqual([])
     })
 
@@ -456,7 +488,7 @@ describe('EmojiSettingsService', () => {
       const serviceWithThrowingRepo = new EmojiSettingsService(throwingRepository)
       const result = await serviceWithThrowingRepo.findUsersByEmoji('fire')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
       expect(result.statusCode).toBe(500)
     })
@@ -468,11 +500,17 @@ describe('EmojiSettingsService', () => {
         createMockEmojiSetting({ user_id: 'user-tomorrow', tomorrow_emoji: 'star' }),
         createMockEmojiSetting({ user_id: 'user-later', later_emoji: 'star' })
       ]
-      mockRepository.setMockData(testSettings)
+      // Set up multiple users with different settings
+      testSettings.forEach((setting, index) => {
+        mockRepository.setUserSettings(`user-${index + 1}`, setting)
+      })
+
+      // Set up the findByEmoji mock to return these 3 users for 'star'
+      mockRepository.setFindByEmojiSuccess('star', testSettings)
 
       const result = await service.findUsersByEmoji('star')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.length).toBe(3)
     })
   })
@@ -489,7 +527,7 @@ describe('EmojiSettingsService', () => {
       const serviceWithUndefinedRepo = new EmojiSettingsService(undefinedDataRepository)
       const result = await serviceWithUndefinedRepo.getUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(true)
+      expect(result.error).toBeUndefined()
       expect(result.data?.settings.user_id).toBe('user-123')
       expect(result.data?.settings.today_emoji).toBe(DEFAULT_EMOJI_SETTINGS.today_emoji)
     })
@@ -503,7 +541,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await service.updateUserEmojiSettings('user-123', invalidRequest)
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toContain('Invalid emoji selection')
       expect(result.statusCode).toBe(400)
     })
@@ -516,7 +554,7 @@ describe('EmojiSettingsService', () => {
 
       const result = await serviceWithFailingRepo.getUserEmojiSettings('user-123')
 
-      expect(result.success).toBe(false)
+      expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to fetch emoji settings')
     })
 

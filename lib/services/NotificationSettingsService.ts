@@ -66,7 +66,8 @@ export class NotificationSettingsService {
         data: {
           settings,
           summary: entity.getSettingsSummary()
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -120,7 +121,8 @@ export class NotificationSettingsService {
         data: {
           message: 'Notification preferences updated successfully',
           settings: result.data
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -163,7 +165,8 @@ export class NotificationSettingsService {
         data: {
           message: 'Notification settings reset to default',
           settings: result.data
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -211,7 +214,8 @@ export class NotificationSettingsService {
         data: {
           ...stats,
           enabledPercentage
-        }
+        },
+        error: undefined
       }
     } catch (error) {
       return {
@@ -239,7 +243,8 @@ export class NotificationSettingsService {
 
       return {
         success: true,
-        data: result.data || []
+        data: result.data || [],
+        error: undefined
       }
     } catch (error) {
       return {
@@ -270,7 +275,8 @@ export class NotificationSettingsService {
 
       return {
         success: true,
-        data: canReceive
+        data: canReceive,
+        error: undefined
       }
     } catch (error) {
       return {

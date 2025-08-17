@@ -30,13 +30,11 @@ const mockCreateAuthUseCases = createAuthUseCases as jest.MockedFunction<typeof 
 // Mock user data
 const mockUserEntity = new UserEntity({
   id: 'user-123',
-  email: 'test@example.com',
-  displayName: 'Test User',
-  avatarUrl: null,
-  totalTodos: 5,
-  completedTodos: 2,
-  createdAt: '2025-08-01T10:00:00Z',
-  updatedAt: '2025-08-03T10:00:00Z'
+  display_name: 'Test User',
+  avatar_url: null,
+  slack_user_id: null,
+  enable_webhook_notifications: false,
+  created_at: '2025-08-01T10:00:00Z'
 })
 
 const mockAuthUser = {

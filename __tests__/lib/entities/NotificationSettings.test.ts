@@ -3,6 +3,7 @@
  */
 
 import { NotificationSettingsEntity, DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/entities/NotificationSettings'
+import { TestNotificationSettings, createTestEntity } from '@/__tests__/utils/typeHelpers'
 import {
   createMockNotificationSettings,
   createMockCustomNotificationSettings,
@@ -196,7 +197,8 @@ describe('NotificationSettingsEntity', () => {
 
   describe('getSettingsSummary', () => {
     it('should return correct summary for enabled notifications', () => {
-      const mockSettings = createMockNotificationSettings({
+      const mockSettings = createTestEntity<TestNotificationSettings>({
+        user_id: 'user-123',
         enable_webhook_notifications: true,
         updated_at: '2023-01-01T00:00:00Z'
       })
@@ -209,7 +211,8 @@ describe('NotificationSettingsEntity', () => {
     })
 
     it('should return correct summary for disabled notifications', () => {
-      const mockSettings = createMockNotificationSettings({
+      const mockSettings = createTestEntity<TestNotificationSettings>({
+        user_id: 'user-123',
         enable_webhook_notifications: false,
         updated_at: '2023-01-15T12:00:00Z'
       })
@@ -249,7 +252,8 @@ describe('NotificationSettingsEntity', () => {
 
       expect(plainObject.user_id).toBe(mockSettings.user_id)
       expect(plainObject.enable_webhook_notifications).toBe(mockSettings.enable_webhook_notifications)
-      expect(plainObject.updated_at).toBe(mockSettings.updated_at)
+      // @ts-ignore - Test-specific property access
+      expect((plainObject as any).updated_at).toBe((mockSettings as any).updated_at)
     })
   })
 
@@ -268,7 +272,8 @@ describe('NotificationSettingsEntity', () => {
       const entity = NotificationSettingsEntity.fromPlainObject(mockSettings)
 
       expect(entity).toBeInstanceOf(NotificationSettingsEntity)
-      expect(entity.updatedAt).toBeUndefined()
+      // @ts-ignore - Test-specific property access
+      expect((entity as any).updatedAt).toBeUndefined()
     })
   })
 
@@ -302,7 +307,7 @@ describe('NotificationSettingsEntity', () => {
 
       it('should reject invalid notification values', () => {
         INVALID_NOTIFICATION_VALUES.forEach(invalidValue => {
-          const request = { enable_webhook_notifications: invalidValue }
+          const request: any = { enable_webhook_notifications: invalidValue }
           const validation = NotificationSettingsEntity.validateNotificationUpdateRequest(request)
 
           expect(validation.valid).toBe(false)

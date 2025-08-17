@@ -16,13 +16,13 @@ if ! npm run lint:strict; then
   exit 1
 fi
 
-# Type check temporarily disabled for test file cleanup
-# TODO: Re-enable after test type issues are resolved
-# echo "🔎 Running TypeScript type check..."
-# if ! npm run type-check; then
-#   echo "❌ TypeScript found type errors."
-#   echo "💡 Please fix the type errors above before committing."
-#   exit 1
-# fi
+# Run production-focused type check (excludes test files)
+echo "🔎 Running TypeScript type check (production code)..."
+if ! npm run type-check:prod; then
+  echo "❌ TypeScript found type errors in production code."
+  echo "💡 Please fix the type errors above before committing."
+  echo "📝 Note: Test files are checked separately with 'npm run type-check:test'"
+  exit 1
+fi
 
 echo "✅ All quality checks passed!"

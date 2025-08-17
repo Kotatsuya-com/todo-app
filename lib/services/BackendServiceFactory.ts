@@ -15,6 +15,8 @@ import { SlackMessageService } from '@/lib/services/SlackMessageService'
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 import { TitleGenerationService } from '@/lib/services/TitleGenerationService'
+import { LLMRepositoryFactory } from '@/lib/repositories/LLMRepositoryFactory'
+import { LLMConfig } from '@/lib/repositories/LLMConfig'
 import { UrlDetectionService } from '@/lib/services/UrlDetectionService'
 import { SlackDisconnectionService } from '@/lib/services/SlackDisconnectionService'
 import { WebhookService } from '@/lib/services/WebhookService'
@@ -39,7 +41,9 @@ export function createServices() {
   const slackMessageService = new SlackMessageService(slackRepo)
   const emojiSettingsService = new EmojiSettingsService(emojiSettingsRepo)
   const notificationSettingsService = new NotificationSettingsService(notificationSettingsRepo)
-  const titleGenerationService = new TitleGenerationService()
+  const llmConfig = LLMConfig.fromEnvironment()
+  const llmRepository = LLMRepositoryFactory.create({ config: llmConfig })
+  const titleGenerationService = new TitleGenerationService(llmRepository)
   const urlDetectionService = new UrlDetectionService()
   const slackDisconnectionService = new SlackDisconnectionService()
   const webhookService = new WebhookService(slackRepo)
@@ -100,7 +104,9 @@ export function createSlackAuthService() {
 }
 
 export function createTitleGenerationService() {
-  return new TitleGenerationService()
+  const llmConfig = LLMConfig.fromEnvironment()
+  const llmRepository = LLMRepositoryFactory.create({ config: llmConfig })
+  return new TitleGenerationService(llmRepository)
 }
 
 export function createUrlDetectionService() {

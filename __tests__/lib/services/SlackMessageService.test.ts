@@ -482,9 +482,9 @@ describe('SlackMessageService', () => {
       const specialUserId = 'user-with-special@chars#123'
 
       mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        success: true,
-        data: { id: specialUserId } as UserWithSettings
-      } as RepositoryResult<UserWithSettings>)
+        data: { id: specialUserId } as UserWithSettings,
+        error: null
+      })
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
         success: true,

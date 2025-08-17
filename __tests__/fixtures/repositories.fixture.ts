@@ -14,7 +14,9 @@ export const createMockSlackRepository = (): jest.Mocked<SlackRepositoryInterfac
   findConnectionById: jest.fn(),
   findConnectionsByUserId: jest.fn(),
   createConnection: jest.fn(),
+  upsertConnection: jest.fn(),
   deleteConnection: jest.fn(),
+  updateUserSlackId: jest.fn(),
   findWebhookById: jest.fn(),
   findWebhooksByUserId: jest.fn(),
   findWebhookByConnectionId: jest.fn(),
@@ -24,7 +26,6 @@ export const createMockSlackRepository = (): jest.Mocked<SlackRepositoryInterfac
   findProcessedEvent: jest.fn(),
   createProcessedEvent: jest.fn(),
   findUserWithSettings: jest.fn(),
-  getAllWebhooks: jest.fn(),
   getDirectSlackUserId: jest.fn()
 })
 

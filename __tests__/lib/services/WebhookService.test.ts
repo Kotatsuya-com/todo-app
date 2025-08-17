@@ -62,8 +62,8 @@ describe('WebhookService', () => {
       ]
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: mockWebhooks
+        data: mockWebhooks,
+        error: null
       })
 
       const result = await service.getUserWebhooks('user-123')
@@ -76,8 +76,8 @@ describe('WebhookService', () => {
 
     it('should return empty array when no webhooks found', async () => {
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.getUserWebhooks('user-123')
@@ -88,8 +88,8 @@ describe('WebhookService', () => {
 
     it('should handle repository error', async () => {
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: [],
+        error: Object.assign(new Error('Database error'), { code: 'DB_ERROR' })
       })
 
       const result = await service.getUserWebhooks('user-123')
@@ -122,18 +122,18 @@ describe('WebhookService', () => {
       const mockNewWebhook = createMockSlackWebhook()
 
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       mockSlackRepo.findWebhookByConnectionId.mockResolvedValue({
-        success: false,
-        error: { message: 'Not found', code: 'NOT_FOUND' }
+        data: null,
+        error: Object.assign(new Error('Not found'), { code: 'NOT_FOUND' })
       })
 
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: true,
-        data: mockNewWebhook
+        data: mockNewWebhook,
+        error: null
       })
 
       const result = await service.createUserWebhook(mockParams)
@@ -151,18 +151,18 @@ describe('WebhookService', () => {
       const mockUpdatedWebhook = createMockSlackWebhook()
 
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       mockSlackRepo.findWebhookByConnectionId.mockResolvedValue({
-        success: true,
-        data: mockExistingWebhook
+        data: mockExistingWebhook,
+        error: null
       })
 
       mockSlackRepo.updateWebhook.mockResolvedValue({
-        success: true,
-        data: mockUpdatedWebhook
+        data: mockUpdatedWebhook,
+        error: null
       })
 
       const result = await service.createUserWebhook(mockParams)
@@ -177,8 +177,8 @@ describe('WebhookService', () => {
 
     it('should return error when Slack connection not found', async () => {
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: false,
-        error: { message: 'Not found', code: 'NOT_FOUND' }
+        data: null,
+        error: Object.assign(new Error('Not found'), { code: 'NOT_FOUND' })
       })
 
       const result = await service.createUserWebhook(mockParams)
@@ -192,8 +192,8 @@ describe('WebhookService', () => {
       const mockConnectionDifferentUser = createMockSlackConnection({ user_id: 'different-user' })
 
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnectionDifferentUser
+        data: mockConnectionDifferentUser,
+        error: null
       })
 
       const result = await service.createUserWebhook(mockParams)
@@ -205,18 +205,18 @@ describe('WebhookService', () => {
 
     it('should handle error when webhook creation fails', async () => {
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       mockSlackRepo.findWebhookByConnectionId.mockResolvedValue({
-        success: false,
-        error: { message: 'Not found', code: 'NOT_FOUND' }
+        data: null,
+        error: Object.assign(new Error('Not found'), { code: 'NOT_FOUND' })
       })
 
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: false,
-        error: { message: 'Creation failed', code: 'CREATION_ERROR' }
+        data: null,
+        error: Object.assign(new Error('Creation failed'), { code: 'CREATION_ERROR' })
       })
 
       const result = await service.createUserWebhook(mockParams)
@@ -230,18 +230,18 @@ describe('WebhookService', () => {
       const mockExistingWebhook = createMockInactiveSlackWebhook()
 
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       mockSlackRepo.findWebhookByConnectionId.mockResolvedValue({
-        success: true,
-        data: mockExistingWebhook
+        data: mockExistingWebhook,
+        error: null
       })
 
       mockSlackRepo.updateWebhook.mockResolvedValue({
-        success: false,
-        error: { message: 'Update failed', code: 'UPDATE_ERROR' }
+        data: null,
+        error: Object.assign(new Error('Update failed'), { code: 'UPDATE_ERROR' })
       })
 
       const result = await service.createUserWebhook(mockParams)
@@ -270,13 +270,13 @@ describe('WebhookService', () => {
       ]
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: mockWebhooks
+        data: mockWebhooks,
+        error: null
       })
 
       mockSlackRepo.updateWebhook.mockResolvedValue({
-        success: true,
-        data: createMockInactiveSlackWebhook()
+        data: createMockInactiveSlackWebhook(),
+        error: null
       })
 
       const result = await service.deactivateWebhook('webhook-123', 'user-123')
@@ -292,8 +292,8 @@ describe('WebhookService', () => {
       ]
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: mockWebhooks
+        data: mockWebhooks,
+        error: null
       })
 
       const result = await service.deactivateWebhook('webhook-123', 'user-123')
@@ -306,8 +306,8 @@ describe('WebhookService', () => {
 
     it('should return error when user has no webhooks', async () => {
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.deactivateWebhook('webhook-123', 'user-123')
@@ -319,8 +319,8 @@ describe('WebhookService', () => {
 
     it('should handle error when fetching user webhooks fails', async () => {
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: [],
+        error: Object.assign(new Error('Database error'), { code: 'DB_ERROR' })
       })
 
       const result = await service.deactivateWebhook('webhook-123', 'user-123')
@@ -336,13 +336,13 @@ describe('WebhookService', () => {
       ]
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: mockWebhooks
+        data: mockWebhooks,
+        error: null
       })
 
       mockSlackRepo.updateWebhook.mockResolvedValue({
-        success: false,
-        error: { message: 'Update failed', code: 'UPDATE_ERROR' }
+        data: null,
+        error: Object.assign(new Error('Update failed'), { code: 'UPDATE_ERROR' })
       })
 
       const result = await service.deactivateWebhook('webhook-123', 'user-123')
@@ -366,8 +366,8 @@ describe('WebhookService', () => {
   describe('edge cases and input validation', () => {
     it('should handle empty userId in getUserWebhooks', async () => {
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.getUserWebhooks('')
@@ -379,8 +379,8 @@ describe('WebhookService', () => {
 
     it('should handle empty webhookId in deactivateWebhook', async () => {
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        success: true,
-        data: [createMockSlackWebhook()]
+        data: [createMockSlackWebhook()],
+        error: null
       })
 
       const result = await service.deactivateWebhook('', 'user-123')
@@ -400,18 +400,18 @@ describe('WebhookService', () => {
       }
 
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       mockSlackRepo.findWebhookByConnectionId.mockResolvedValue({
-        success: false,
-        error: { message: 'Not found', code: 'NOT_FOUND' }
+        data: null,
+        error: Object.assign(new Error('Not found'), { code: 'NOT_FOUND' })
       })
 
       mockSlackRepo.createWebhook.mockResolvedValue({
-        success: true,
-        data: mockNewWebhook
+        data: mockNewWebhook,
+        error: null
       })
 
       const result = await service.createUserWebhook(mockParams)

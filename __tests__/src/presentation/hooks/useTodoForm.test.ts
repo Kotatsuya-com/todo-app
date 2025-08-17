@@ -22,34 +22,43 @@ const mockCreateTodoUseCases = createTodoUseCases as jest.MockedFunction<typeof 
 // Mock user
 const mockUser = new UserEntity({
   id: 'test-user-id',
-  email: 'test@example.com',
-  displayName: 'Test User',
-  avatarUrl: null,
-  totalTodos: 5,
-  completedTodos: 2,
-  createdAt: '2025-08-01T10:00:00Z',
-  updatedAt: '2025-08-03T10:00:00Z'
+  display_name: 'Test User',
+  avatar_url: null,
+  slack_user_id: null,
+  enable_webhook_notifications: false,
+  created_at: '2025-08-01T10:00:00Z'
 })
 
 // Mock todo
 const mockTodo = new TodoEntity({
   id: 'todo-123',
-  userId: 'test-user-id',
+  user_id: 'test-user-id',
   title: 'Existing Todo',
   body: 'Existing todo body',
   deadline: '2025-08-10',
-  importanceScore: 1000,
-  status: 'active',
-  createdAt: '2025-08-01T10:00:00Z',
-  updatedAt: '2025-08-01T10:00:00Z',
-  createdVia: 'manual'
+  importance_score: 1000,
+  status: 'open',
+  created_at: '2025-08-01T10:00:00Z',
+  updated_at: '2025-08-01T10:00:00Z',
+  created_via: 'manual'
 })
 
 // Mock TodoUseCases
 const mockTodoUseCases = {
+  getTodos: jest.fn(),
+  getTodoById: jest.fn(),
   createTodo: jest.fn(),
-  updateTodo: jest.fn()
-}
+  updateTodo: jest.fn(),
+  completeTodo: jest.fn(),
+  reopenTodo: jest.fn(),
+  deleteTodo: jest.fn(),
+  getTodoDashboard: jest.fn(),
+  updateImportanceScores: jest.fn(),
+  getActiveTodos: jest.fn(),
+  getOverdueTodos: jest.fn(),
+  getCompletionReport: jest.fn(),
+  createComparison: jest.fn()
+} as any
 
 describe('useTodoForm', () => {
   beforeEach(() => {
@@ -116,9 +125,16 @@ describe('useTodoForm', () => {
 
     it('should handle todo with null title and deadline', () => {
       const todoWithNulls = new TodoEntity({
-        ...mockTodo,
+        id: mockTodo.id,
+        user_id: mockTodo.user_id,
         title: null,
-        deadline: null
+        body: mockTodo.body,
+        deadline: null,
+        importance_score: mockTodo.importance_score,
+        status: mockTodo.status,
+        created_at: mockTodo.created_at,
+        updated_at: mockTodo.updated_at,
+        created_via: 'manual'
       })
 
       const { result } = renderHook(() =>
@@ -127,7 +143,7 @@ describe('useTodoForm', () => {
 
       expect(result.current.state.formData).toEqual({
         title: '',
-        body: undefined,
+        body: 'Existing todo body',
         deadline: '',
         slackData: null,
         urgency: 'later'

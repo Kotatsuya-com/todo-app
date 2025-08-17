@@ -32,7 +32,8 @@ export interface SlackTokenExchangeRequest {
 
 export class SlackAuthService {
   constructor(
-    private _slackRepo: SlackRepositoryInterface
+    private _slackRepo: SlackRepositoryInterface,
+    private _retryDelayMs: number = 1000
   ) {}
 
   /**
@@ -296,7 +297,7 @@ export class SlackAuthService {
 
         // 最後の試行でなければ待機
         if (retryCount < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)))
+          await new Promise(resolve => setTimeout(resolve, this._retryDelayMs * (retryCount + 1)))
         }
       }
 

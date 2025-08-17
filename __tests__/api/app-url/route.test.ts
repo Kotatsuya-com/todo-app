@@ -8,6 +8,7 @@
  */
 
 import { NextRequest } from 'next/server'
+import { MockNextRequest } from '@/__tests__/utils/typeHelpers'
 import { createAppUrlDetectionHandlers } from '@/lib/factories/HandlerFactory'
 import { TestContainer } from '@/lib/containers/TestContainer'
 
@@ -16,7 +17,7 @@ jest.mock('@/lib/containers/ProductionContainer')
 
 describe('/api/app-url API Routes', () => {
   let container: TestContainer
-  let mockRequest: NextRequest
+  let mockRequest: MockNextRequest
   let handlers: { GET: any }
 
   beforeEach(() => {
@@ -31,7 +32,7 @@ describe('/api/app-url API Routes', () => {
     mockRequest = {
       url: 'http://localhost:3000/api/app-url',
       nextUrl: url
-    } as any
+    }
   })
 
   afterEach(() => {
@@ -60,9 +61,9 @@ describe('/api/app-url API Routes', () => {
       expect(container.services.urlDetectionService.detectAppUrlSimple).toHaveBeenCalledWith(
         mockRequest.url,
         {
-          protocol: mockRequest.nextUrl.protocol,
-          hostname: mockRequest.nextUrl.hostname,
-          port: mockRequest.nextUrl.port
+          protocol: mockRequest.nextUrl?.protocol,
+          hostname: mockRequest.nextUrl?.hostname,
+          port: mockRequest.nextUrl?.port
         }
       )
       expect(response.status).toBe(200)

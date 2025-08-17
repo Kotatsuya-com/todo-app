@@ -14,6 +14,7 @@ import {
   createMockSlackConnectionDifferentUser,
   createMockMultipleSlackConnections
 } from '@/__tests__/fixtures/slack-connection.fixture'
+import { createExtendedError } from '@/__tests__/utils/typeHelpers'
 
 describe('SlackConnectionService', () => {
   let service: SlackConnectionService
@@ -21,17 +22,22 @@ describe('SlackConnectionService', () => {
 
   beforeEach(() => {
     mockSlackRepo = {
-      findConnectionsByUserId: jest.fn(),
       findConnectionById: jest.fn(),
-      deleteConnection: jest.fn(),
+      findConnectionsByUserId: jest.fn(),
       createConnection: jest.fn(),
+      upsertConnection: jest.fn(),
+      deleteConnection: jest.fn(),
+      updateUserSlackId: jest.fn(),
+      findWebhookById: jest.fn(),
+      findWebhooksByUserId: jest.fn(),
+      findWebhookByConnectionId: jest.fn(),
       createWebhook: jest.fn(),
-      deleteWebhook: jest.fn(),
       updateWebhook: jest.fn(),
-      findWebhooksByConnectionId: jest.fn(),
-      findWebhookByWebhookId: jest.fn(),
-      getWebhookStats: jest.fn(),
-      processSlackEvent: jest.fn()
+      updateWebhookStats: jest.fn(),
+      findProcessedEvent: jest.fn(),
+      createProcessedEvent: jest.fn(),
+      findUserWithSettings: jest.fn(),
+      getDirectSlackUserId: jest.fn()
     }
 
     service = new SlackConnectionService(mockSlackRepo)
@@ -45,8 +51,8 @@ describe('SlackConnectionService', () => {
     it('should successfully return user connections with summary', async () => {
       const mockConnections = createMockMultipleSlackConnections()
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: mockConnections
+        data: mockConnections,
+        error: null
       })
 
       const result = await service.getUserConnections('user-123')
@@ -62,8 +68,8 @@ describe('SlackConnectionService', () => {
 
     it('should return summary with no connections', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.getUserConnections('user-123')
@@ -77,8 +83,8 @@ describe('SlackConnectionService', () => {
 
     it('should handle repository error', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: [],
+        error: createExtendedError('Database error', 'DB_ERROR')
       })
 
       const result = await service.getUserConnections('user-123')
@@ -105,8 +111,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ workspace_name: 'Workspace B' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: connections
+        data: connections,
+        error: null
       })
 
       const result = await service.getUserConnections('user-123')
@@ -123,14 +129,14 @@ describe('SlackConnectionService', () => {
 
       // Mock validation success
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       // Mock deletion success
       mockSlackRepo.deleteConnection.mockResolvedValue({
-        success: true,
-        data: undefined
+        data: null,
+        error: null
       })
 
       const result = await service.deleteUserConnection('conn-123', 'user-123')
@@ -145,8 +151,8 @@ describe('SlackConnectionService', () => {
 
     it('should reject deletion for non-existent connection', async () => {
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: null
+        data: null,
+        error: null
       })
 
       const result = await service.deleteUserConnection('non-existent', 'user-123')
@@ -160,8 +166,8 @@ describe('SlackConnectionService', () => {
     it('should reject deletion for connection owned by different user', async () => {
       const mockConnection = createMockSlackConnectionDifferentUser()
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       const result = await service.deleteUserConnection('conn-123', 'user-123')
@@ -174,8 +180,8 @@ describe('SlackConnectionService', () => {
 
     it('should handle repository error during validation', async () => {
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: null,
+        error: createExtendedError('Database error', 'DB_ERROR')
       })
 
       const result = await service.deleteUserConnection('conn-123', 'user-123')
@@ -188,12 +194,12 @@ describe('SlackConnectionService', () => {
     it('should handle repository error during deletion', async () => {
       const mockConnection = createMockSlackConnection()
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
       mockSlackRepo.deleteConnection.mockResolvedValue({
-        success: false,
-        error: { message: 'Delete failed', code: 'DELETE_ERROR' }
+        data: null,
+        error: createExtendedError('Delete failed', 'DELETE_ERROR')
       })
 
       const result = await service.deleteUserConnection('conn-123', 'user-123')
@@ -218,8 +224,8 @@ describe('SlackConnectionService', () => {
     it('should successfully validate ownership for correct user', async () => {
       const mockConnection = createMockSlackConnection()
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       const result = await service.validateConnectionOwnership('conn-123', 'user-123')
@@ -231,8 +237,8 @@ describe('SlackConnectionService', () => {
 
     it('should fail validation for non-existent connection', async () => {
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: null
+        data: null,
+        error: null
       })
 
       const result = await service.validateConnectionOwnership('non-existent', 'user-123')
@@ -245,8 +251,8 @@ describe('SlackConnectionService', () => {
     it('should fail validation for different user', async () => {
       const mockConnection = createMockSlackConnectionDifferentUser()
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       const result = await service.validateConnectionOwnership('conn-123', 'user-123')
@@ -258,8 +264,8 @@ describe('SlackConnectionService', () => {
 
     it('should handle repository error', async () => {
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: null,
+        error: createExtendedError('Database error', 'DB_ERROR')
       })
 
       const result = await service.validateConnectionOwnership('conn-123', 'user-123')
@@ -284,8 +290,8 @@ describe('SlackConnectionService', () => {
     it('should successfully get connection for authorized user', async () => {
       const mockConnection = createMockSlackConnection()
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       const result = await service.getConnection('conn-123', 'user-123')
@@ -297,8 +303,8 @@ describe('SlackConnectionService', () => {
     it('should fail for unauthorized user', async () => {
       const mockConnection = createMockSlackConnectionDifferentUser()
       mockSlackRepo.findConnectionById.mockResolvedValue({
-        success: true,
-        data: mockConnection
+        data: mockConnection,
+        error: null
       })
 
       const result = await service.getConnection('conn-123', 'user-123')
@@ -326,8 +332,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ workspace_id: 'T0987654321' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: mockConnections
+        data: mockConnections,
+        error: null
       })
 
       const result = await service.hasWorkspaceConnection('user-123', 'T1234567890')
@@ -342,8 +348,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ workspace_id: 'T2222222222' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: mockConnections
+        data: mockConnections,
+        error: null
       })
 
       const result = await service.hasWorkspaceConnection('user-123', 'T9999999999')
@@ -354,8 +360,8 @@ describe('SlackConnectionService', () => {
 
     it('should return false when user has no connections', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.hasWorkspaceConnection('user-123', 'T1234567890')
@@ -366,8 +372,8 @@ describe('SlackConnectionService', () => {
 
     it('should handle repository error', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: [],
+        error: createExtendedError('Database error', 'DB_ERROR')
       })
 
       const result = await service.hasWorkspaceConnection('user-123', 'T1234567890')
@@ -392,8 +398,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ workspace_id: 'T1234567890' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: mockConnections
+        data: mockConnections,
+        error: null
       })
 
       const result = await service.hasWorkspaceConnection('user-123', 't1234567890')
@@ -411,8 +417,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnectionInvalidWorkspace() // Invalid workspace
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: connections
+        data: connections,
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -430,8 +436,8 @@ describe('SlackConnectionService', () => {
 
     it('should return empty statistics for user with no connections', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -447,8 +453,8 @@ describe('SlackConnectionService', () => {
     it('should handle single connection correctly', async () => {
       const singleConnection = createMockSlackConnection()
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: [singleConnection]
+        data: [singleConnection],
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -467,8 +473,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ team_name: 'Team Beta' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: connections
+        data: connections,
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -484,8 +490,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ created_at: '2023-02-01T00:00:00Z' })  // February
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: connections
+        data: connections,
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -497,8 +503,8 @@ describe('SlackConnectionService', () => {
 
     it('should handle repository error', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: false,
-        error: { message: 'Database error', code: 'DB_ERROR' }
+        data: [],
+        error: createExtendedError('Database error', 'DB_ERROR')
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -525,8 +531,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ workspace_id: '' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: connections
+        data: connections,
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -540,8 +546,8 @@ describe('SlackConnectionService', () => {
   describe('error handling and edge cases', () => {
     it('should handle null/undefined connection data gracefully', async () => {
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: null as any
+        data: null as any,
+        error: null
       })
 
       const result = await service.getUserConnections('user-123')
@@ -559,8 +565,8 @@ describe('SlackConnectionService', () => {
     it('should handle special characters in user IDs', async () => {
       const specialUserId = 'user-with-special@chars#123'
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: []
+        data: [],
+        error: null
       })
 
       const result = await service.getUserConnections(specialUserId)
@@ -575,8 +581,8 @@ describe('SlackConnectionService', () => {
         createMockSlackConnection({ created_at: '2023-01-01T00:00:00Z' })
       ]
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: connections
+        data: connections,
+        error: null
       })
 
       const result = await service.getConnectionStats('user-123')
@@ -594,8 +600,8 @@ describe('SlackConnectionService', () => {
         })
       )
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: largeDataset
+        data: largeDataset,
+        error: null
       })
 
       const result = await service.getUserConnections('user-123')
@@ -610,8 +616,8 @@ describe('SlackConnectionService', () => {
     it('should properly use SlackConnectionEntity for business logic', async () => {
       const invalidConnection = createMockSlackConnectionInvalidWorkspace()
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        success: true,
-        data: [invalidConnection]
+        data: [invalidConnection],
+        error: null
       })
 
       const statsResult = await service.getConnectionStats('user-123')
