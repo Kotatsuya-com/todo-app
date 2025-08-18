@@ -325,7 +325,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setMockError('getNotificationStats', 'Database error')
+      mockRepository.setNotificationStatsError('Database error')
 
       const result = await service.getNotificationStats()
 
@@ -416,7 +416,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setMockError('findUsersWithNotificationsEnabled', 'Database error')
+      mockRepository.setUsersWithNotificationsEnabledError('Database error')
 
       const result = await service.getUsersWithNotificationsEnabled()
 

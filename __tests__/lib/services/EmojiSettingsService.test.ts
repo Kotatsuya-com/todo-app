@@ -380,7 +380,7 @@ describe('EmojiSettingsService', () => {
     })
 
     it('should handle repository error for default users count', async () => {
-      mockRepository.setMockError('countDefaultUsers', 'Database error')
+      mockRepository.setCountDefaultUsersError('Database error')
 
       const result = await service.getEmojiUsageStats()
 

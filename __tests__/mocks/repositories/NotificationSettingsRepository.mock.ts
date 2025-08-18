@@ -16,6 +16,9 @@ export class MockNotificationSettingsRepository
   extends BaseMockRepository<NotificationSettings>
   implements NotificationSettingsRepositoryInterface {
 
+  private statsResults: Map<string, RepositoryResult<{ totalUsers: number; enabledUsers: number; disabledUsers: number }>> = new Map()
+  private stringArrayResults: Map<string, RepositoryResult<string[]>> = new Map()
+
   // Repository Interface Implementation
   async findByUserId(userId: string): Promise<RepositoryResult<NotificationSettings | null>> {
     const result = this.getMockResult(`findByUserId:${userId}`)
@@ -35,17 +38,17 @@ export class MockNotificationSettingsRepository
     enabledUsers: number
     disabledUsers: number
   }>> {
-    const result = this.getMockResult('getNotificationStats')
-    return result as RepositoryResult<{
-      totalUsers: number
-      enabledUsers: number
-      disabledUsers: number
-    }>
+    return this.statsResults.get('getNotificationStats') || {
+      data: { totalUsers: 0, enabledUsers: 0, disabledUsers: 0 },
+      error: null
+    }
   }
 
   async findUsersWithNotificationsEnabled(): Promise<RepositoryResult<string[]>> {
-    const result = this.getMockResult('findUsersWithNotificationsEnabled')
-    return result as RepositoryResult<string[]>
+    return this.stringArrayResults.get('findUsersWithNotificationsEnabled') || {
+      data: [],
+      error: null
+    }
   }
 
   // Test Helper Methods
@@ -66,11 +69,19 @@ export class MockNotificationSettingsRepository
   }
 
   setNotificationStatsSuccess(stats: { totalUsers: number; enabledUsers: number; disabledUsers: number }): void {
-    this.setMockSuccess('getNotificationStats', stats)
+    this.statsResults.set('getNotificationStats', { data: stats, error: null })
   }
 
   setUsersWithNotificationsEnabledSuccess(userIds: string[]): void {
-    this.setMockSuccess('findUsersWithNotificationsEnabled', userIds)
+    this.stringArrayResults.set('findUsersWithNotificationsEnabled', { data: userIds, error: null })
+  }
+
+  setNotificationStatsError(error: string): void {
+    this.statsResults.set('getNotificationStats', { data: null, error: new Error(error) })
+  }
+
+  setUsersWithNotificationsEnabledError(error: string): void {
+    this.stringArrayResults.set('findUsersWithNotificationsEnabled', { data: null, error: new Error(error) })
   }
 
   // Legacy Test Helper Methods for Migration
@@ -107,43 +118,28 @@ export function createMockNotificationSettingsRepositoryWithMultipleUsers(): Moc
 
   // Set up multiple users with different settings
   mock.setUserSettings('user-1', {
-    id: 'settings-1',
     user_id: 'user-1',
-    enable_webhook_notifications: true,
-    created_at: '2023-01-01T00:00:00Z',
-    updated_at: '2023-01-01T00:00:00Z'
+    enable_webhook_notifications: true
   })
 
   mock.setUserSettings('user-2', {
-    id: 'settings-2',
     user_id: 'user-2',
-    enable_webhook_notifications: false,
-    created_at: '2023-01-02T00:00:00Z',
-    updated_at: '2023-01-02T00:00:00Z'
+    enable_webhook_notifications: false
   })
 
   mock.setUserSettings('user-3', {
-    id: 'settings-3',
     user_id: 'user-3',
-    enable_webhook_notifications: true,
-    created_at: '2023-01-03T00:00:00Z',
-    updated_at: '2023-01-03T00:00:00Z'
+    enable_webhook_notifications: true
   })
 
   mock.setUserSettings('user-4', {
-    id: 'settings-4',
     user_id: 'user-4',
-    enable_webhook_notifications: false,
-    created_at: '2023-01-04T00:00:00Z',
-    updated_at: '2023-01-04T00:00:00Z'
+    enable_webhook_notifications: false
   })
 
   mock.setUserSettings('user-5', {
-    id: 'settings-5',
     user_id: 'user-5',
-    enable_webhook_notifications: true,
-    created_at: '2023-01-05T00:00:00Z',
-    updated_at: '2023-01-05T00:00:00Z'
+    enable_webhook_notifications: true
   })
 
   // Set up notification stats (3 enabled out of 5 total)

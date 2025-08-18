@@ -12,6 +12,8 @@ export class MockEmojiSettingsRepository
   extends BaseMockRepository<EmojiSetting>
   implements EmojiSettingsRepositoryInterface {
 
+  private numberResults: Map<string, RepositoryResult<number>> = new Map()
+
   // Repository Interface Implementation
   async findByUserId(userId: string): Promise<RepositoryResult<EmojiSetting | null>> {
     const result = this.getMockResult(`findByUserId:${userId}`)
@@ -34,8 +36,7 @@ export class MockEmojiSettingsRepository
   }
 
   async countDefaultUsers(): Promise<RepositoryResult<number>> {
-    const result = this.getMockResult('countDefaultUsers')
-    return result as RepositoryResult<number>
+    return this.numberResults.get('countDefaultUsers') || { data: 0, error: null }
   }
 
   // Test Helper Methods
@@ -64,7 +65,11 @@ export class MockEmojiSettingsRepository
   }
 
   setCountDefaultUsersSuccess(count: number): void {
-    this.setMockSuccess('countDefaultUsers', count)
+    this.numberResults.set('countDefaultUsers', { data: count, error: null })
+  }
+
+  setCountDefaultUsersError(error: string): void {
+    this.numberResults.set('countDefaultUsers', { data: null, error: new Error(error) })
   }
 }
 

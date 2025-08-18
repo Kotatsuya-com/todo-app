@@ -22,7 +22,9 @@ const mockAuthUseCases = {
   refreshSession: jest.fn(),
   sendPasswordResetEmail: jest.fn(),
   validateSession: jest.fn(),
-  onAuthStateChange: jest.fn()
+  onAuthStateChange: jest.fn(),
+  _authRepository: {} as any,
+  _userRepository: {} as any
 }
 
 const mockCreateAuthUseCases = createAuthUseCases as jest.MockedFunction<typeof createAuthUseCases>

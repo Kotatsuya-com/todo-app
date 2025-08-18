@@ -153,6 +153,14 @@ export class MockTodoRepository implements TodoRepositoryInterface {
   async updateImportanceScores(updates: any[]): Promise<RepositoryResult<void>> {
     return this.getNextResult()
   }
+
+  async upsertConnection(connection: any): Promise<RepositoryResult<any>> {
+    return this.getNextResult()
+  }
+
+  async updateUserSlackId(userId: string, slackUserId: string): Promise<RepositoryResult<void>> {
+    return this.getNextResult()
+  }
 }
 
 // 結果ベースのモック作成ヘルパー

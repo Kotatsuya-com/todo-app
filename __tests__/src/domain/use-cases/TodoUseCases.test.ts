@@ -7,6 +7,9 @@ import { TodoUseCases } from '../../../../src/domain/use-cases/TodoUseCases'
 import { TodoEntity } from '../../../../src/domain/entities/Todo'
 import { TodoRepositoryInterface, CreateTodoRequest, UpdateTodoRequest, TodoFilters } from '../../../../src/domain/repositories/TodoRepositoryInterface'
 
+// NEW: Import flexible mocking utilities
+import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+
 // Mock crypto.randomUUID for Node.js environment
 global.crypto = {
   ...global.crypto,

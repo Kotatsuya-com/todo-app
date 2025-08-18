@@ -126,14 +126,14 @@ describe('useTodoForm', () => {
     it('should handle todo with null title and deadline', () => {
       const todoWithNulls = new TodoEntity({
         id: mockTodo.id,
-        user_id: mockTodo.user_id,
+        user_id: mockTodo.userId,
         title: null,
         body: mockTodo.body,
         deadline: null,
-        importance_score: mockTodo.importance_score,
+        importance_score: mockTodo.importanceScore,
         status: mockTodo.status,
-        created_at: mockTodo.created_at,
-        updated_at: mockTodo.updated_at,
+        created_at: mockTodo.createdAt,
+        updated_at: mockTodo.updatedAt,
         created_via: 'manual'
       })
 
@@ -643,7 +643,7 @@ describe('useTodoForm', () => {
   describe('Initial Todo Changes', () => {
     it('should update form when initialTodo changes', () => {
       const { result, rerender } = renderHook(
-        ({ initialTodo }) => useTodoForm({ initialTodo }),
+        ({ initialTodo }: { initialTodo: TodoEntity | null }) => useTodoForm({ initialTodo }),
         { initialProps: { initialTodo: null } }
       )
 

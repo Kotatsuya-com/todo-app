@@ -28,45 +28,11 @@ const mockGetSlackMessage = getSlackMessage as jest.MockedFunction<typeof getSla
 const mockGenerateTaskTitle = generateTaskTitle as jest.MockedFunction<typeof generateTaskTitle>
 const mockGetAppBaseUrl = getAppBaseUrl as jest.MockedFunction<typeof getAppBaseUrl>
 
-// Mock repository interfaces directly to avoid Supabase import issues
-const createMockSlackRepository = () => ({
-  findConnectionById: jest.fn(),
-  findConnectionsByUserId: jest.fn(),
-  createConnection: jest.fn(),
-  deleteConnection: jest.fn(),
-  findWebhookById: jest.fn(),
-  findWebhooksByUserId: jest.fn(),
-  findWebhookByConnectionId: jest.fn(),
-  createWebhook: jest.fn(),
-  updateWebhook: jest.fn(),
-  updateWebhookStats: jest.fn(),
-  findProcessedEvent: jest.fn(),
-  createProcessedEvent: jest.fn(),
-  findUserWithSettings: jest.fn(),
-  getAllWebhooks: jest.fn(),
-  getDirectSlackUserId: jest.fn()
-})
-
-const createMockTodoRepository = () => ({
-  findById: jest.fn(),
-  findByUserId: jest.fn(),
-  create: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
-  createViaRPC: jest.fn(),
-  findComparisonsByUserId: jest.fn(),
-  createComparison: jest.fn(),
-  deleteComparisonsForTodo: jest.fn(),
-  createCompletionLog: jest.fn(),
-  deleteCompletionLogForTodo: jest.fn(),
-  updateImportanceScores: jest.fn()
-})
-
-// Result helpers
-const mockRepositorySuccess = <T>(data: T) => ({ success: true, data, error: null })
-const mockRepositoryListSuccess = <T>(data: T[]) => ({ success: true, data, error: null })
-const mockRepositoryError = <T>(message: string) => ({ success: false, data: null, error: new Error(message) })
-const mockRepositoryNotFound = <T>() => ({ success: false, data: null, error: new Error('Not found') })
+// NEW: Import flexible mocking utilities
+import { mockResult } from '@/__tests__/utils/autoMock'
+import { repositoryMock } from '@/__tests__/utils/mockBuilder'
+import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
+import { TodoRepositoryInterface } from '@/lib/repositories/TodoRepository'
 
 // Mock entity fixtures to avoid import issues
 const createMockSlackConnection = (overrides: any = {}) => ({
@@ -137,12 +103,13 @@ const createMockSlackEventProcessed = (overrides: any = {}) => ({
 
 describe('SlackService', () => {
   let slackService: SlackService
-  let mockSlackRepo: any
-  let mockTodoRepo: any
+  let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
+  let mockTodoRepo: jest.Mocked<TodoRepositoryInterface>
 
   beforeEach(() => {
-    mockSlackRepo = createMockSlackRepository()
-    mockTodoRepo = createMockTodoRepository()
+    // NEW: Use flexible mocking approach - create fresh mocks for each test
+    mockSlackRepo = repositoryMock<SlackRepositoryInterface>().build()
+    mockTodoRepo = repositoryMock<TodoRepositoryInterface>().build()
     slackService = new SlackService(mockSlackRepo, mockTodoRepo)
 
     // External dependency mocks
@@ -157,7 +124,7 @@ describe('SlackService', () => {
       const mockConnections = [createMockSlackConnection(), createMockSlackConnection()]
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue(
-        mockRepositoryListSuccess(mockConnections)
+        mockResult.success(mockConnections)
       )
 
       const result = await slackService.getConnections(userId)
@@ -171,7 +138,7 @@ describe('SlackService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue(
-        mockRepositoryError('Database error')
+        mockResult.error('Database error')
       )
 
       const result = await slackService.getConnections(userId)
@@ -188,7 +155,7 @@ describe('SlackService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.deleteConnection.mockResolvedValue(
-        mockRepositorySuccess(undefined)
+        mockResult.success(undefined)
       )
 
       const result = await slackService.deleteConnection(connectionId, userId)
@@ -202,7 +169,7 @@ describe('SlackService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.deleteConnection.mockResolvedValue(
-        mockRepositoryError('Database error')
+        mockResult.error('Database error')
       )
 
       const result = await slackService.deleteConnection(connectionId, userId)
@@ -219,7 +186,7 @@ describe('SlackService', () => {
       const mockWebhooks = [createMockSlackWebhook(), createMockSlackWebhook()]
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue(
-        mockRepositoryListSuccess(mockWebhooks)
+        mockResult.success(mockWebhooks)
       )
 
       const result = await slackService.getWebhooks(userId)
@@ -233,7 +200,7 @@ describe('SlackService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue(
-        mockRepositoryError('Database error')
+        mockResult.error('Database error')
       )
 
       const result = await slackService.getWebhooks(userId)
@@ -258,9 +225,9 @@ describe('SlackService', () => {
       const mockConnection = createMockSlackConnection({ user_id: userId })
       const mockWebhook = createMockSlackWebhook()
 
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
-      mockSlackRepo.findWebhookByConnectionId.mockResolvedValue(mockRepositoryNotFound())
-      mockSlackRepo.createWebhook.mockResolvedValue(mockRepositorySuccess(mockWebhook))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
+      mockSlackRepo.findWebhookByConnectionId.mockResolvedValue(mockResult.error('Not found'))
+      mockSlackRepo.createWebhook.mockResolvedValue(mockResult.success(mockWebhook))
 
       const result = await slackService.createWebhook(userId, connectionId, mockRequest)
 
@@ -271,7 +238,7 @@ describe('SlackService', () => {
     })
 
     it('should return error when connection not found', async () => {
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositoryNotFound())
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.error('Not found'))
 
       const result = await slackService.createWebhook(userId, connectionId, mockRequest)
 
@@ -283,7 +250,7 @@ describe('SlackService', () => {
     it('should return error when connection belongs to different user', async () => {
       const mockConnection = createMockSlackConnection({ user_id: 'different-user' })
 
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
 
       const result = await slackService.createWebhook(userId, connectionId, mockRequest)
 
@@ -329,11 +296,11 @@ describe('SlackService', () => {
       const mockUserWithSettings = createMockUserWithSettings()
       const mockConnection = createMockSlackConnection()
 
-      mockSlackRepo.findWebhookById.mockResolvedValue(mockRepositorySuccess(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockRepositorySuccess(mockUserWithSettings))
-      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockRepositorySuccess({ slack_user_id: 'U1234567890' }))
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
-      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockRepositoryNotFound())
+      mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSettings))
+      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
+      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.error('Not found'))
 
       const result = await slackService.processWebhookEvent(webhookId, mockPayload)
 
@@ -342,7 +309,7 @@ describe('SlackService', () => {
     })
 
     it('should return error when webhook not found', async () => {
-      mockSlackRepo.findWebhookById.mockResolvedValue(mockRepositoryNotFound())
+      mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.error('Not found'))
 
       const result = await slackService.processWebhookEvent(webhookId, mockPayload)
 
@@ -356,11 +323,11 @@ describe('SlackService', () => {
       const mockUserWithSettings = createMockUserWithSettings({ slack_user_id: null })
       const mockConnection = createMockSlackConnection()
 
-      mockSlackRepo.findWebhookById.mockResolvedValue(mockRepositorySuccess(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockRepositorySuccess(mockUserWithSettings))
-      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockRepositorySuccess({ slack_user_id: null }))
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
-      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockRepositoryNotFound())
+      mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSettings))
+      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: null }))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
+      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.error('Not found'))
 
       const result = await slackService.processWebhookEvent(webhookId, mockPayload)
 
@@ -382,11 +349,11 @@ describe('SlackService', () => {
       const mockUserWithSettings = createMockUserWithSettings()
       const mockConnection = createMockSlackConnection()
 
-      mockSlackRepo.findWebhookById.mockResolvedValue(mockRepositorySuccess(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockRepositorySuccess(mockUserWithSettings))
-      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockRepositorySuccess({ slack_user_id: 'U1234567890' }))
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
-      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockRepositoryNotFound())
+      mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSettings))
+      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
+      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.error('Not found'))
 
       const result = await slackService.processWebhookEvent(webhookId, differentUserPayload)
 
@@ -400,11 +367,11 @@ describe('SlackService', () => {
       const mockConnection = createMockSlackConnection()
       const mockProcessedEvent = createMockSlackEventProcessed({ todo_id: 'existing-todo-123' })
 
-      mockSlackRepo.findWebhookById.mockResolvedValue(mockRepositorySuccess(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockRepositorySuccess(mockUserWithSettings))
-      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockRepositorySuccess({ slack_user_id: 'U1234567890' }))
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
-      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockRepositorySuccess(mockProcessedEvent))
+      mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSettings))
+      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
+      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.success(mockProcessedEvent))
 
       const result = await slackService.processWebhookEvent(webhookId, mockPayload)
 
@@ -426,11 +393,11 @@ describe('SlackService', () => {
       const mockUserWithSettings = createMockUserWithSettings()
       const mockConnection = createMockSlackConnection()
 
-      mockSlackRepo.findWebhookById.mockResolvedValue(mockRepositorySuccess(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockRepositorySuccess(mockUserWithSettings))
-      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockRepositorySuccess({ slack_user_id: 'U1234567890' }))
-      mockSlackRepo.findConnectionById.mockResolvedValue(mockRepositorySuccess(mockConnection))
-      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockRepositoryNotFound())
+      mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSettings))
+      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
+      mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
+      mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.error('Not found'))
 
       const result = await slackService.processWebhookEvent(webhookId, nonConfiguredEmojiPayload)
 
