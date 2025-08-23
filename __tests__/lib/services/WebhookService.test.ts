@@ -5,6 +5,7 @@
 import { WebhookService } from '@/lib/services/WebhookService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
 import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 import { SlackConnection, SlackWebhook } from '@/lib/entities/SlackConnection'
 import {
   createMockSlackConnection,
@@ -15,7 +16,7 @@ import {
 
 describe('WebhookService', () => {
   let service: WebhookService
-  let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
+  let mockSlackRepo: MockProxy<SlackRepositoryInterface>
 
   beforeEach(() => {
     mockSlackRepo = createAutoMock<SlackRepositoryInterface>()

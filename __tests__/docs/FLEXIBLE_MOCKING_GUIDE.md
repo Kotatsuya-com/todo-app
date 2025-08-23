@@ -73,17 +73,25 @@ const mockRepo = new MockBuilder<SlackRepositoryInterface>()
 
 ### From Complex Mock Classes
 
-**OLD APPROACH:**
+**LEGACY APPROACH (ts-auto-mock):**
 ```typescript
-// 30+ lines of mock class setup
-const mockRepo = createMockSlackRepository()
-mockRepo.setWebhookSuccess('webhook-123', mockWebhook)
-mockRepo.setUserNotFound('user-456')  
-mockRepo.setConnectionError('connection-789', 'Database error')
-mockRepo.setDefaultResult(MockRepositoryResultBuilder.error('Default error'))
+// Complex setup with ts-auto-mock (deprecated due to ts-jest 29 incompatibility)
+import { createMock } from 'ts-auto-mock'
+const mockRepo = createMock<SlackRepositoryInterface>() as unknown as jest.Mocked<SlackRepositoryInterface>
 ```
 
-**NEW APPROACH:**
+**RECOMMENDED APPROACH (jest-mock-extended):**
+```typescript
+// Type-safe interface mocking with jest-mock-extended
+import { mock, MockProxy } from 'jest-mock-extended'
+const mockRepo: MockProxy<SlackRepositoryInterface> = mock<SlackRepositoryInterface>()
+
+// Individual method mocking with full type safety
+mockRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
+mockRepo.findUserById.mockResolvedValue(mockResult.error('User not found'))
+```
+
+**ALTERNATIVE APPROACH (Builder Pattern):**
 ```typescript
 // 5 lines with builder pattern
 const mockRepo = repositoryMock<SlackRepositoryInterface>()

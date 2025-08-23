@@ -5,6 +5,7 @@
 import { SlackAuthService } from '@/lib/services/SlackAuthService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
 import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 import { SlackConnection } from '@/lib/entities/SlackConnection'
 import { UserWithSettings } from '@/lib/entities/User'
 import {
@@ -23,7 +24,7 @@ global.fetch = jest.fn()
 
 describe('SlackAuthService', () => {
   let service: SlackAuthService
-  let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
+  let mockSlackRepo: MockProxy<SlackRepositoryInterface>
 
   beforeEach(() => {
     mockSlackRepo = createAutoMock<SlackRepositoryInterface>()

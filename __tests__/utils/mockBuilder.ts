@@ -8,6 +8,7 @@
 
 import { jest } from '@jest/globals'
 import { createAutoMock, mockResult, serviceResult } from './autoMock'
+import type { MockProxy } from 'jest-mock-extended'
 
 /**
  * 汎用Mock Builder
@@ -20,7 +21,7 @@ import { createAutoMock, mockResult, serviceResult } from './autoMock'
  *   .build();
  */
 export class MockBuilder<T extends object> {
-  private mock: jest.Mocked<T>
+  private mock: MockProxy<T>
   private setupHistory: string[] = []
 
   constructor() {
@@ -105,7 +106,7 @@ export class MockBuilder<T extends object> {
   /**
    * 構築したモックを取得
    */
-  build(): jest.Mocked<T> {
+  build(): MockProxy<T> {
     return this.mock
   }
 }

@@ -7,7 +7,7 @@ import { SlackDisconnectionEntity } from '@/lib/entities/SlackDisconnection'
 import { authLogger } from '@/lib/logger'
 import { setupTestEnvironment, cleanupTestEnvironment } from '@/__tests__/mocks'
 import { mockRepositoryListSuccess, mockRepositorySuccess } from '@/__tests__/fixtures/repositories.fixture'
-import { mock } from 'jest-mock-extended'
+import { mock, MockProxy } from 'jest-mock-extended'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
 
 // Mock dependencies
@@ -34,7 +34,7 @@ const MockedSlackDisconnectionEntity = SlackDisconnectionEntity as jest.MockedCl
 describe('SlackDisconnectionService (repository-based)', () => {
   let service: SlackDisconnectionService
   let mockLogger: any
-  let mockRepo: jest.Mocked<SlackRepositoryInterface>
+  let mockRepo: MockProxy<SlackRepositoryInterface>
 
   const validUserId = 'user-123'
 
@@ -52,7 +52,7 @@ describe('SlackDisconnectionService (repository-based)', () => {
     }
     ;(authLogger.child as jest.Mock).mockReturnValue(mockLogger)
 
-    mockRepo = mock<SlackRepositoryInterface>() as unknown as jest.Mocked<SlackRepositoryInterface>
+    mockRepo = mock<SlackRepositoryInterface>()
     service = new SlackDisconnectionService(mockRepo as any)
   })
 

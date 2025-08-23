@@ -48,7 +48,11 @@ export class SlackAuthService {
       // 1. ユーザーの存在確認
       const userValidation = await this.validateUserExists(userId)
       if (!userValidation.success) {
-        return userValidation as SlackAuthServiceResult<SlackOAuthResult>
+        return {
+          success: false,
+          error: userValidation.error,
+          statusCode: userValidation.statusCode
+        }
       }
 
       // 2. Slack OAuth トークン交換

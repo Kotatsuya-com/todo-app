@@ -5,20 +5,20 @@
 
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
 import { TodoRepositoryInterface } from '@/lib/repositories/TodoRepository'
-import { createMock } from 'ts-auto-mock'
+import { mock, MockProxy } from 'jest-mock-extended'
 import { RepositoryResult, RepositoryListResult, RepositoryUtils } from '@/lib/repositories/BaseRepository'
 
 /**
- * モックSlackRepository
+ * モックSlackRepository (jest-mock-extended)
  */
-export const createMockSlackRepository = (): jest.Mocked<SlackRepositoryInterface> =>
-  createMock<SlackRepositoryInterface>() as unknown as jest.Mocked<SlackRepositoryInterface>
+export const createMockSlackRepository = (): MockProxy<SlackRepositoryInterface> =>
+  mock<SlackRepositoryInterface>()
 
 /**
- * モックTodoRepository
+ * モックTodoRepository (jest-mock-extended)
  */
-export const createMockTodoRepository = (): jest.Mocked<TodoRepositoryInterface> =>
-  createMock<TodoRepositoryInterface>() as unknown as jest.Mocked<TodoRepositoryInterface>
+export const createMockTodoRepository = (): MockProxy<TodoRepositoryInterface> =>
+  mock<TodoRepositoryInterface>()
 
 /**
  * フォールバック: 手書きモック（ts-auto-mockが使えない環境向け）
@@ -76,7 +76,7 @@ export const mockRepositoryListNotFound = <T>(): RepositoryListResult<T> =>
  * リポジトリモックのセットアップヘルパー
  */
 export const setupSlackRepositoryMocks = (
-  mockRepo: jest.Mocked<SlackRepositoryInterface>,
+  mockRepo: MockProxy<SlackRepositoryInterface>,
   config: {
     findWebhookById?: RepositoryResult<any>
     findUserWithSettings?: RepositoryResult<any>
@@ -105,7 +105,7 @@ export const setupSlackRepositoryMocks = (
 }
 
 export const setupTodoRepositoryMocks = (
-  mockRepo: jest.Mocked<TodoRepositoryInterface>,
+  mockRepo: MockProxy<TodoRepositoryInterface>,
   config: {
     createViaRPC?: RepositoryResult<any>
     create?: RepositoryResult<any>

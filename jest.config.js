@@ -40,11 +40,13 @@ const customJestConfig = {
     '\\.helper\\.(ts|js)$'
   ],
 
-  // Coverage configuration
+  // Coverage configuration - Browser environment (app/, src/, components/)
   collectCoverageFrom: [
-    'lib/**/*.{js,ts,tsx}',
-    '!lib/**/*.d.ts',
-    '!lib/**/index.ts'
+    'app/**/*.{js,ts,tsx}',
+    'src/**/*.{js,ts,tsx}',
+    'components/**/*.{js,ts,tsx}',
+    '!**/*.d.ts',
+    '!**/index.ts'
   ],
 
   // Transform configuration

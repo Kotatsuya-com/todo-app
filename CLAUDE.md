@@ -57,18 +57,50 @@ npm run migrate:new      # Create new migration
 npm run db:migrate       # Push migrations to database
 npm run types:generate   # Generate TypeScript types from database schema
 
-# Build and deployment
-npm run build            # Production build
-npm run lint             # ESLint check
+# Quality Assurance (MANDATORY)
+npm run quality-check    # 🚨 MANDATORY: Complete quality validation pipeline
+                         # Executes: lint → type-check → build → test (all must pass)
+npm run lint             # ESLint: Code style and best practices validation  
+npm run lint:fix         # Auto-fix ESLint issues where possible
+npm run type-check       # TypeScript: Static type analysis and error detection
+npm run build            # Next.js: Production build validation and optimization
 
 # Testing
-npm run test             # Run all tests (Node + Browser environments)
-npm run test:node        # Run Node.js environment tests (lib/ directory)
-npm run test:browser     # Run browser environment tests (api/, src/ directories)
-npm run test:watch       # Run browser tests in watch mode
-npm run test:watch:node  # Run Node tests in watch mode
-npm run test:coverage    # Run tests with coverage report for both environments
+npm run test             # Complete test suite: Backend (Node) + Frontend (Browser)
+                         # Backend: Service/Repository/Entity layers (lib/)
+                         # Frontend: Use Cases/Hooks/Components (api/, src/)
+npm run test:node        # Backend-only: Repository patterns, Service logic, Domain entities
+npm run test:browser     # Frontend-only: API integration, React hooks, UI components
+npm run test:watch       # Live test runner for rapid frontend development
+npm run test:watch:node  # Live test runner for rapid backend development  
+npm run test:coverage    # Full coverage report across all layers and environments
 ```
+
+### 🔍 Quality Check Pipeline Details
+
+**`npm run quality-check` は以下の4段階を順次実行します：**
+
+1. **ESLint Check** (`npm run lint`)
+   - コードスタイル規約準拠確認
+   - TypeScript best practices検証
+   - 自動修正: `npm run lint:fix`
+
+2. **TypeScript Validation** (`npm run type-check`) 
+   - 静的型解析・型安全性確認
+   - インターフェース実装整合性
+   - Clean Architecture層間の型統一性
+
+3. **Production Build** (`npm run build`)
+   - Next.js最適化ビルド成功確認
+   - バンドル生成・最適化検証
+   - 本番環境互換性確認
+
+4. **Complete Test Suite** (`npm run test`)
+   - Backend: 986 tests (Service/Repository/Entity)
+   - Frontend: 280 tests (API/Components/Hooks)
+   - **全1,266テストが100%成功必須**
+
+**🚨 CRITICAL**: いずれかの段階で失敗した場合、必ず修正してから次の作業に進むこと。
 
 ### Testing Strategy (Clean Architecture)
 
@@ -177,6 +209,7 @@ app/api/              # 🌐 Presentation Layer - HTTP handlers
 3. **Data access goes in Repository layer**
 4. **APIs only handle HTTP concerns**
 5. **Write unit tests for Service and Entity layers**
+6. **MANDATORY: Run `npm run quality-check` after ALL modifications**
 
 **🔄 LEGACY CODE MIGRATION**:
 - Existing APIs using direct Supabase calls will be gradually migrated
@@ -187,6 +220,7 @@ app/api/              # 🌐 Presentation Layer - HTTP handlers
 - Direct Supabase client usage in new APIs
 - Business logic in API routes
 - Complex mock chains in tests (use Service layer mocks instead)
+- Committing changes without passing `npm run quality-check`
 
 ### Core Architecture Patterns
 

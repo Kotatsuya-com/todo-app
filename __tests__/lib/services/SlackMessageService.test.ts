@@ -4,6 +4,8 @@
 
 import { SlackMessageService } from '@/lib/services/SlackMessageService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
+import { MockProxy } from 'jest-mock-extended'
+import { createAutoMock } from '@/__tests__/utils/autoMock'
 import { RepositoryResult } from '@/lib/repositories/BaseRepository'
 import { UserWithSettings } from '@/lib/entities/User'
 import { SlackConnection } from '@/lib/entities/SlackConnection'
@@ -44,31 +46,10 @@ const mockParseSlackUrl = parseSlackUrl as jest.MockedFunction<typeof parseSlack
 
 describe('SlackMessageService', () => {
   let service: SlackMessageService
-  let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
+  let mockSlackRepo: MockProxy<SlackRepositoryInterface>
 
   beforeEach(() => {
-    mockSlackRepo = {
-      findConnectionById: jest.fn(),
-      findConnectionsByUserId: jest.fn(),
-      createConnection: jest.fn(),
-      upsertConnection: jest.fn(),
-      deleteConnection: jest.fn(),
-      deleteWebhooksByConnectionIds: jest.fn(),
-      deleteConnectionsByUserId: jest.fn(),
-      resetUserSlackId: jest.fn(),
-      updateUserSlackId: jest.fn(),
-      findWebhookById: jest.fn(),
-      findWebhooksByUserId: jest.fn(),
-      findWebhookByConnectionId: jest.fn(),
-      createWebhook: jest.fn(),
-      updateWebhook: jest.fn(),
-      updateWebhookStats: jest.fn(),
-      findProcessedEvent: jest.fn(),
-      createProcessedEvent: jest.fn(),
-      findUserWithSettings: jest.fn(),
-      getDirectSlackUserId: jest.fn()
-    }
-
+    mockSlackRepo = createAutoMock<SlackRepositoryInterface>()
     service = new SlackMessageService(mockSlackRepo)
 
     // Reset all mocks

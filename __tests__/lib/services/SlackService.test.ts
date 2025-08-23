@@ -30,6 +30,7 @@ const mockGetAppBaseUrl = getAppBaseUrl as jest.MockedFunction<typeof getAppBase
 
 // NEW: Import flexible mocking utilities
 import { mockResult } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 import { repositoryMock } from '@/__tests__/utils/mockBuilder'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
 import { TodoRepositoryInterface } from '@/lib/repositories/TodoRepository'
@@ -103,8 +104,8 @@ const createMockSlackEventProcessed = (overrides: any = {}) => ({
 
 describe('SlackService', () => {
   let slackService: SlackService
-  let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
-  let mockTodoRepo: jest.Mocked<TodoRepositoryInterface>
+  let mockSlackRepo: MockProxy<SlackRepositoryInterface>
+  let mockTodoRepo: MockProxy<TodoRepositoryInterface>
 
   beforeEach(() => {
     // NEW: Use flexible mocking approach - create fresh mocks for each test

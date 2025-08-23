@@ -7,19 +7,15 @@
  */
 
 import { UIService, UIServiceRepository } from '@/lib/services/UIService'
+import { MockProxy, mock } from 'jest-mock-extended'
 
 describe('UIService', () => {
-  let mockRepository: jest.Mocked<UIServiceRepository>
+  let mockRepository: MockProxy<UIServiceRepository>
   let service: UIService
 
   beforeEach(() => {
-    // Mock repository
-    mockRepository = {
-      checkSlackConnections: jest.fn(),
-      fetchSlackMessage: jest.fn(),
-      generateTitle: jest.fn()
-    }
-
+    // Mock repository using jest-mock-extended
+    mockRepository = mock<UIServiceRepository>()
     service = new UIService(mockRepository)
   })
 

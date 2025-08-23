@@ -7,7 +7,8 @@ import {
   RepositoryContext,
   BaseRepository,
   RepositoryResult,
-  RepositoryUtils
+  RepositoryUtils,
+  RepositoryError
 } from './BaseRepository'
 import { EmojiSetting } from '@/lib/entities/EmojiSettings'
 
@@ -82,7 +83,7 @@ export class EmojiSettingsRepository implements EmojiSettingsRepositoryInterface
       .order('created_at', { ascending: false })
 
     if (result.error) {
-      return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
+      return RepositoryUtils.failureList(RepositoryError.fromSupabaseError(result.error))
     }
     return RepositoryUtils.success(result.data || [])
   }
@@ -97,7 +98,7 @@ export class EmojiSettingsRepository implements EmojiSettingsRepositoryInterface
       .or(`today_emoji.eq.${emojiName},tomorrow_emoji.eq.${emojiName},later_emoji.eq.${emojiName}`)
 
     if (result.error) {
-      return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
+      return RepositoryUtils.failureList(RepositoryError.fromSupabaseError(result.error))
     }
     return RepositoryUtils.success(result.data || [])
   }

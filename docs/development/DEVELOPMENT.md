@@ -130,6 +130,51 @@ const createTodo = async (data: any) => {
 }
 ```
 
+## 🔍 品質保証の徹底（MANDATORY）
+
+### 修正時の必須プロセス
+
+**🚨 すべての修正後に`npm run quality-check`で100%成功確認が必須**
+
+1. **段階的品質チェック実行**
+   ```bash
+   npm run quality-check  # 全ステップの実行
+   # = npm run lint && npm run type-check && npm run build && npm run test
+   ```
+
+2. **エラー段階分析** - 問題が発生した場合の解決順序
+   - **Stage 1**: `npm run lint` → ESLint規約違反の修正
+   - **Stage 2**: `npm run type-check` → TypeScript型エラーの解決  
+   - **Stage 3**: `npm run build` → ビルド時エラーの解決
+   - **Stage 4**: `npm run test` → テスト失敗の修正
+
+3. **根本原因分析の徹底**
+   - **実装の問題** vs **テストの問題** を慎重に判断
+   - テスト失敗時: Repositoryパターン実装との整合性確認
+   - Mock設計: Supabaseクライアント連携の適切性検証
+
+### 品質チェック失敗時の対応パターン
+
+#### ESLintエラー
+```bash
+npm run lint:fix  # 自動修正の試行
+npm run lint      # 残存問題の確認
+```
+
+#### TypeScript型エラー  
+- Entity・Repository・Service層の型定義統一性確認
+- インターフェース実装とモック型の整合性検証
+
+#### テスト失敗
+- **Repository Tests**: Supabaseクライアントモック vs 実装メソッドの整合性
+- **Service Tests**: 依存性注入による適切なモック使用
+- **API Tests**: Clean Architecture層の責務分離確認
+
+### 禁止事項
+❌ **quality-check未通過での変更コミット**
+❌ **テストエラーを無視した実装継続**  
+❌ **段階的解析を省略した一括修正**
+
 ## 🏛️ API設計原則
 
 - **Clean Architecture準拠**: 新規APIは必ずClean Architecture構造で実装

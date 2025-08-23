@@ -225,6 +225,45 @@ export function setupTestEnvironment(): void {
 }
 
 /**
+ * Supabase mock response utilities
+ * Supabaseモックレスポンスユーティリティ
+ */
+export function createSupabaseMockResponse<T>(
+  data: T | null,
+  error: any = null
+): {
+  data: T | null
+  error: any
+  count: null
+  status: number
+  statusText: string
+} {
+  return {
+    data,
+    error,
+    count: null,
+    status: error ? 400 : 200,
+    statusText: error ? 'Bad Request' : 'OK'
+  }
+}
+
+/**
+ * Create Supabase success response
+ * Supabase成功レスポンスを作成
+ */
+export function createSupabaseSuccessResponse<T>(data: T) {
+  return createSupabaseMockResponse(data, null)
+}
+
+/**
+ * Create Supabase error response
+ * Supabaseエラーレスポンスを作成
+ */
+export function createSupabaseErrorResponse(error: any) {
+  return createSupabaseMockResponse(null, error)
+}
+
+/**
  * Common mock patterns
  * 共通モックパターン
  */
@@ -244,5 +283,12 @@ export const CommonMocks = {
   /**
    * Create a factory function mock
    */
-  factory: <T>(implementation: T) => jest.fn().mockImplementation(() => implementation)
+  factory: <T>(implementation: T) => jest.fn().mockImplementation(() => implementation),
+
+  /**
+   * Create Supabase mock response with proper types
+   */
+  supabaseResponse: createSupabaseMockResponse,
+  supabaseSuccess: createSupabaseSuccessResponse,
+  supabaseError: createSupabaseErrorResponse
 }

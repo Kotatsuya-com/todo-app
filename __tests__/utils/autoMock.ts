@@ -4,22 +4,28 @@
  *
  * JavaScriptの動的な性質を活用し、必要なメソッドだけを定義できるようにします。
  * 未定義のメソッドは自動的にjest.fn()として生成されます。
+ *
+ * NOTE: jest-mock-extendedも利用可能です。使い分けの指針：
+ * - createAutoMock: Sequential Results API、一括モック設定が必要な場合
+ * - jest-mock-extended: 個別メソッドモック、厳密な型チェックが必要な場合
  */
 
 import { jest } from '@jest/globals'
+import type { MockProxy } from 'jest-mock-extended'
 
 /**
  * 自動モック生成関数
  * インターフェースのすべてのメソッドを自動的にjest.fn()として生成
+ * MockProxy<T>を返すことで、jest-mock-extendedとの互換性を提供
  *
  * @example
  * const mockRepo = createAutoMock<SlackRepositoryInterface>();
  * mockRepo.findWebhookById.mockResolvedValue({ data: webhook, error: null });
  */
-export function createAutoMock<T extends object>(): jest.Mocked<T> {
+export function createAutoMock<T extends object>(): MockProxy<T> {
   const cache: Record<string | symbol, jest.Mock> = {}
 
-  return new Proxy({} as jest.Mocked<T>, {
+  return new Proxy({} as MockProxy<T>, {
     get: (_target, prop) => {
       // Symbolや特殊なプロパティの処理
       if (typeof prop === 'symbol' || prop === 'then') {
@@ -69,7 +75,7 @@ export function createAutoMock<T extends object>(): jest.Mocked<T> {
  */
 export function createPartialMock<T extends object>(
   methods: Partial<jest.Mocked<T>>
-): jest.Mocked<T> {
+): MockProxy<T> {
   const autoMock = createAutoMock<T>()
 
   // 提供されたメソッドをマージ
@@ -90,10 +96,10 @@ export function createPartialMock<T extends object>(
  */
 export function createStrictMock<T extends object>(
   methods: Partial<jest.Mocked<T>>
-): jest.Mocked<T> {
+): MockProxy<T> {
   const implementedMethods = new Set(Object.keys(methods as any))
 
-  return new Proxy(methods as jest.Mocked<T>, {
+  return new Proxy(methods as MockProxy<T>, {
     get: (target, prop) => {
       const propString = String(prop)
 
@@ -130,10 +136,10 @@ export function createStrictMock<T extends object>(
 export function createSpyMock<T extends object>(
   realImplementation: T,
   overrides: Partial<jest.Mocked<T>> = {}
-): jest.Mocked<T> {
+): MockProxy<T> {
   const spiedMethods: Record<string | symbol, jest.Mock> = {}
 
-  return new Proxy(realImplementation as jest.Mocked<T>, {
+  return new Proxy(realImplementation as MockProxy<T>, {
     get: (target, prop) => {
       // オーバーライドが存在すればそれを使用
       if (prop in overrides) {
@@ -200,7 +206,14 @@ export const serviceResult = {
   }
 }
 
-// Type helpers for better IDE support
-export type MockedRepository<T extends object> = jest.Mocked<T>;
-export type PartialMock<T extends object> = Partial<jest.Mocked<T>>;
-export type StrictMock<T extends object> = jest.Mocked<T>;
+// Enhanced type helpers supporting both mocking systems
+export type AutoMockType<T extends object> = MockProxy<T>;
+export type ExtendedMockType<T extends object> = MockProxy<T>;
+
+// Legacy compatibility (deprecated - use MockProxy<T> directly)
+/** @deprecated Use MockProxy<T> directly from jest-mock-extended */
+export type MockedRepository<T extends object> = MockProxy<T>;
+/** @deprecated Use Partial<MockProxy<T>> directly */
+export type PartialMock<T extends object> = Partial<MockProxy<T>>;
+/** @deprecated Use MockProxy<T> directly */
+export type StrictMock<T extends object> = MockProxy<T>;

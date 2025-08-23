@@ -40,6 +40,8 @@
     "test:watch": "jest -c jest.config.js --watch",
     "test:watch:node": "jest -c jest.node.config.js --watch",
     "test:coverage": "jest -c jest.config.js --coverage && jest -c jest.node.config.js --coverage",
+    "test:coverage:browser": "jest -c jest.config.js --coverage",
+    "test:coverage:node": "jest -c jest.node.config.js --coverage",
     "prepare": "husky"
   },
   "dependencies": {

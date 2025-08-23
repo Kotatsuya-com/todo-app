@@ -35,6 +35,25 @@ export const createMockUserEmojiSettings = (overrides: Partial<UserEmojiSettings
   ...overrides
 })
 
+// User with settings (alias for compatibility)
+export const createMockUserWithSettings = createMockUser
+
+// Slack event processing result
+export interface SlackEventProcessed {
+  event_id: string
+  processed: boolean
+  todo_id?: string
+  message?: string
+}
+
+export const createMockSlackEventProcessed = (overrides: Partial<SlackEventProcessed> = {}): SlackEventProcessed => ({
+  event_id: 'evt_123',
+  processed: true,
+  todo_id: 'todo-123',
+  message: 'Event processed successfully',
+  ...overrides
+})
+
 // SlackConnection fixtures
 export const createMockSlackConnection = (overrides: Partial<SlackConnection> = {}): SlackConnection => ({
   id: 'slack-conn-123',
@@ -137,6 +156,46 @@ export const createMockSlackWebhookTodo = (): Todo =>
     title: 'Task from Slack',
     body: 'This task was created from a Slack reaction'
   })
+
+// Comparison fixtures
+export interface Comparison {
+  id: string
+  user_id: string
+  todo_a_id: string
+  todo_b_id: string
+  winner_id: string
+  loser_id: string
+  created_at: string
+}
+
+export const createMockComparison = (overrides: Partial<Comparison> = {}): Comparison => ({
+  id: 'comp-123',
+  user_id: 'user-123',
+  todo_a_id: 'todo-123',
+  todo_b_id: 'todo-456',
+  winner_id: 'todo-123',
+  loser_id: 'todo-456',
+  created_at: '2023-01-15T00:00:00Z',
+  ...overrides
+})
+
+// CompletionLog fixtures
+export interface CompletionLog {
+  id: string
+  user_id: string
+  todo_id: string
+  quadrant: 'urgent_important' | 'not_urgent_important' | 'urgent_not_important' | 'not_urgent_not_important'
+  completed_at: string
+}
+
+export const createMockCompletionLog = (overrides: Partial<CompletionLog> = {}): CompletionLog => ({
+  id: 'log-123',
+  user_id: 'user-123',
+  todo_id: 'todo-123',
+  quadrant: 'urgent_important',
+  completed_at: '2023-01-15T00:00:00Z',
+  ...overrides
+})
 
 // Date constants for consistent testing
 export const MOCK_DATE = '2023-01-15T00:00:00Z'

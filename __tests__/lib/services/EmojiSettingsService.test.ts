@@ -6,6 +6,7 @@
 import { EmojiSettingsService } from '@/lib/services/EmojiSettingsService'
 import { DEFAULT_EMOJI_SETTINGS, AVAILABLE_EMOJIS } from '@/lib/entities/EmojiSettings'
 import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 import { EmojiSettingsRepositoryInterface } from '@/lib/repositories/EmojiSettingsRepository'
 import {
   createMockEmojiSetting,
@@ -18,7 +19,7 @@ import {
 
 describe('EmojiSettingsService', () => {
   let service: EmojiSettingsService
-  let mockRepository: jest.Mocked<EmojiSettingsRepositoryInterface>
+  let mockRepository: MockProxy<EmojiSettingsRepositoryInterface>
 
   beforeEach(() => {
     mockRepository = createAutoMock<EmojiSettingsRepositoryInterface>()

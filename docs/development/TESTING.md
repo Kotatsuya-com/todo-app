@@ -60,6 +60,63 @@ Clean Architectureパターンに基づいた効率的なテスト戦略を採�
 - Use Cases層との連携テスト
 - 状態管理の検証
 
+## 🔍 テスト品質保証（MANDATORY）
+
+### テスト修正時の必須プロセス
+
+**🚨 テスト修正・追加後は必ず`npm run quality-check`で品質保証**
+
+#### 1. テスト失敗時の段階的分析
+```bash
+# テスト単体実行で問題の特定
+npm run test:node    # Backend層テスト
+npm run test:browser # Frontend層テスト
+
+# 品質チェック全体の実行
+npm run quality-check # lint + type-check + build + test
+```
+
+#### 2. Repository層テスト失敗対応
+- **Mock vs 実装の整合性確認**
+  - Supabaseクライアントのメソッドチェーン
+  - 戻り値の型とnull/undefined処理
+  - エラーレスポンスの構造
+
+```typescript
+// ✅ 適切なSupabaseモック設計
+const mockFromResult = {
+  select: jest.fn().mockReturnThis(),
+  eq: jest.fn().mockResolvedValue({ data: mockData, error: null })
+}
+
+// ❌ 不適切なチェーン設計  
+const mockFromResult = {
+  select: jest.fn().mockResolvedValue({ data: mockData, error: null })
+  // eq()が呼ばれるのに設定されていない
+}
+```
+
+#### 3. Service層テスト品質確認
+- **依存性注入の適切性**: Repository interfaces使用
+- **Mock結果設定**: setMockResults() パターンの活用
+- **エラーハンドリング**: 成功・失敗両パターンのテスト
+
+#### 4. テスト vs 実装の問題判断
+1. **実装コードを先に確認** (`lib/repositories/`, `lib/services/`)
+2. **テスト期待値と実装動作の比較**
+3. **100%がテスト問題の場合**: Mock・期待値の修正
+4. **実装問題の場合**: ビジネスロジック要件の再確認
+
+### 品質チェック統合パターン
+
+```bash
+# 開発フロー例
+vim lib/repositories/TodoRepository.ts  # 実装修正
+npm run test:node -- TodoRepository     # 個別テスト実行
+npm run quality-check                   # 最終品質確認
+git add . && git commit                 # 成功後のコミット
+```
+
 ## 📝 テストパターン
 
 ### バックエンドテスト例
@@ -458,33 +515,171 @@ npm run test:browser   # Browser環境のみ（api/, src/）
 
 ## 🔧 モックシステム
 
-### ts-auto-mock と Proxy-Based autoMock の併用
+### jest-mock-extended と createAutoMock の使い分け戦略
 
-プロジェクトでは2つのモックシステムを使用しています：
+プロジェクトでは用途に応じて2つのモックシステムを効果的に使い分けています：
 
-#### 1. ts-auto-mock (TypeScript Transformer)
-- **用途**: TypeScript型情報からの自動モック生成
-- **設定**: jest.config.jsのtransformerとして設定
-- **利点**: 型安全性、コンパイル時のモック生成
-- **制限**: Node.js環境では互換性の問題により未使用
+#### 1. jest-mock-extended (Interface Mocking推奨)
+- **用途**: Repository/Service インターフェースの型安全なモック生成
+- **適用場面**: 個別メソッドモック、引数別モック、Deep Mocking
+- **利点**: ts-jest 29完全互換、完全な型安全性、引数別レスポンス対応
+- **環境**: Node.js、Browser両環境で動作
 
 ```typescript
-// __tests__/fixtures/repositories.fixture.ts
-import { createMock } from 'ts-auto-mock'
+// Repository Interface mocking
+import { mock, MockProxy } from 'jest-mock-extended'
 
-export const createMockSlackRepository = (): jest.Mocked<SlackRepositoryInterface> =>
-  createMock<SlackRepositoryInterface>()
+let mockRepo: MockProxy<SlackRepositoryInterface> = mock<SlackRepositoryInterface>()
+
+// Individual method mocking
+mockRepo.findById.mockResolvedValue({ success: true, data: entity })
+
+// Argument-specific mocking
+mockRepo.findById.calledWith('id-1').mockResolvedValue(result1)
+mockRepo.findById.calledWith('id-2').mockResolvedValue(result2)
+
+// Sequential calls with mockReturnValueOnce
+mockRepo.create
+  .mockResolvedValueOnce({ success: true, data: result1 })
+  .mockResolvedValueOnce({ success: false, error: 'Duplicate' })
 ```
 
-#### 2. Proxy-Based autoMock System (カスタム実装)
+#### 2. createAutoMock (Sequential Results API推奨)
+- **用途**: API統合テスト、複数呼び出しでの順次レスポンス
+- **適用場面**: setMockResults APIによる結果シーケンス、Proxy-based自動生成
+- **利点**: Sequential Results API、簡潔な複数レスポンス設定
+- **特化用途**: API統合テスト、Service層の複雑なフロー
 
-**2025年8月: JavaScript Proxy技術を活用した革新的な自動モックシステムを導入**
+```typescript
+// Sequential Results API
+import { createAutoMock } from '@/__tests__/utils/autoMock'
 
-#### autoMock実装の利点
-- **コード削減**: 従来の手動モック実装から20-30%のコード削減
-- **保守性向上**: インターフェース変更時の自動追従
-- **一貫性**: 全レイヤーで統一されたモックパターン
-- **開発効率**: 単一行でのモック作成が可能
+let mockService = createAutoMock<SlackServiceInterface>()
+
+// Set sequential responses
+mockService.setMockResults([
+  { success: true, data: result1, statusCode: 200 },
+  { success: true, data: result2, statusCode: 200 },
+  { success: false, error: 'Not found', statusCode: 404 }
+])
+
+// Each call returns the next result in sequence
+await mockService.processEvent(payload1)  // → result1
+await mockService.processEvent(payload2)  // → result2  
+await mockService.processEvent(payload3)  // → error
+```
+
+#### 使い分けガイドライン
+
+| 用途 | 推奨手法 | 理由 |
+|------|---------|------|
+| Repository Interface | jest-mock-extended | 型安全性、引数別モック |
+| Service Interface（個別） | jest-mock-extended | メソッド別の細かい制御 |
+| API統合テスト | createAutoMock | Sequential Results API |
+| 複数レスポンステスト | createAutoMock | setMockResults API |
+| 引数依存テスト | jest-mock-extended | calledWith API |
+| Deep Mocking | jest-mock-extended | mockDeep対応 |
+
+### Sequential Results API の詳細パターン
+
+#### 基本的な使用例
+
+```typescript
+// 基本的なSequential Results
+const mockService = createAutoMock<SlackServiceInterface>()
+mockService.setMockResults([
+  { success: true, data: 'First call result' },
+  { success: true, data: 'Second call result' },
+  { success: false, error: 'Third call fails' }
+])
+
+// 順次呼び出し
+const result1 = await mockService.someMethod()  // success: true, data: 'First call result'
+const result2 = await mockService.someMethod()  // success: true, data: 'Second call result'  
+const result3 = await mockService.someMethod()  // success: false, error: 'Third call fails'
+const result4 = await mockService.someMethod()  // success: false, error: 'Third call fails' (最後の結果を継続)
+```
+
+#### API統合テストでの活用例
+
+```typescript
+// API統合テスト例（Slack Events処理）
+describe('POST /api/slack/events/user/[webhook_id]', () => {
+  let mockSlackService: MockSlackService
+
+  beforeEach(() => {
+    mockSlackService = new MockSlackService()
+  })
+
+  it('should handle multiple event processing', async () => {
+    // 複数のレスポンスを順次設定
+    mockSlackService.setMockResults([
+      eventQueuedResponse(),           // 1回目: イベント受付
+      webhookNotFoundResponse(),       // 2回目: Webhook未発見
+      userMismatchResponse(),          // 3回目: ユーザー不一致
+      eventProcessedResponse()         // 4回目以降: 正常処理
+    ])
+
+    // 順次呼び出しテスト
+    const response1 = await POST(createRequest(validPayload), { params: { webhook_id } })
+    expect(response1.status).toBe(200)  // eventQueued
+    
+    const response2 = await POST(createRequest(validPayload), { params: { webhook_id } })  
+    expect(response2.status).toBe(404)  // webhookNotFound
+    
+    const response3 = await POST(createRequest(validPayload), { params: { webhook_id } })
+    expect(response3.status).toBe(400)  // userMismatch
+    
+    const response4 = await POST(createRequest(validPayload), { params: { webhook_id } })
+    expect(response4.status).toBe(200)  // eventProcessed (以降継続)
+  })
+})
+```
+
+#### Repository層での使用例
+
+```typescript
+// Repository層でのエラーハンドリングテスト
+it('should handle sequential repository failures', async () => {
+  const mockRepo = createAutoMock<SlackRepositoryInterface>()
+  mockRepo.setMockResults([
+    mockResult.success(validConnection),        // 1回目成功
+    mockResult.error('Database timeout'),       // 2回目DB エラー  
+    mockResult.error('Connection lost'),        // 3回目接続エラー
+    mockResult.success(fallbackConnection)      // 4回目フォールバック成功
+  ])
+  
+  const service = new SlackConnectionService(mockRepo)
+  
+  // 段階的な障害テスト
+  const result1 = await service.getConnection('user-1')
+  expect(result1.success).toBe(true)
+  
+  const result2 = await service.getConnection('user-1')  
+  expect(result2.error).toContain('Database timeout')
+  
+  const result3 = await service.getConnection('user-1')
+  expect(result3.error).toContain('Connection lost')
+  
+  const result4 = await service.getConnection('user-1')
+  expect(result4.data).toEqual(fallbackConnection)
+})
+```
+
+#### 制限事項と注意点
+
+1. **結果の消費**: setMockResults配列の最後の要素が無限に返される
+2. **呼び出し順序**: メソッド名に関係なく、呼び出し順でresultが消費される  
+3. **リセット**: 新しくsetMockResultsを呼ぶとカウンターがリセットされる
+
+```typescript
+// 注意: 全てのメソッド呼び出しで同じresult配列を共有
+mockService.setMockResults([result1, result2])
+
+await mockService.methodA()  // → result1が返される
+await mockService.methodB()  // → result2が返される  
+await mockService.methodA()  // → result2が返される（最後の要素を継続）
+```
 
 #### Proxy-Based autoMock Pattern
 
@@ -556,21 +751,23 @@ class MockNotificationSettingsRepository implements NotificationSettingsReposito
 }
 ```
 
-**After: autoMock Implementation (514 lines - 15% reduction)**
+**After: jest-mock-extended Implementation**
 ```typescript
-// Simple one-line mock creation
-let mockRepository: NotificationSettingsRepositoryInterface & MockControlInterface
+// Simple one-line mock creation with full type safety
+import { mock, MockProxy } from 'jest-mock-extended'
+
+let mockRepository: MockProxy<NotificationSettingsRepositoryInterface>
 
 beforeEach(() => {
-  mockRepository = createAutoMock<NotificationSettingsRepositoryInterface>()
+  mockRepository = mock<NotificationSettingsRepositoryInterface>()
   service = new NotificationSettingsService(mockRepository)
 })
 
 test('should find notification settings by user ID', async () => {
-  // Set mock results - all methods automatically available
-  mockRepository.setMockResults([
+  // Type-safe method mocking
+  mockRepository.findByUserId.mockResolvedValue(
     { success: true, data: createMockNotificationSettingsEntity() }
-  ])
+  )
 
   const result = await service.findByUserId('user-123')
   expect(result.success).toBe(true)
@@ -582,7 +779,14 @@ test('should find notification settings by user ID', async () => {
 従来の複雑なmockチェーンを簡潔な結果ベースのアプローチに置き換え：
 
 ```typescript
-// ✅ Result-Based Approach with autoMock
+// ✅ Type-safe approach with jest-mock-extended
+import { mock, MockProxy } from 'jest-mock-extended'
+
+const mockService: MockProxy<SlackServiceInterface> = mock<SlackServiceInterface>()
+mockService.processWebhookEvent.mockResolvedValueOnce({ success: true, data: result1, statusCode: 200 })
+mockService.processWebhookEvent.mockResolvedValueOnce({ success: false, error: 'Not found', statusCode: 404 })
+
+// ✅ Alternative: Proxy-Based autoMock for sequential results
 const mockService = createAutoMock<SlackServiceInterface>()
 mockService.setMockResults([
   { success: true, data: result1, statusCode: 200 },

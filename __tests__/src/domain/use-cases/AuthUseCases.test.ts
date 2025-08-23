@@ -15,10 +15,11 @@ import {
   UserRepositoryInterface
 } from '../../../../src/domain/repositories/UserRepositoryInterface'
 import { createAutoMock } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 
 describe('AuthUseCases', () => {
-  let mockAuthRepository: jest.Mocked<AuthRepositoryInterface>
-  let mockUserRepository: jest.Mocked<UserRepositoryInterface>
+  let mockAuthRepository: MockProxy<AuthRepositoryInterface>
+  let mockUserRepository: MockProxy<UserRepositoryInterface>
   let authUseCases: AuthUseCases
 
   // Helper for creating test users

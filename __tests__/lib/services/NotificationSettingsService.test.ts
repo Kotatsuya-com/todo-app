@@ -6,6 +6,7 @@
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/entities/NotificationSettings'
 import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 import { NotificationSettingsRepositoryInterface } from '@/lib/repositories/NotificationSettingsRepository'
 import {
   createMockNotificationSettings,
@@ -17,7 +18,7 @@ import {
 
 describe('NotificationSettingsService', () => {
   let service: NotificationSettingsService
-  let mockRepository: jest.Mocked<NotificationSettingsRepositoryInterface>
+  let mockRepository: MockProxy<NotificationSettingsRepositoryInterface>
 
   beforeEach(() => {
     mockRepository = createAutoMock<NotificationSettingsRepositoryInterface>()

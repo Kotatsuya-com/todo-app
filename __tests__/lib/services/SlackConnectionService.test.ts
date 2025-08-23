@@ -5,6 +5,7 @@
 import { SlackConnectionService } from '@/lib/services/SlackConnectionService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
 import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+import { MockProxy } from 'jest-mock-extended'
 import {
   createMockSlackConnection,
   createMockSlackConnectionRecent,
@@ -17,7 +18,7 @@ import { createExtendedError } from '@/__tests__/utils/typeHelpers'
 
 describe('SlackConnectionService', () => {
   let service: SlackConnectionService
-  let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
+  let mockSlackRepo: MockProxy<SlackRepositoryInterface>
 
   beforeEach(() => {
     mockSlackRepo = createAutoMock<SlackRepositoryInterface>()
