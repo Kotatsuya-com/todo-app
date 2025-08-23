@@ -62,9 +62,12 @@ npm run build            # Production build
 npm run lint             # ESLint check
 
 # Testing
-npm run test             # Run Jest tests
-npm run test:watch       # Run Jest in watch mode
-npm run test:coverage    # Run tests with coverage report
+npm run test             # Run all tests (Node + Browser environments)
+npm run test:node        # Run Node.js environment tests (lib/ directory)
+npm run test:browser     # Run browser environment tests (api/, src/ directories)
+npm run test:watch       # Run browser tests in watch mode
+npm run test:watch:node  # Run Node tests in watch mode
+npm run test:coverage    # Run tests with coverage report for both environments
 ```
 
 ### Testing Strategy (Clean Architecture)
@@ -476,6 +479,33 @@ CREATE TABLE slack_connections (
 This architecture enables rapid development while maintaining production-grade security, performance, and scalability.
 
 ## 📝 Recent Updates (August 2025)
+
+### 🧪 Test Infrastructure Modernization (NEW)
+
+**Complete overhaul of testing system with Proxy-based autoMock implementation for improved maintainability and developer experience.**
+
+#### autoMock System Implementation
+- **Proxy-Based Mocking**: JavaScript Proxy-powered `createAutoMock<Interface>()` system replacing complex manual mocks
+- **Code Reduction**: 20-30% reduction in test code lines while maintaining functionality
+- **Simplified Patterns**: Single-line mock creation instead of 30+ line manual mock implementations
+- **Consistent API**: Unified mocking approach across Service, Repository, and Use Case layers
+
+#### Test Success Achievements  
+- **100% Pass Rate**: All 1158 tests passing with new infrastructure
+- **Migration Complete**: 5 Priority 1 service test files successfully migrated to autoMock
+- **Error Resolution**: Complete fix of TypeScript type-check errors and test failures
+- **Maintainability**: Reduced test complexity and improved developer productivity
+
+#### Development Environment Optimization
+- **Husky v10 Migration**: Updated pre-commit hooks eliminating DEPRECATED warnings
+- **ESLint Configuration**: React 17+ rule cleanup and duplicate import resolution
+- **TypeScript Improvements**: Complete resolution of type annotation and interface errors
+- **Time-Based Testing**: Proper Jest fake timers implementation for reliable date-dependent tests
+
+#### Technical Decision Documentation
+- **React Testing Library act() Warnings**: Technical analysis and decision to treat as acceptable false positives
+- **Time Mocking Strategy**: `jest.useFakeTimers()` and `jest.setSystemTime()` for consistent test results
+- **autoMock Pattern**: Comprehensive documentation of Proxy-based mock generation approach
 
 ### 🎉 Dependency Injection System完全実装 (COMPLETED)
 

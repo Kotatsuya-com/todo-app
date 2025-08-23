@@ -3,7 +3,6 @@
  * Slack統合完全切断のビジネスロジックとOrchestrationを担当
  */
 
-import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { authLogger } from '@/lib/logger'
 import {
   SlackDisconnectionEntity,
@@ -11,7 +10,7 @@ import {
   DisconnectionSummary,
   DisconnectionVerification
 } from '@/lib/entities/SlackDisconnection'
-import { NextRequest } from 'next/server'
+import { SlackRepository } from '@/lib/repositories/SlackRepository'
 
 export interface SlackDisconnectionServiceResult<T> {
   success: boolean
@@ -36,12 +35,12 @@ export interface User {
 
 export class SlackDisconnectionService {
   private readonly logger = authLogger.child({ service: 'SlackDisconnectionService' })
+  constructor(private _slackRepo: SlackRepository) {}
 
   /**
    * Slack統合を完全に切断
    */
   async disconnectSlackIntegration(
-    request: NextRequest,
     userId: string
   ): Promise<SlackDisconnectionServiceResult<DisconnectionResponse>> {
     const methodLogger = this.logger.child({
@@ -66,7 +65,7 @@ export class SlackDisconnectionService {
       methodLogger.info('Starting complete Slack integration disconnect')
 
       // 2. ユーザーのSlack接続を取得
-      const connectionsResult = await this.fetchUserConnections(request, userId)
+      const connectionsResult = await this.fetchUserConnections(userId)
       if (!connectionsResult.success) {
         return {
           success: false,
@@ -115,7 +114,7 @@ export class SlackDisconnectionService {
       }, 'Found connections to disconnect')
 
       // 5. 切断処理の実行
-      const disconnectionResult = await this.executeDisconnection(request, summary, userId)
+      const disconnectionResult = await this.executeDisconnection(summary, userId)
       if (!disconnectionResult.success) {
         return {
           success: false,
@@ -124,7 +123,7 @@ export class SlackDisconnectionService {
       }
 
       // 6. 切断確認の検証
-      const verificationResult = await this.verifyDisconnection(request, userId)
+      const verificationResult = await this.verifyDisconnection(userId)
       if (!verificationResult.success) {
         return {
           success: false,
@@ -165,20 +164,15 @@ export class SlackDisconnectionService {
    * ユーザーのSlack接続を取得
    */
   private async fetchUserConnections(
-    request: NextRequest,
     userId: string
   ): Promise<SlackDisconnectionServiceResult<SlackConnection[]>> {
     const methodLogger = this.logger.child({ method: 'fetchUserConnections', userId })
 
     try {
-      const supabase = createServerSupabaseClient(request)
-      const { data: connections, error: connectionsError } = await supabase
-        .from('slack_connections')
-        .select('id, workspace_name')
-        .eq('user_id', userId)
+      const { data, error } = await this._slackRepo.findConnectionsByUserId(userId)
 
-      if (connectionsError) {
-        methodLogger.error({ error: connectionsError }, 'Failed to fetch connections for disconnect')
+      if (error) {
+        methodLogger.error({ error }, 'Failed to fetch connections for disconnect')
         return {
           success: false,
           error: 'Failed to fetch connections',
@@ -188,7 +182,7 @@ export class SlackDisconnectionService {
 
       return {
         success: true,
-        data: connections || []
+        data: data || []
       }
 
     } catch (error: any) {
@@ -205,23 +199,17 @@ export class SlackDisconnectionService {
    * 切断処理の実行（Webhook削除、接続削除、ユーザーID リセット）
    */
   private async executeDisconnection(
-    request: NextRequest,
     summary: DisconnectionSummary,
     userId: string
   ): Promise<SlackDisconnectionServiceResult<void>> {
     const methodLogger = this.logger.child({ method: 'executeDisconnection', userId })
 
     try {
-      const supabase = createServerSupabaseClient(request)
+      // 1. Webhookを削除（Repository経由）
+      const webhookDelete = await this._slackRepo.deleteWebhooksByConnectionIds(summary.connectionIds)
 
-      // 1. Webhookを削除
-      const { error: webhookError } = await supabase
-        .from('user_slack_webhooks')
-        .delete()
-        .in('slack_connection_id', summary.connectionIds)
-
-      if (webhookError) {
-        methodLogger.error({ error: webhookError }, 'Failed to delete webhooks')
+      if (webhookDelete.error) {
+        methodLogger.error({ error: webhookDelete.error }, 'Failed to delete webhooks')
         return {
           success: false,
           error: 'Failed to delete webhooks',
@@ -231,14 +219,11 @@ export class SlackDisconnectionService {
 
       methodLogger.info({ connectionIds: summary.connectionIds }, 'Successfully deleted webhooks')
 
-      // 2. Slack接続を削除
-      const { error: connectionDeleteError } = await supabase
-        .from('slack_connections')
-        .delete()
-        .eq('user_id', userId)
+      // 2. Slack接続を削除（Repository経由）
+      const connDelete = await this._slackRepo.deleteConnectionsByUserId(userId)
 
-      if (connectionDeleteError) {
-        methodLogger.error({ error: connectionDeleteError }, 'Failed to delete connections')
+      if (connDelete.error) {
+        methodLogger.error({ error: connDelete.error }, 'Failed to delete connections')
         return {
           success: false,
           error: 'Failed to delete connections',
@@ -248,14 +233,11 @@ export class SlackDisconnectionService {
 
       methodLogger.info({ connectionIds: summary.connectionIds }, 'Successfully deleted connections')
 
-      // 3. ユーザーのSlack User IDをリセット
-      const { error: userResetError } = await supabase
-        .from('users')
-        .update({ slack_user_id: null })
-        .eq('id', userId)
+      // 3. ユーザーのSlack User IDをリセット（Repository経由）
+      const userReset = await this._slackRepo.resetUserSlackId(userId)
 
-      if (userResetError) {
-        methodLogger.error({ error: userResetError }, 'Failed to reset user Slack ID')
+      if (userReset.error) {
+        methodLogger.error({ error: userReset.error }, 'Failed to reset user Slack ID')
         return {
           success: false,
           error: 'Failed to reset user Slack ID',
@@ -283,36 +265,23 @@ export class SlackDisconnectionService {
    * 切断確認の検証
    */
   async verifyDisconnection(
-    request: NextRequest,
     userId: string
   ): Promise<SlackDisconnectionServiceResult<DisconnectionVerification>> {
     const methodLogger = this.logger.child({ method: 'verifyDisconnection', userId })
 
     try {
-      const supabase = createServerSupabaseClient(request)
+      // 1. 残りの接続をチェック（Repository経由）
+      const verificationConnectionsResult = await this._slackRepo.findConnectionsByUserId(userId)
 
-      // 1. 残りの接続をチェック
-      const { data: verificationConnections } = await supabase
-        .from('slack_connections')
-        .select('id')
-        .eq('user_id', userId)
+      // 2. 残りのWebhookをチェック（Repository経由）
+      const verificationWebhooksResult = await this._slackRepo.findWebhooksByUserId(userId)
 
-      // 2. 残りのWebhookをチェック
-      const { data: verificationWebhooks } = await supabase
-        .from('user_slack_webhooks')
-        .select('id')
-        .eq('user_id', userId)
+      // 3. ユーザーのSlack IDがクリアされたかチェック（Repository経由）
+      const verificationUserResult = await this._slackRepo.getDirectSlackUserId(userId)
 
-      // 3. ユーザーのSlack IDがクリアされたかチェック
-      const { data: verificationUser } = await supabase
-        .from('users')
-        .select('slack_user_id')
-        .eq('id', userId)
-        .single()
-
-      const remainingConnections = verificationConnections?.length || 0
-      const remainingWebhooks = verificationWebhooks?.length || 0
-      const userSlackIdCleared = !verificationUser?.slack_user_id
+      const remainingConnections = verificationConnectionsResult.data?.length || 0
+      const remainingWebhooks = verificationWebhooksResult.data?.length || 0
+      const userSlackIdCleared = !verificationUserResult.data?.slack_user_id
 
       // エンティティで検証結果を評価
       const entity = SlackDisconnectionEntity.forUser(userId)
@@ -344,39 +313,7 @@ export class SlackDisconnectionService {
     }
   }
 
-  /**
-   * ユーザー認証の確認
-   */
-  async authenticateUser(request: NextRequest): Promise<SlackDisconnectionServiceResult<User>> {
-    const methodLogger = this.logger.child({ method: 'authenticateUser' })
-
-    try {
-      const supabase = createServerSupabaseClient(request)
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-      if (userError || !user) {
-        methodLogger.warn('User authentication failed')
-        return {
-          success: false,
-          error: 'User not authenticated',
-          statusCode: 401
-        }
-      }
-
-      return {
-        success: true,
-        data: { id: user.id }
-      }
-
-    } catch (error: any) {
-      methodLogger.error({ error }, 'Exception during user authentication')
-      return {
-        success: false,
-        error: 'Authentication failed',
-        statusCode: 500
-      }
-    }
-  }
+  // 認証はハンドラ/コンテナ層で実施する
 
   /**
    * サービスのヘルスチェック

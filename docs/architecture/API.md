@@ -138,6 +138,75 @@ GET /api/slack/connections
 DELETE /api/slack/connections?id=connection_id
 ```
 
+### 👤 ユーザー設定API
+
+#### `/api/user/emoji-settings` 🔐
+
+**機能**: ユーザーごとのSlack絵文字設定を管理
+
+**リクエスト**:
+```http
+GET /api/user/emoji-settings
+```
+
+**レスポンス**:
+```json
+{
+  "success": true,
+  "data": {
+    "emojiSettings": [
+      {
+        "id": "uuid",
+        "emoji": "🔥",
+        "urgency": "now",
+        "custom": false
+      }
+    ],
+    "customEmojiSettings": [
+      {
+        "id": "uuid",
+        "emoji": "custom_emoji",
+        "urgency": "tomorrow",
+        "workspace_id": "T1234567890"
+      }
+    ]
+  }
+}
+```
+
+#### `/api/user/notifications` 🔐
+
+**機能**: 通知設定の取得・更新
+
+**リクエスト (GET)**:
+```http
+GET /api/user/notifications
+```
+
+**レスポンス**:
+```json
+{
+  "success": true,
+  "data": {
+    "email_notifications": true,
+    "slack_notifications": false,
+    "notification_time": "09:00:00"
+  }
+}
+```
+
+**リクエスト (PUT)**:
+```http
+PUT /api/user/notifications
+Content-Type: application/json
+
+{
+  "email_notifications": false,
+  "slack_notifications": true,
+  "notification_time": "18:00:00"
+}
+```
+
 #### `/api/slack/webhook` 🔐
 
 **機能**: ユーザー固有のWebhook管理

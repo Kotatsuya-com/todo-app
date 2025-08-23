@@ -31,6 +31,7 @@ const customJestConfig = {
   // Ignore helper and fixture files
   testPathIgnorePatterns: [
     '/node_modules/',
+    '/__tests__/lib/',
     '/__tests__/fixtures/',
     '/__tests__/helpers/',
     '/__tests__/mocks/',
@@ -48,9 +49,20 @@ const customJestConfig = {
 
   // Transform configuration
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['ts-jest', {
-      tsconfig: 'tsconfig.json'
-    }]
+    '^.+\\.(js|jsx|ts|tsx)$': 'ts-jest'
+  },
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.json',
+      astTransformers: {
+        before: [
+          {
+            path: 'ts-auto-mock/transformer',
+            options: { features: ['jest'] }
+          }
+        ]
+      }
+    }
   },
 
   // Transform ESM modules

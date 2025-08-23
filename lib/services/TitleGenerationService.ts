@@ -12,7 +12,7 @@ import {
   ServiceResult,
   createServiceSuccess,
   createServiceError
-} from '@/__tests__/utils/typeHelpers'
+} from '@/lib/utils'
 import { LLMRepositoryInterface } from '@/lib/repositories/LLMRepository'
 import { LLMRequestEntity } from '@/lib/entities/LLMRequest'
 import { LLMRepositoryFactory } from '@/lib/repositories/LLMRepositoryFactory'

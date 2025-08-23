@@ -280,22 +280,18 @@ export function createGenericHandlers(
 export function createDisconnectHandlers(container: DependencyContainer) {
   const DELETE: APIHandler = async (request: NextRequest) => {
     try {
-      // 1. ユーザー認証 (SlackDisconnectionService経由)
-      const authResult = await container.services.slackDisconnectionService.authenticateUser(request)
-      if (!authResult.success) {
+      // 1. ユーザー認証（コンテナ経由）
+      const auth = await container.auth.authenticateUser(request)
+      if (!auth.success || !auth.userId) {
         return NextResponse.json(
-          { error: authResult.error },
-          { status: authResult.statusCode || 401 }
+          { error: auth.error || 'Authentication failed' },
+          { status: auth.statusCode || 401 }
         )
       }
-
-      const user = authResult.data!
+      const userId = auth.userId
 
       // 2. Slack統合の完全切断
-      const disconnectionResult = await container.services.slackDisconnectionService.disconnectSlackIntegration(
-        request,
-        user.id
-      )
+      const disconnectionResult = await container.services.slackDisconnectionService.disconnectSlackIntegration(userId)
 
       if (!disconnectionResult.success) {
         return NextResponse.json(

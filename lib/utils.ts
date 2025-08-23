@@ -77,3 +77,49 @@ export function linkifyText(text: string): string {
   const urlRegex = /(https?:\/\/[^\s]+)/g
   return text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">$1</a>')
 }
+
+// Service result utilities (moved from lib/utils/service-result)
+export interface ServiceResult<T> {
+  data: T | null
+  error: ServiceError | null
+  metadata?: ServiceMetadata
+}
+
+export interface ServiceError {
+  code: string
+  message: string
+  statusCode: number
+  details?: any
+  originalError?: Error
+}
+
+export interface ServiceMetadata {
+  requestId?: string
+  processingTime?: number
+  cacheHit?: boolean
+  [key: string]: any
+}
+
+export function createServiceSuccess<T>(
+  data: T,
+  metadata?: ServiceMetadata
+): ServiceResult<T> {
+  return { data, error: null, metadata }
+}
+
+export function createServiceError<T>(
+  code: string,
+  message: string,
+  statusCode: number = 500,
+  details?: any,
+  originalError?: Error
+): ServiceResult<T> {
+  const error: ServiceError = {
+    code,
+    message,
+    statusCode,
+    details,
+    originalError
+  }
+  return { data: null, error }
+}

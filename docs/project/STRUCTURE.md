@@ -130,7 +130,8 @@ todo-app/
 ├── .gitignore                    # Git除外設定
 ├── CLAUDE.md                     # Claude Code用指示書
 ├── README.md                     # プロジェクト概要
-├── jest.config.js                # Jest設定
+├── jest.config.js                # Jest設定（Browser環境）
+├── jest.node.config.js           # Jest設定（Node環境）
 ├── jest.setup.js                 # Jestセットアップ
 ├── next.config.js                # Next.js設定
 ├── package.json                  # 依存関係・スクリプト
@@ -426,9 +427,12 @@ module.exports = {
   "@types/react": "^18.x",
   "typescript": "^5.x",
   "jest": "^29.x",
-  "@testing-library/react": "^14.x",
+  "@testing-library/react": "^16.x",
+  "ts-auto-mock": "^3.7.4",
+  "ts-jest": "^29.x",
   "eslint": "^8.x",
-  "prettier": "^3.x"
+  "prettier": "^3.x",
+  "husky": "^10.x"
 }
 ```
 
@@ -442,7 +446,9 @@ module.exports = {
     "dev:webhook": "Webhook開発環境（ngrok）",
     "dev:quick": "本番DB接続開発",
     "build": "本番ビルド",
-    "test": "テスト実行",
+    "test": "全テスト実行（Node + Browser）",
+    "test:node": "Node環境テスト（lib/）",
+    "test:browser": "Browser環境テスト（api/, src/）",
     "lint": "ESLintチェック",
     "db:start": "ローカルSupabase起動",
     "db:migrate": "マイグレーション実行",

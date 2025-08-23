@@ -45,7 +45,7 @@ export function createServices() {
   const llmRepository = LLMRepositoryFactory.create({ config: llmConfig })
   const titleGenerationService = new TitleGenerationService(llmRepository)
   const urlDetectionService = new UrlDetectionService()
-  const slackDisconnectionService = new SlackDisconnectionService()
+  const slackDisconnectionService = new SlackDisconnectionService(slackRepo)
   const webhookService = new WebhookService(slackRepo)
 
   return {
@@ -114,7 +114,9 @@ export function createUrlDetectionService() {
 }
 
 export function createSlackDisconnectionService() {
-  return new SlackDisconnectionService()
+  const context = new SupabaseRepositoryContext()
+  const slackRepo = new SlackRepository(context)
+  return new SlackDisconnectionService(slackRepo)
 }
 
 export function createWebhookService() {

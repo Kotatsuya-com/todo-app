@@ -27,8 +27,8 @@ describe('/api/slack/integration/disconnect/route.ts - 依存性注入アプロ�
 
   describe('認証チェック', () => {
     it('認証されていない場合、401エラーを返す', async () => {
-      // 認証失敗をモック
-      testContainer.updateServiceMock('slackDisconnectionService', {
+      // 認証失敗をモック（コンテナの認証）
+      testContainer.updateAuthMock({
         authenticateUser: jest.fn().mockResolvedValue({
           success: false,
           error: 'User not authenticated',
@@ -45,8 +45,8 @@ describe('/api/slack/integration/disconnect/route.ts - 依存性注入アプロ�
     })
 
     it('ユーザーがnullの場合、401エラーを返す', async () => {
-      // 認証失敗をモック（ユーザーがnull）
-      testContainer.updateServiceMock('slackDisconnectionService', {
+      // 認証失敗をモック（コンテナの認証; ユーザーがnull）
+      testContainer.updateAuthMock({
         authenticateUser: jest.fn().mockResolvedValue({
           success: false,
           error: 'User not authenticated',
@@ -203,8 +203,8 @@ describe('/api/slack/integration/disconnect/route.ts - 依存性注入アプロ�
 
   describe('エラーハンドリング', () => {
     it('予期しないエラーが発生した場合、500エラーを返す', async () => {
-      // サービスが例外を投げるようにモック
-      testContainer.updateServiceMock('slackDisconnectionService', {
+      // 認証で例外を投げるようにモック（コンテナの認証）
+      testContainer.updateAuthMock({
         authenticateUser: jest.fn().mockImplementation(() => {
           throw new Error('Unexpected error')
         })

@@ -37,6 +37,11 @@ export interface SlackRepositoryInterface {
   updateWebhook(_id: string, _updates: Partial<SlackWebhook>): Promise<RepositoryResult<SlackWebhook>>
   updateWebhookStats(_id: string, _eventCount: number): Promise<RepositoryResult<void>>
 
+  // Bulk operations for disconnection
+  deleteWebhooksByConnectionIds(_connectionIds: string[]): Promise<RepositoryResult<void>>
+  deleteConnectionsByUserId(_userId: string): Promise<RepositoryResult<void>>
+  resetUserSlackId(_userId: string): Promise<RepositoryResult<void>>
+
   // Event Processing
   findProcessedEvent(_eventKey: string): Promise<RepositoryResult<SlackEventProcessed>>
   createProcessedEvent(_event: Omit<SlackEventProcessed, 'id' | 'processed_at'>): Promise<RepositoryResult<SlackEventProcessed>>
@@ -276,5 +281,42 @@ export class SlackRepository implements SlackRepositoryInterface, BaseRepository
       .single()
 
     return RepositoryUtils.handleSupabaseResult(result)
+  }
+
+  // Bulk operations for disconnection
+  async deleteWebhooksByConnectionIds(_connectionIds: string[]): Promise<RepositoryResult<void>> {
+    const result = await this.client
+      .from('user_slack_webhooks')
+      .delete()
+      .in('slack_connection_id', _connectionIds)
+
+    if (result.error) {
+      return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
+    }
+    return RepositoryUtils.success(undefined)
+  }
+
+  async deleteConnectionsByUserId(_userId: string): Promise<RepositoryResult<void>> {
+    const result = await this.client
+      .from('slack_connections')
+      .delete()
+      .eq('user_id', _userId)
+
+    if (result.error) {
+      return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
+    }
+    return RepositoryUtils.success(undefined)
+  }
+
+  async resetUserSlackId(_userId: string): Promise<RepositoryResult<void>> {
+    const result = await this.client
+      .from('users')
+      .update({ slack_user_id: null })
+      .eq('id', _userId)
+
+    if (result.error) {
+      return RepositoryUtils.failure(RepositoryUtils.handleSupabaseResult(result).error!)
+    }
+    return RepositoryUtils.success(undefined)
   }
 }
