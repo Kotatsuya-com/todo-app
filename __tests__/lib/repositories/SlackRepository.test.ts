@@ -425,6 +425,229 @@ describe('SlackRepository', () => {
       expect(result.data).toBeNull()
       expect(result.error).toBeDefined()
     })
+
+    it('should use fallback when nested query fails (user without emoji settings)', async () => {
+      // Mock user data without emoji settings
+      const mockUserData = {
+        id: 'user-123',
+        slack_user_id: 'U1234567890',
+        enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z'
+      }
+
+      // First call (nested query) fails
+      const mockNestedQueryResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST204', message: 'No rows found' }
+        })
+      }
+
+      // Second call (fallback user query) succeeds
+      const mockUserQueryResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockUserData,
+          error: null
+        })
+      }
+
+      // Third call (emoji settings query) returns empty
+      const mockEmojiQueryResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({
+          data: [],
+          error: null
+        })
+      }
+
+      // Setup mock to return different results for each call
+      mockSupabaseClient.from
+        .mockReturnValueOnce(mockNestedQueryResult as any) // First call: nested query fails
+        .mockReturnValueOnce(mockUserQueryResult as any)   // Second call: user query succeeds
+        .mockReturnValueOnce(mockEmojiQueryResult as any)  // Third call: emoji settings query
+
+      const result = await repository.findUserWithSettings('user-123')
+
+      // Verify the result has user data with empty emoji settings
+      expect(result.error).toBeNull()
+      expect(result.data).toEqual({
+        ...mockUserData,
+        user_emoji_settings: []
+      })
+
+      // Verify all three queries were made
+      expect(mockSupabaseClient.from).toHaveBeenCalledTimes(3)
+      expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(1, 'users')
+      expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(2, 'users')
+      expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(3, 'user_emoji_settings')
+    })
+
+    it('should handle user with null emoji settings', async () => {
+      const mockUser = {
+        id: 'user-123',
+        slack_user_id: 'U1234567890',
+        enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z',
+        user_emoji_settings: null
+      }
+
+      const mockFromResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: mockUser, error: null })
+      }
+
+      mockSupabaseClient.from.mockReturnValue(mockFromResult as any)
+
+      const result = await repository.findUserWithSettings('user-123')
+
+      expect(result.data).toEqual(mockUser)
+      expect(result.error).toBeNull()
+    })
+
+    it('should handle user with empty emoji settings array', async () => {
+      const mockUser = {
+        id: 'user-123',
+        slack_user_id: 'U1234567890',
+        enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z',
+        user_emoji_settings: []
+      }
+
+      const mockFromResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: mockUser, error: null })
+      }
+
+      mockSupabaseClient.from.mockReturnValue(mockFromResult as any)
+
+      const result = await repository.findUserWithSettings('user-123')
+
+      expect(result.data).toEqual(mockUser)
+      expect(result.error).toBeNull()
+    })
+
+    it('should handle fallback when both user queries fail', async () => {
+      // Both nested and fallback queries fail
+      const mockFailedResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST116', message: 'User not found' }
+        })
+      }
+
+      mockSupabaseClient.from
+        .mockReturnValueOnce(mockFailedResult as any) // First call: nested query fails
+        .mockReturnValueOnce(mockFailedResult as any) // Second call: fallback also fails
+
+      const result = await repository.findUserWithSettings('non-existent-user')
+
+      expect(result.data).toBeNull()
+      expect(result.error).toBeDefined()
+      expect(result.error?.message).toContain('User not found')
+    })
+
+    it('should handle user with multiple emoji settings', async () => {
+      const mockUser = {
+        id: 'user-123',
+        slack_user_id: 'U1234567890',
+        enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z',
+        user_emoji_settings: [
+          {
+            id: 'emoji-1',
+            user_id: 'user-123',
+            today_emoji: 'fire',
+            tomorrow_emoji: 'calendar',
+            later_emoji: 'memo',
+            created_at: '2023-01-01T00:00:00Z',
+            updated_at: '2023-01-01T00:00:00Z'
+          },
+          {
+            id: 'emoji-2',
+            user_id: 'user-123',
+            today_emoji: 'rocket',
+            tomorrow_emoji: 'clock',
+            later_emoji: 'bookmark',
+            created_at: '2023-02-01T00:00:00Z',
+            updated_at: '2023-02-01T00:00:00Z'
+          }
+        ]
+      }
+
+      const mockFromResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: mockUser, error: null })
+      }
+
+      mockSupabaseClient.from.mockReturnValue(mockFromResult as any)
+
+      const result = await repository.findUserWithSettings('user-123')
+
+      expect(result.data).toEqual(mockUser)
+      expect(result.data?.user_emoji_settings).toHaveLength(2)
+      expect(result.error).toBeNull()
+    })
+
+    it('should handle emoji settings query failure in fallback', async () => {
+      const mockUserData = {
+        id: 'user-123',
+        slack_user_id: 'U1234567890',
+        enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z'
+      }
+
+      // First call (nested query) fails
+      const mockNestedQueryResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST204', message: 'No rows found' }
+        })
+      }
+
+      // Second call (fallback user query) succeeds
+      const mockUserQueryResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: mockUserData,
+          error: null
+        })
+      }
+
+      // Third call (emoji settings query) fails
+      const mockEmojiQueryResult = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST301', message: 'Database error' }
+        })
+      }
+
+      mockSupabaseClient.from
+        .mockReturnValueOnce(mockNestedQueryResult as any)
+        .mockReturnValueOnce(mockUserQueryResult as any)
+        .mockReturnValueOnce(mockEmojiQueryResult as any)
+
+      const result = await repository.findUserWithSettings('user-123')
+
+      // Should still return user data with empty emoji settings
+      expect(result.error).toBeNull()
+      expect(result.data).toEqual({
+        ...mockUserData,
+        user_emoji_settings: []
+      })
+    })
   })
 
   describe('getDirectSlackUserId', () => {

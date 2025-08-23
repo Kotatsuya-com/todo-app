@@ -241,6 +241,7 @@ export class SlackRepository implements SlackRepositoryInterface, BaseRepository
 
   // User Data for Webhook Processing
   async findUserWithSettings(_userId: string): Promise<RepositoryResult<UserWithSettings>> {
+    // First, try the full query with nested emoji settings
     const result = await this.client
       .from('users')
       .select(`
@@ -260,6 +261,34 @@ export class SlackRepository implements SlackRepositoryInterface, BaseRepository
       `)
       .eq('id', _userId)
       .single()
+
+    // If the nested query fails, try a fallback approach
+    if (result.error) {
+      // Get user data without nested relations
+      const userResult = await this.client
+        .from('users')
+        .select('id, slack_user_id, enable_webhook_notifications, created_at')
+        .eq('id', _userId)
+        .single()
+
+      if (userResult.error) {
+        return RepositoryUtils.failure(userResult.error)
+      }
+
+      // Get emoji settings separately
+      const emojiResult = await this.client
+        .from('user_emoji_settings')
+        .select('id, user_id, today_emoji, tomorrow_emoji, later_emoji, created_at, updated_at')
+        .eq('user_id', _userId)
+
+      // Combine the results
+      const combinedData = {
+        ...userResult.data,
+        user_emoji_settings: emojiResult.error ? [] : (emojiResult.data || [])
+      }
+
+      return RepositoryUtils.success(combinedData as UserWithSettings)
+    }
 
     return RepositoryUtils.handleSupabaseResult(result)
   }

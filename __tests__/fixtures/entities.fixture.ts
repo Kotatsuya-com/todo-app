@@ -35,8 +35,34 @@ export const createMockUserEmojiSettings = (overrides: Partial<UserEmojiSettings
   ...overrides
 })
 
-// User with settings (alias for compatibility)
-export const createMockUserWithSettings = createMockUser
+// User with settings - includes emoji settings
+export const createMockUserWithSettings = (overrides: Partial<any> = {}): any => {
+  const baseUser = createMockUser(overrides)
+  return {
+    ...baseUser,
+    user_emoji_settings: overrides.user_emoji_settings !== undefined
+      ? overrides.user_emoji_settings
+      : [createMockUserEmojiSettings()]
+  }
+}
+
+// User without emoji settings
+export const createMockUserWithoutEmojiSettings = (overrides: Partial<any> = {}): any => {
+  const baseUser = createMockUser(overrides)
+  return {
+    ...baseUser,
+    user_emoji_settings: []
+  }
+}
+
+// User with null emoji settings
+export const createMockUserWithNullEmojiSettings = (overrides: Partial<any> = {}): any => {
+  const baseUser = createMockUser(overrides)
+  return {
+    ...baseUser,
+    user_emoji_settings: null
+  }
+}
 
 // Slack event processing result
 export interface SlackEventProcessed {

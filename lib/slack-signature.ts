@@ -41,10 +41,16 @@ export async function verifySlackSignature(
     .update(sigBasestring)
     .digest('hex')}`
 
-  const isValid = crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  )
+  const sigBuffer = Buffer.from(signature)
+  const expectedBuffer = Buffer.from(expectedSignature)
+
+  // Buffer長さが異なる場合は署名が無効
+  if (sigBuffer.length !== expectedBuffer.length) {
+    webhookLogger.debug('Signature length mismatch')
+    return false
+  }
+
+  const isValid = crypto.timingSafeEqual(sigBuffer, expectedBuffer)
 
   webhookLogger.debug({
     isValid,

@@ -29,7 +29,7 @@ export async function authenticateUser(request?: NextRequest): Promise<Authentic
       }
     }
 
-    if (!user) {
+    if (!user || !user.id) {
       return {
         success: false,
         error: 'Unauthorized',
