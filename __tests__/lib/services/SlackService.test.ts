@@ -424,6 +424,7 @@ describe('SlackService', () => {
         email: 'test@example.com',
         slack_user_id: 'U1234567890',
         enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z',
         user_emoji_settings: [] // Empty array - no emoji settings
       }
       const mockConnection = createMockSlackConnection()
@@ -443,18 +444,19 @@ describe('SlackService', () => {
 
     it('should handle user with null emoji settings', async () => {
       const mockWebhook = createMockSlackWebhook()
-      // User with null emoji settings
+      // User with null emoji settings - cast as any to simulate runtime condition
       const mockUserWithNullSettings = {
         id: 'user-123',
         email: 'test@example.com',
         slack_user_id: 'U1234567890',
         enable_webhook_notifications: true,
-        user_emoji_settings: null // Null emoji settings
+        created_at: '2023-01-01T00:00:00Z',
+        user_emoji_settings: null as any // Null emoji settings (runtime condition)
       }
       const mockConnection = createMockSlackConnection()
 
       mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithNullSettings))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithNullSettings as any))
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
       mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
       mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.error('Not found'))
@@ -504,7 +506,8 @@ describe('SlackService', () => {
         id: 'user-123',
         email: 'test@example.com',
         slack_user_id: 'U1234567890',
-        enable_webhook_notifications: true
+        enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z'
         // user_emoji_settings is undefined (property doesn't exist)
       }
       const mockConnection = createMockSlackConnection()
@@ -524,22 +527,23 @@ describe('SlackService', () => {
 
     it('should handle user with non-array emoji settings gracefully', async () => {
       const mockWebhook = createMockSlackWebhook()
-      // User with non-array emoji settings (single object instead of array)
+      // User with non-array emoji settings (single object instead of array) - cast as any to simulate runtime condition
       const mockUserWithSingleSettings = {
         id: 'user-123',
         email: 'test@example.com',
         slack_user_id: 'U1234567890',
         enable_webhook_notifications: true,
+        created_at: '2023-01-01T00:00:00Z',
         user_emoji_settings: {
           today_emoji: 'custom_fire',
           tomorrow_emoji: 'custom_calendar',
           later_emoji: 'custom_memo'
-        }
+        } as any // Single object instead of array (runtime condition)
       }
       const mockConnection = createMockSlackConnection()
 
       mockSlackRepo.findWebhookById.mockResolvedValue(mockResult.success(mockWebhook))
-      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSingleSettings))
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success(mockUserWithSingleSettings as any))
       mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
       mockSlackRepo.findConnectionById.mockResolvedValue(mockResult.success(mockConnection))
       mockSlackRepo.findProcessedEvent.mockResolvedValue(mockResult.error('Not found'))
