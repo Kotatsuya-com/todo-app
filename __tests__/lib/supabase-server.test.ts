@@ -27,8 +27,11 @@ import { NextRequest } from 'next/server'
 const mockCreateServerClient = createServerClient as jest.MockedFunction<typeof createServerClient>
 
 describe('supabase-server.ts', () => {
+  let capturedOptions: any
+
   beforeEach(() => {
     jest.clearAllMocks()
+    capturedOptions = null
 
     // Setup environment variables
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
@@ -37,7 +40,7 @@ describe('supabase-server.ts', () => {
     // Setup mock to capture cookie options
     mockCreateServerClient.mockImplementation((url, key, options) => {
       // Store the options for testing
-      mockCreateServerClient.mockOptions = options
+      capturedOptions = options
       return { mockServerClient: true } as any
     })
   })
@@ -64,7 +67,7 @@ describe('supabase-server.ts', () => {
       mockCookieStore.get.mockReturnValue({ value: 'testValue' })
 
       createServerSupabaseClient()
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBe('testValue')
@@ -75,7 +78,7 @@ describe('supabase-server.ts', () => {
       mockCookieStore.get.mockReturnValue(undefined)
 
       createServerSupabaseClient()
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
@@ -86,7 +89,7 @@ describe('supabase-server.ts', () => {
   describe('cookie set method', () => {
     it('should set cookie with basic options', () => {
       createServerSupabaseClient()
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {})
 
@@ -99,7 +102,7 @@ describe('supabase-server.ts', () => {
       } as NextRequest
 
       createServerSupabaseClient(mockRequest)
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {
         secure: false,
@@ -118,7 +121,7 @@ describe('supabase-server.ts', () => {
       } as NextRequest
 
       createServerSupabaseClient(mockRequest)
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {
         secure: false,
@@ -137,7 +140,7 @@ describe('supabase-server.ts', () => {
       })
 
       createServerSupabaseClient()
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       // Should not throw error
       expect(() => {
@@ -147,7 +150,7 @@ describe('supabase-server.ts', () => {
 
     it('should handle undefined request gracefully', () => {
       createServerSupabaseClient(undefined)
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {
         secure: false,
@@ -164,7 +167,7 @@ describe('supabase-server.ts', () => {
   describe('cookie remove method', () => {
     it('should remove cookie by setting it with maxAge 0', () => {
       createServerSupabaseClient()
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.remove('testCookie', { path: '/' })
 
@@ -180,7 +183,7 @@ describe('supabase-server.ts', () => {
       })
 
       createServerSupabaseClient()
-      const cookieOptions = mockCreateServerClient.mockOptions
+      const cookieOptions = capturedOptions
 
       // Should not throw error
       expect(() => {

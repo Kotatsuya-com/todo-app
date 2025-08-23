@@ -4,7 +4,7 @@
 
 import { WebhookService } from '@/lib/services/WebhookService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
-import { RepositoryResult, RepositoryListResult } from '@/lib/repositories/BaseRepository'
+import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
 import { SlackConnection, SlackWebhook } from '@/lib/entities/SlackConnection'
 import {
   createMockSlackConnection,
@@ -18,34 +18,7 @@ describe('WebhookService', () => {
   let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
 
   beforeEach(() => {
-    mockSlackRepo = {
-      // Connection methods
-      findConnectionById: jest.fn(),
-      findConnectionsByUserId: jest.fn(),
-      createConnection: jest.fn(),
-      upsertConnection: jest.fn(),
-      deleteConnection: jest.fn(),
-
-      // User methods
-      updateUserSlackId: jest.fn(),
-
-      // Webhook methods
-      findWebhookById: jest.fn(),
-      findWebhooksByUserId: jest.fn(),
-      findWebhookByConnectionId: jest.fn(),
-      createWebhook: jest.fn(),
-      updateWebhook: jest.fn(),
-      updateWebhookStats: jest.fn(),
-
-      // Event processing methods
-      findProcessedEvent: jest.fn(),
-      createProcessedEvent: jest.fn(),
-
-      // User data methods
-      findUserWithSettings: jest.fn(),
-      getDirectSlackUserId: jest.fn()
-    }
-
+    mockSlackRepo = createAutoMock<SlackRepositoryInterface>()
     service = new WebhookService(mockSlackRepo)
   })
 
@@ -75,10 +48,7 @@ describe('WebhookService', () => {
     })
 
     it('should return empty array when no webhooks found', async () => {
-      mockSlackRepo.findWebhooksByUserId.mockResolvedValue({
-        data: [],
-        error: null
-      })
+      mockSlackRepo.findWebhooksByUserId.mockResolvedValue(mockResult.success([]))
 
       const result = await service.getUserWebhooks('user-123')
 

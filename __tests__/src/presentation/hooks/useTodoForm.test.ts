@@ -644,7 +644,7 @@ describe('useTodoForm', () => {
     it('should update form when initialTodo changes', () => {
       const { result, rerender } = renderHook(
         ({ initialTodo }: { initialTodo: TodoEntity | null }) => useTodoForm({ initialTodo }),
-        { initialProps: { initialTodo: null } }
+        { initialProps: { initialTodo: null as TodoEntity | null } }
       )
 
       expect(result.current.state.formData.title).toBe('')

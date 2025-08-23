@@ -5,32 +5,15 @@
 
 import { EmojiSetting } from '@/lib/entities/EmojiSettings'
 
-// Mock repository result types to avoid importing BaseRepository
-interface RepositoryResult<T> {
-  success: boolean
-  data?: T | null
-  error?: {
-    code: string
-    message: string
-    details?: string
-  }
-}
-
-const RepositoryUtils = {
-  success: <T>(data: T | null): RepositoryResult<T> => ({
-    success: true,
-    data
-  }),
-  failure: (error: { code: string; message: string; details?: string }): RepositoryResult<any> => ({
-    success: false,
-    error
-  })
-}
+// Import the actual RepositoryResult types
+import { RepositoryResult, RepositoryUtils } from '@/lib/repositories/BaseRepository'
 
 // Mock interface to avoid importing repository interface
 interface EmojiSettingsRepositoryInterface {
-  findByUserId(userId: string): Promise<RepositoryResult<EmojiSetting>>
+  findByUserId(userId: string): Promise<RepositoryResult<EmojiSetting | null>>
   upsert(settings: Omit<EmojiSetting, 'id' | 'created_at' | 'updated_at'>): Promise<RepositoryResult<EmojiSetting>>
+  deleteByUserId(userId: string): Promise<RepositoryResult<void>>
+  findAll(): Promise<RepositoryResult<EmojiSetting[]>>
 }
 
 import {
@@ -77,13 +60,9 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
   }
 
   // Repository interface implementation
-  async findByUserId(userId: string): Promise<RepositoryResult<EmojiSetting>> {
+  async findByUserId(userId: string): Promise<RepositoryResult<EmojiSetting | null>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     if (this.shouldReturnEmpty) {
@@ -98,11 +77,7 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
     settings: Omit<EmojiSetting, 'id' | 'created_at' | 'updated_at'>
   ): Promise<RepositoryResult<EmojiSetting>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     const existingSetting = this.settings.get(settings.user_id)
@@ -121,11 +96,7 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
 
   async deleteByUserId(userId: string): Promise<RepositoryResult<void>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     this.settings.delete(userId)
@@ -134,11 +105,7 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
 
   async findAll(): Promise<RepositoryResult<EmojiSetting[]>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     if (this.shouldReturnEmpty) {
@@ -150,11 +117,7 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
 
   async findByEmoji(emojiName: string): Promise<RepositoryResult<EmojiSetting[]>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     const matchingSettings = Array.from(this.settings.values()).filter(setting =>
@@ -168,11 +131,7 @@ export class MockEmojiSettingsRepository implements EmojiSettingsRepositoryInter
 
   async countDefaultUsers(): Promise<RepositoryResult<number>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     const defaultCount = Array.from(this.settings.values()).filter(setting =>

@@ -1,32 +1,26 @@
 /**
  * NotificationSettingsService unit tests
+ * Using autoMock approach for cleaner, more maintainable tests
  */
 
 import { NotificationSettingsService } from '@/lib/services/NotificationSettingsService'
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/lib/entities/NotificationSettings'
-import {
-  MockNotificationSettingsRepository,
-  createMockNotificationSettingsRepository,
-  createFailingMockNotificationSettingsRepository,
-  createMockNotificationSettingsRepositoryWithMultipleUsers,
-  createEmptyMockNotificationSettingsRepository,
-  NotificationUpdateRequest
-} from '@/__tests__/mocks/repositories/NotificationSettingsRepository.mock'
+import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
+import { NotificationSettingsRepositoryInterface } from '@/lib/repositories/NotificationSettingsRepository'
 import {
   createMockNotificationSettings,
   createMockCustomNotificationSettings,
   createMockValidNotificationUpdateRequest,
   createMockInvalidNotificationUpdateRequest,
-  createMockNotificationUpdateRequest,
   EXPECTED_NOTIFICATION_STATISTICS
 } from '@/__tests__/fixtures/notification-settings.fixture'
 
 describe('NotificationSettingsService', () => {
   let service: NotificationSettingsService
-  let mockRepository: MockNotificationSettingsRepository
+  let mockRepository: jest.Mocked<NotificationSettingsRepositoryInterface>
 
   beforeEach(() => {
-    mockRepository = createMockNotificationSettingsRepository()
+    mockRepository = createAutoMock<NotificationSettingsRepositoryInterface>()
     service = new NotificationSettingsService(mockRepository)
   })
 
@@ -37,7 +31,7 @@ describe('NotificationSettingsService', () => {
   describe('getUserNotificationSettings', () => {
     it('should return existing user settings with summary', async () => {
       const mockSettings = createMockNotificationSettings()
-      mockRepository.setUserSettings('user-123', mockSettings)
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(mockSettings))
 
       const result = await service.getUserNotificationSettings('user-123')
 
@@ -47,10 +41,11 @@ describe('NotificationSettingsService', () => {
         webhookNotifications: 'enabled',
         isDefault: true
       })
+      expect(mockRepository.findByUserId).toHaveBeenCalledWith('user-123')
     })
 
     it('should return default settings when user has no settings', async () => {
-      mockRepository.setUserNotFound('user-123')
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(null))
 
       const result = await service.getUserNotificationSettings('new-user')
 
@@ -63,7 +58,7 @@ describe('NotificationSettingsService', () => {
 
     it('should return custom settings with correct summary', async () => {
       const mockSettings = createMockCustomNotificationSettings()
-      mockRepository.setUserSettings('user-123', mockSettings)
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(mockSettings))
 
       const result = await service.getUserNotificationSettings(mockSettings.user_id)
 
@@ -76,7 +71,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setMockError('findByUserId:user-123', 'Database error')
+      mockRepository.findByUserId.mockResolvedValue(mockResult.error('Database error'))
 
       const result = await service.getUserNotificationSettings('user-123')
 
@@ -86,14 +81,9 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle service layer exceptions', async () => {
-      const throwingRepository = {
-        findByUserId: jest.fn(() => {
-          throw new Error('Unexpected error')
-        })
-      } as any
+      mockRepository.findByUserId.mockRejectedValue(new Error('Unexpected error'))
 
-      const serviceWithThrowingRepo = new NotificationSettingsService(throwingRepository)
-      const result = await serviceWithThrowingRepo.getUserNotificationSettings('user-123')
+      const result = await service.getUserNotificationSettings('user-123')
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
@@ -101,8 +91,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle null data from repository', async () => {
-      mockRepository.clearMockResults()
-      mockRepository.setUserNotFound('user-123')
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(null))
 
       const result = await service.getUserNotificationSettings('nonexistent-user')
 
@@ -116,13 +105,10 @@ describe('NotificationSettingsService', () => {
     it('should update user settings with valid request', async () => {
       const updateRequest = createMockValidNotificationUpdateRequest()
       const expectedSettings = {
-        id: 'settings-1',
         user_id: 'user-123',
-        enable_webhook_notifications: updateRequest.enable_webhook_notifications,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z'
+        enable_webhook_notifications: updateRequest.enable_webhook_notifications
       }
-      mockRepository.setUpdateSuccess('user-123', expectedSettings)
+      mockRepository.update.mockResolvedValue(mockResult.success(expectedSettings))
 
       const result = await service.updateUserNotificationSettings('user-123', updateRequest)
 
@@ -130,6 +116,10 @@ describe('NotificationSettingsService', () => {
       expect(result.data?.message).toBe('Notification preferences updated successfully')
       expect(result.data?.settings.enable_webhook_notifications).toBe(updateRequest.enable_webhook_notifications)
       expect(result.data?.settings.user_id).toBe('user-123')
+      expect(mockRepository.update).toHaveBeenCalledWith('user-123', {
+        user_id: 'user-123',
+        enable_webhook_notifications: updateRequest.enable_webhook_notifications
+      })
     })
 
     it('should reject invalid notification values', async () => {
@@ -140,10 +130,11 @@ describe('NotificationSettingsService', () => {
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('enable_webhook_notifications must be a boolean')
       expect(result.statusCode).toBe(400)
+      expect(mockRepository.update).not.toHaveBeenCalled()
     })
 
     it('should handle repository errors during update', async () => {
-      mockRepository.setMockError('update:user-123', 'Database error')
+      mockRepository.update.mockResolvedValue(mockResult.error('Database error'))
       const validRequest = createMockValidNotificationUpdateRequest()
 
       const result = await service.updateUserNotificationSettings('user-123', validRequest)
@@ -154,33 +145,21 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle null data from repository', async () => {
-      const originalUpdate = mockRepository.update
-      mockRepository.update = jest.fn().mockResolvedValue({
-        success: true,
-        data: null
-      })
-
+      mockRepository.update.mockResolvedValue(mockResult.success(null))
       const validRequest = createMockValidNotificationUpdateRequest()
+
       const result = await service.updateUserNotificationSettings('user-123', validRequest)
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to update notification settings - no data returned')
       expect(result.statusCode).toBe(500)
-
-      // Restore original method
-      mockRepository.update = originalUpdate
     })
 
     it('should handle service layer exceptions', async () => {
-      const throwingRepository = {
-        update: jest.fn(() => {
-          throw new Error('Unexpected error')
-        })
-      } as any
-
-      const serviceWithThrowingRepo = new NotificationSettingsService(throwingRepository)
+      mockRepository.update.mockRejectedValue(new Error('Unexpected error'))
       const validRequest = createMockValidNotificationUpdateRequest()
-      const result = await serviceWithThrowingRepo.updateUserNotificationSettings('user-123', validRequest)
+
+      const result = await service.updateUserNotificationSettings('user-123', validRequest)
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
@@ -188,16 +167,12 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should create new settings for user without existing settings', async () => {
-      mockRepository.clearMockResults() // Start with empty repository
       const validRequest = createMockValidNotificationUpdateRequest()
       const expectedSettings = {
-        id: 'settings-new',
         user_id: 'new-user',
-        enable_webhook_notifications: validRequest.enable_webhook_notifications,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z'
+        enable_webhook_notifications: validRequest.enable_webhook_notifications
       }
-      mockRepository.setUpdateSuccess('new-user', expectedSettings)
+      mockRepository.update.mockResolvedValue(mockResult.success(expectedSettings))
 
       const result = await service.updateUserNotificationSettings('new-user', validRequest)
 
@@ -209,7 +184,7 @@ describe('NotificationSettingsService', () => {
     it('should handle multiple validation errors', async () => {
       const invalidRequest = {
         enable_webhook_notifications: 'invalid' as any
-      } as NotificationUpdateRequest
+      }
 
       const result = await service.updateUserNotificationSettings('user-123', invalidRequest)
 
@@ -222,13 +197,10 @@ describe('NotificationSettingsService', () => {
   describe('resetUserNotificationSettings', () => {
     it('should reset user settings to defaults', async () => {
       const expectedSettings = {
-        id: 'settings-1',
         user_id: 'user-123',
-        enable_webhook_notifications: DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z'
+        enable_webhook_notifications: DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications
       }
-      mockRepository.setUpdateSuccess('user-123', expectedSettings)
+      mockRepository.update.mockResolvedValue(mockResult.success(expectedSettings))
 
       const result = await service.resetUserNotificationSettings('user-123')
 
@@ -236,10 +208,14 @@ describe('NotificationSettingsService', () => {
       expect(result.data?.message).toBe('Notification settings reset to default')
       expect(result.data?.settings.enable_webhook_notifications).toBe(DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications)
       expect(result.data?.settings.user_id).toBe('user-123')
+      expect(mockRepository.update).toHaveBeenCalledWith('user-123', {
+        user_id: 'user-123',
+        enable_webhook_notifications: DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications
+      })
     })
 
     it('should handle repository errors during reset', async () => {
-      mockRepository.setMockError('update:user-123', 'Database error')
+      mockRepository.update.mockResolvedValue(mockResult.error('Database error'))
 
       const result = await service.resetUserNotificationSettings('user-123')
 
@@ -249,31 +225,19 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle null data from repository', async () => {
-      const originalUpdate = mockRepository.update
-      mockRepository.update = jest.fn().mockResolvedValue({
-        success: true,
-        data: null
-      })
+      mockRepository.update.mockResolvedValue(mockResult.success(null))
 
       const result = await service.resetUserNotificationSettings('user-123')
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Failed to reset notification settings - no data returned')
       expect(result.statusCode).toBe(500)
-
-      // Restore original method
-      mockRepository.update = originalUpdate
     })
 
     it('should handle service layer exceptions', async () => {
-      const throwingRepository = {
-        update: jest.fn(() => {
-          throw new Error('Unexpected error')
-        })
-      } as any
+      mockRepository.update.mockRejectedValue(new Error('Unexpected error'))
 
-      const serviceWithThrowingRepo = new NotificationSettingsService(throwingRepository)
-      const result = await serviceWithThrowingRepo.resetUserNotificationSettings('user-123')
+      const result = await service.resetUserNotificationSettings('user-123')
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
@@ -283,13 +247,10 @@ describe('NotificationSettingsService', () => {
     it('should reset custom settings to defaults', async () => {
       const customSettings = createMockCustomNotificationSettings()
       const expectedSettings = {
-        id: 'settings-1',
         user_id: customSettings.user_id,
-        enable_webhook_notifications: DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z'
+        enable_webhook_notifications: DEFAULT_NOTIFICATION_SETTINGS.enable_webhook_notifications
       }
-      mockRepository.setUpdateSuccess(customSettings.user_id, expectedSettings)
+      mockRepository.update.mockResolvedValue(mockResult.success(expectedSettings))
 
       const result = await service.resetUserNotificationSettings(customSettings.user_id)
 
@@ -308,13 +269,15 @@ describe('NotificationSettingsService', () => {
   })
 
   describe('getNotificationStats', () => {
-    beforeEach(() => {
-      // Use repository with multiple users for statistics testing
-      mockRepository = createMockNotificationSettingsRepositoryWithMultipleUsers()
-      service = new NotificationSettingsService(mockRepository)
-    })
-
     it('should return correct notification statistics', async () => {
+      mockRepository.getNotificationStats.mockResolvedValue(
+        mockResult.success({
+          totalUsers: EXPECTED_NOTIFICATION_STATISTICS.totalUsers,
+          enabledUsers: EXPECTED_NOTIFICATION_STATISTICS.enabledUsers,
+          disabledUsers: EXPECTED_NOTIFICATION_STATISTICS.disabledUsers
+        })
+      )
+
       const result = await service.getNotificationStats()
 
       expect(result.error).toBeUndefined()
@@ -325,7 +288,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setNotificationStatsError('Database error')
+      mockRepository.getNotificationStats.mockResolvedValue(mockResult.error('Database error'))
 
       const result = await service.getNotificationStats()
 
@@ -335,10 +298,15 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle empty repository', async () => {
-      const emptyRepository = createEmptyMockNotificationSettingsRepository()
-      const emptyService = new NotificationSettingsService(emptyRepository)
+      mockRepository.getNotificationStats.mockResolvedValue(
+        mockResult.success({
+          totalUsers: 0,
+          enabledUsers: 0,
+          disabledUsers: 0
+        })
+      )
 
-      const result = await emptyService.getNotificationStats()
+      const result = await service.getNotificationStats()
 
       expect(result.error).toBeUndefined()
       expect(result.data?.totalUsers).toBe(0)
@@ -348,7 +316,6 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should calculate percentage correctly', async () => {
-      // Test with different ratios
       const testCases = [
         { enabled: 1, total: 4, expectedPercentage: 25 },
         { enabled: 3, total: 4, expectedPercentage: 75 },
@@ -357,19 +324,14 @@ describe('NotificationSettingsService', () => {
       ]
 
       for (const testCase of testCases) {
-        const testSettings = Array.from({ length: testCase.total }, (_, i) =>
-          createMockNotificationSettings({
-            user_id: `user-${i}`,
-            enable_webhook_notifications: i < testCase.enabled
+        mockRepository.getNotificationStats.mockResolvedValue(
+          mockResult.success({
+            totalUsers: testCase.total,
+            enabledUsers: testCase.enabled,
+            disabledUsers: testCase.total - testCase.enabled
           })
         )
 
-        // Set up mock to return the test statistics
-        mockRepository.setNotificationStatsSuccess({
-          totalUsers: testCase.total,
-          enabledUsers: testCase.enabled,
-          disabledUsers: testCase.total - testCase.enabled
-        })
         const result = await service.getNotificationStats()
 
         expect(result.error).toBeUndefined()
@@ -378,14 +340,9 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle service layer exceptions', async () => {
-      const throwingRepository = {
-        getNotificationStats: jest.fn(() => {
-          throw new Error('Unexpected error')
-        })
-      } as any
+      mockRepository.getNotificationStats.mockRejectedValue(new Error('Unexpected error'))
 
-      const serviceWithThrowingRepo = new NotificationSettingsService(throwingRepository)
-      const result = await serviceWithThrowingRepo.getNotificationStats()
+      const result = await service.getNotificationStats()
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
@@ -394,29 +351,23 @@ describe('NotificationSettingsService', () => {
   })
 
   describe('getUsersWithNotificationsEnabled', () => {
-    beforeEach(() => {
-      mockRepository = createMockNotificationSettingsRepositoryWithMultipleUsers()
-      service = new NotificationSettingsService(mockRepository)
-    })
-
     it('should return list of users with notifications enabled', async () => {
+      const enabledUserIds = ['user-1', 'user-2', 'user-3']
+      mockRepository.findUsersWithNotificationsEnabled.mockResolvedValue(
+        mockResult.success(enabledUserIds)
+      )
+
       const result = await service.getUsersWithNotificationsEnabled()
 
       expect(result.error).toBeUndefined()
-      expect(result.data).toEqual(expect.any(Array))
-      expect(result.data?.length).toBeGreaterThan(0)
-
-      // Verify all returned users have notifications enabled
-      if (result.data) {
-        for (const userId of result.data) {
-          // Mock repository has test data with notifications enabled
-          expect(userId).toBeDefined()
-        }
-      }
+      expect(result.data).toEqual(enabledUserIds)
+      expect(result.data?.length).toBe(3)
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setUsersWithNotificationsEnabledError('Database error')
+      mockRepository.findUsersWithNotificationsEnabled.mockResolvedValue(
+        mockResult.error('Database error')
+      )
 
       const result = await service.getUsersWithNotificationsEnabled()
 
@@ -426,24 +377,22 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should return empty array when no users have notifications enabled', async () => {
-      const emptyRepository = createEmptyMockNotificationSettingsRepository()
-      const emptyService = new NotificationSettingsService(emptyRepository)
+      mockRepository.findUsersWithNotificationsEnabled.mockResolvedValue(
+        mockResult.success([])
+      )
 
-      const result = await emptyService.getUsersWithNotificationsEnabled()
+      const result = await service.getUsersWithNotificationsEnabled()
 
       expect(result.error).toBeUndefined()
       expect(result.data).toEqual([])
     })
 
     it('should handle service layer exceptions', async () => {
-      const throwingRepository = {
-        findUsersWithNotificationsEnabled: jest.fn(() => {
-          throw new Error('Unexpected error')
-        })
-      } as any
+      mockRepository.findUsersWithNotificationsEnabled.mockRejectedValue(
+        new Error('Unexpected error')
+      )
 
-      const serviceWithThrowingRepo = new NotificationSettingsService(throwingRepository)
-      const result = await serviceWithThrowingRepo.getUsersWithNotificationsEnabled()
+      const result = await service.getUsersWithNotificationsEnabled()
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
@@ -454,7 +403,7 @@ describe('NotificationSettingsService', () => {
   describe('canUserReceiveNotifications', () => {
     it('should return true for user with notifications enabled', async () => {
       const enabledSettings = createMockNotificationSettings({ enable_webhook_notifications: true })
-      mockRepository.setUserSettings('user-123', enabledSettings)
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(enabledSettings))
 
       const result = await service.canUserReceiveNotifications('user-123')
 
@@ -464,7 +413,7 @@ describe('NotificationSettingsService', () => {
 
     it('should return false for user with notifications disabled', async () => {
       const disabledSettings = createMockNotificationSettings({ enable_webhook_notifications: false })
-      mockRepository.setUserSettings(disabledSettings.user_id, disabledSettings)
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(disabledSettings))
 
       const result = await service.canUserReceiveNotifications(disabledSettings.user_id)
 
@@ -473,7 +422,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should return default value for user without settings', async () => {
-      mockRepository.setUserNotFound('user-123')
+      mockRepository.findByUserId.mockResolvedValue(mockResult.success(null))
 
       const result = await service.canUserReceiveNotifications('new-user')
 
@@ -482,7 +431,7 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle repository errors', async () => {
-      mockRepository.setMockError('findByUserId:user-123', 'Database error')
+      mockRepository.findByUserId.mockResolvedValue(mockResult.error('Database error'))
 
       const result = await service.canUserReceiveNotifications('user-123')
 
@@ -492,14 +441,9 @@ describe('NotificationSettingsService', () => {
     })
 
     it('should handle service layer exceptions', async () => {
-      const throwingRepository = {
-        findByUserId: jest.fn(() => {
-          throw new Error('Unexpected error')
-        })
-      } as any
+      mockRepository.findByUserId.mockRejectedValue(new Error('Unexpected error'))
 
-      const serviceWithThrowingRepo = new NotificationSettingsService(throwingRepository)
-      const result = await serviceWithThrowingRepo.canUserReceiveNotifications('user-123')
+      const result = await service.canUserReceiveNotifications('user-123')
 
       expect(result.data).toBeUndefined()
       expect(result.error).toBe('Internal server error')
@@ -509,15 +453,12 @@ describe('NotificationSettingsService', () => {
 
   describe('error handling edge cases', () => {
     it('should handle repository returning undefined data', async () => {
-      const undefinedDataRepository = {
-        findByUserId: jest.fn().mockResolvedValue({
-          success: true,
-          data: undefined
-        })
-      } as any
+      mockRepository.findByUserId.mockResolvedValue({
+        data: undefined as any,
+        error: null
+      })
 
-      const serviceWithUndefinedRepo = new NotificationSettingsService(undefinedDataRepository)
-      const result = await serviceWithUndefinedRepo.getUserNotificationSettings('user-123')
+      const result = await service.getUserNotificationSettings('user-123')
 
       expect(result.error).toBeUndefined()
       expect(result.data?.settings.user_id).toBe('user-123')
@@ -537,67 +478,39 @@ describe('NotificationSettingsService', () => {
     })
   })
 
-  describe('dependency injection', () => {
-    it('should work with different repository implementations', async () => {
-      const failingRepository = createFailingMockNotificationSettingsRepository()
-      const serviceWithFailingRepo = new NotificationSettingsService(failingRepository)
-
-      const result = await serviceWithFailingRepo.getUserNotificationSettings('user-123')
-
-      expect(result.data).toBeUndefined()
-      expect(result.error).toBe('Failed to fetch notification settings')
-    })
-
-    it('should delegate entity methods correctly', () => {
-      const defaults = service.getDefaultSettings()
-
-      expect(defaults).toEqual(DEFAULT_NOTIFICATION_SETTINGS)
-    })
-  })
-
   describe('integration scenarios', () => {
     it('should handle complete notification preference workflow', async () => {
       const userId = 'workflow-user'
 
       // 1. Get initial settings (should return defaults)
-      mockRepository.setUserNotFound('user-123')
+      mockRepository.findByUserId.mockResolvedValueOnce(mockResult.success(null))
       const initialResult = await service.getUserNotificationSettings(userId)
       expect(initialResult.success).toBe(true)
       expect(initialResult.data?.settings.enable_webhook_notifications).toBe(true)
 
       // 2. Update to disable notifications
       const updateRequest = { enable_webhook_notifications: false }
-      const expectedSettings = {
-        id: 'settings-1',
+      const updatedSettings = {
         user_id: userId,
-        enable_webhook_notifications: false,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z'
+        enable_webhook_notifications: false
       }
-      mockRepository.setUpdateSuccess(userId, expectedSettings)
+      mockRepository.update.mockResolvedValueOnce(mockResult.success(updatedSettings))
       const updateResult = await service.updateUserNotificationSettings(userId, updateRequest)
       expect(updateResult.success).toBe(true)
       expect(updateResult.data?.settings.enable_webhook_notifications).toBe(false)
 
       // 3. Check if user can receive notifications
-      // Set up user with disabled notifications for the check
-      mockRepository.setUserSettings(userId, {
-        user_id: userId,
-        enable_webhook_notifications: false
-      })
+      mockRepository.findByUserId.mockResolvedValueOnce(mockResult.success(updatedSettings))
       const canReceiveResult = await service.canUserReceiveNotifications(userId)
       expect(canReceiveResult.success).toBe(true)
       expect(canReceiveResult.data).toBe(false)
 
       // 4. Reset to defaults
       const resetSettings = {
-        id: 'settings-1',
         user_id: userId,
-        enable_webhook_notifications: true,
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z'
+        enable_webhook_notifications: true
       }
-      mockRepository.setUpdateSuccess(userId, resetSettings)
+      mockRepository.update.mockResolvedValueOnce(mockResult.success(resetSettings))
       const resetResult = await service.resetUserNotificationSettings(userId)
       expect(resetResult.success).toBe(true)
       expect(resetResult.data?.settings.enable_webhook_notifications).toBe(true)

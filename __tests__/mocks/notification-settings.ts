@@ -5,27 +5,8 @@
 
 import { NotificationSettings } from '@/lib/entities/NotificationSettings'
 
-// Mock repository result types to avoid importing BaseRepository
-interface RepositoryResult<T> {
-  success: boolean
-  data?: T | null
-  error?: {
-    code: string
-    message: string
-    details?: string
-  }
-}
-
-const RepositoryUtils = {
-  success: <T>(data: T | null): RepositoryResult<T> => ({
-    success: true,
-    data
-  }),
-  failure: (error: { code: string; message: string; details?: string }): RepositoryResult<any> => ({
-    success: false,
-    error
-  })
-}
+// Import the actual RepositoryResult types
+import { RepositoryResult, RepositoryUtils } from '@/lib/repositories/BaseRepository'
 
 // Mock interface to avoid importing repository interface
 interface NotificationSettingsRepositoryInterface {
@@ -86,11 +67,7 @@ export class MockNotificationSettingsRepository implements NotificationSettingsR
   // Repository interface implementation
   async findByUserId(userId: string): Promise<RepositoryResult<NotificationSettings | null>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     if (this.shouldReturnEmpty) {
@@ -106,19 +83,11 @@ export class MockNotificationSettingsRepository implements NotificationSettingsR
     settings: Omit<NotificationSettings, 'user_id' | 'updated_at'>
   ): Promise<RepositoryResult<NotificationSettings>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
-
-    const existingSetting = this.settings.get(userId)
-    const now = new Date().toISOString()
 
     const newSetting: NotificationSettings = {
       user_id: userId,
-      updated_at: now,
       ...settings
     }
 
@@ -132,11 +101,7 @@ export class MockNotificationSettingsRepository implements NotificationSettingsR
     disabledUsers: number
   }>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     if (this.shouldReturnEmpty) {
@@ -161,11 +126,7 @@ export class MockNotificationSettingsRepository implements NotificationSettingsR
 
   async findUsersWithNotificationsEnabled(): Promise<RepositoryResult<string[]>> {
     if (this.shouldFail) {
-      return RepositoryUtils.failure({
-        code: 'MOCK_ERROR',
-        message: 'Mock repository error',
-        details: 'Simulated failure'
-      })
+      return RepositoryUtils.failure(new Error('Mock repository error'))
     }
 
     if (this.shouldReturnEmpty) {

@@ -14,179 +14,150 @@ import {
 import {
   UserRepositoryInterface
 } from '../../../../src/domain/repositories/UserRepositoryInterface'
-
-// Mock Auth Repository
-class MockAuthRepository implements AuthRepositoryInterface {
-  private currentUser: AuthUser | null = null
-  private users: Map<string, { email: string; password: string; authUser: AuthUser }> = new Map()
-
-  async signInWithEmail(request: SignInRequest): Promise<{ success: boolean; data?: AuthUser; error?: string }> {
-    const userEntry = Array.from(this.users.values()).find(u => u.email === request.email)
-
-    if (!userEntry) {
-      return { success: false, error: 'User not found' }
-    }
-
-    if (userEntry.password !== request.password) {
-      return { success: false, error: 'Invalid password' }
-    }
-
-    this.currentUser = userEntry.authUser
-    return { success: true, data: userEntry.authUser }
-  }
-
-  async signUpWithEmail(request: SignUpRequest): Promise<{ success: boolean; data?: AuthUser; error?: string }> {
-    if (Array.from(this.users.values()).some(u => u.email === request.email)) {
-      return { success: false, error: 'User already exists' }
-    }
-
-    const authUser: AuthUser = {
-      id: `auth-${Date.now()}`,
-      email: request.email
-    }
-
-    this.users.set(authUser.id, {
-      email: request.email,
-      password: request.password,
-      authUser
-    })
-
-    this.currentUser = authUser
-    return { success: true, data: authUser }
-  }
-
-  async signOut(): Promise<{ success: boolean; error?: string }> {
-    this.currentUser = null
-    return { success: true }
-  }
-
-  async getCurrentUser(): Promise<{ success: boolean; data?: AuthUser; error?: string }> {
-    return this.currentUser
-      ? { success: true, data: this.currentUser }
-      : { success: false, error: 'No authenticated user' }
-  }
-
-  async refreshSession(): Promise<{ success: boolean; data?: AuthUser; error?: string }> {
-    return this.getCurrentUser()
-  }
-
-  async sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
-    const userExists = Array.from(this.users.values()).some(u => u.email === email)
-    return userExists
-      ? { success: true }
-      : { success: false, error: 'User not found' }
-  }
-
-  async isSessionValid(): Promise<{ success: boolean; data?: boolean; error?: string }> {
-    return { success: true, data: this.currentUser !== null }
-  }
-
-  onAuthStateChange(callback: (user: CurrentUserData | null) => void): () => void {
-    // Mock implementation - in real implementation this would listen to auth state changes
-    return () => {}
-  }
-
-  // Helper methods for testing
-  setCurrentUser(user: AuthUser | null) {
-    this.currentUser = user
-  }
-
-  addUser(email: string, password: string, authUser: AuthUser) {
-    this.users.set(authUser.id, { email, password, authUser })
-  }
-}
-
-// Mock User Repository
-class MockUserRepository implements UserRepositoryInterface {
-  private users: Map<string, UserEntity> = new Map()
-  private shouldError = false
-
-  async findById(id: string): Promise<{ success: boolean; data?: UserEntity | null; error?: string }> {
-    if (this.shouldError) {
-      return { success: false, error: 'Database error' }
-    }
-    const user = this.users.get(id)
-    return { success: true, data: user || null }
-  }
-
-  async create(request: { id: string; display_name?: string | null; avatar_url?: string | null; slack_user_id?: string | null; enable_webhook_notifications?: boolean }): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
-    if (this.shouldError) {
-      return { success: false, error: 'Database error' }
-    }
-    const newUser = new UserEntity({
-      id: request.id,
-      display_name: request.display_name || null,
-      avatar_url: request.avatar_url || null,
-      slack_user_id: request.slack_user_id || null,
-      enable_webhook_notifications: request.enable_webhook_notifications ?? true,
-      created_at: new Date().toISOString()
-    })
-    this.users.set(newUser.id, newUser)
-    return { success: true, data: newUser }
-  }
-
-  async update(request: { id: string; display_name?: string | null; avatar_url?: string | null; slack_user_id?: string | null; enable_webhook_notifications?: boolean }): Promise<{ success: boolean; data?: UserEntity; error?: string }> {
-    const existingUser = this.users.get(request.id)
-    if (!existingUser) {
-      return { success: false, error: 'User not found' }
-    }
-
-    const updatedUser = existingUser.update({
-      display_name: request.display_name,
-      avatar_url: request.avatar_url,
-      slack_user_id: request.slack_user_id,
-      enable_webhook_notifications: request.enable_webhook_notifications
-    })
-    this.users.set(request.id, updatedUser)
-    return { success: true, data: updatedUser }
-  }
-
-  async delete(id: string): Promise<{ success: boolean; error?: string }> {
-    if (!this.users.has(id)) {
-      return { success: false, error: 'User not found' }
-    }
-    this.users.delete(id)
-    return { success: true }
-  }
-
-  async exists(id: string): Promise<{ success: boolean; data?: boolean; error?: string }> {
-    return { success: true, data: this.users.has(id) }
-  }
-
-  async findAll(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
-    return { success: true, data: Array.from(this.users.values()) }
-  }
-
-  async findActiveUsers(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
-    return { success: true, data: Array.from(this.users.values()) }
-  }
-
-  async findNewUsers(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
-    return { success: true, data: [] }
-  }
-
-  async findSlackUsers(): Promise<{ success: boolean; data?: UserEntity[]; error?: string }> {
-    return { success: true, data: Array.from(this.users.values()).filter(u => u.hasSlackUserId()) }
-  }
-
-  // Helper methods for testing
-  addUser(user: UserEntity) {
-    this.users.set(user.id, user)
-  }
-
-  setShouldError(shouldError: boolean) {
-    this.shouldError = shouldError
-  }
-}
+import { createAutoMock } from '@/__tests__/utils/autoMock'
 
 describe('AuthUseCases', () => {
-  let mockAuthRepository: MockAuthRepository
-  let mockUserRepository: MockUserRepository
+  let mockAuthRepository: jest.Mocked<AuthRepositoryInterface>
+  let mockUserRepository: jest.Mocked<UserRepositoryInterface>
   let authUseCases: AuthUseCases
 
+  // Helper for creating test users
+  const testUsers = new Map<string, { email: string; password: string; authUser: AuthUser }>()
+  let currentUser: AuthUser | null = null
+
   beforeEach(() => {
-    mockAuthRepository = new MockAuthRepository()
-    mockUserRepository = new MockUserRepository()
+    // Clear test data
+    testUsers.clear()
+    currentUser = null
+
+    // Create auto-mocked repositories
+    mockAuthRepository = createAutoMock<AuthRepositoryInterface>()
+    mockUserRepository = createAutoMock<UserRepositoryInterface>()
+
+    // Setup default auth repository behavior
+    mockAuthRepository.signInWithEmail.mockImplementation(async (request: SignInRequest) => {
+      const userEntry = Array.from(testUsers.values()).find(u => u.email === request.email)
+      if (!userEntry) {
+        return { success: false, error: 'User not found' }
+      }
+      if (userEntry.password !== request.password) {
+        return { success: false, error: 'Invalid password' }
+      }
+      currentUser = userEntry.authUser
+      return { success: true, data: userEntry.authUser }
+    })
+
+    mockAuthRepository.signUpWithEmail.mockImplementation(async (request: SignUpRequest) => {
+      if (Array.from(testUsers.values()).some(u => u.email === request.email)) {
+        return { success: false, error: 'User already exists' }
+      }
+      const authUser: AuthUser = {
+        id: `auth-${Date.now()}`,
+        email: request.email
+      }
+      testUsers.set(authUser.id, {
+        email: request.email,
+        password: request.password,
+        authUser
+      })
+      currentUser = authUser
+      return { success: true, data: authUser }
+    })
+
+    mockAuthRepository.signOut.mockImplementation(async () => {
+      currentUser = null
+      return { success: true }
+    })
+
+    mockAuthRepository.getCurrentUser.mockImplementation(async () => {
+      return currentUser
+        ? { success: true, data: currentUser }
+        : { success: false, error: 'No authenticated user' }
+    })
+
+    mockAuthRepository.refreshSession.mockImplementation(async () => {
+      return mockAuthRepository.getCurrentUser()
+    })
+
+    mockAuthRepository.sendPasswordResetEmail.mockImplementation(async (email: string) => {
+      const userExists = Array.from(testUsers.values()).some(u => u.email === email)
+      return userExists
+        ? { success: true }
+        : { success: false, error: 'User not found' }
+    })
+
+    mockAuthRepository.isSessionValid.mockImplementation(async () => {
+      return { success: true, data: currentUser !== null }
+    })
+
+    mockAuthRepository.onAuthStateChange.mockImplementation((callback: (user: AuthUser | null) => void) => {
+      return () => {}
+    })
+
+    // Setup default user repository behavior
+    const userStore = new Map<string, UserEntity>()
+
+    mockUserRepository.findById.mockImplementation(async (id: string) => {
+      const user = userStore.get(id)
+      return { success: true, data: user || null }
+    })
+
+    mockUserRepository.create.mockImplementation(async (request) => {
+      const newUser = new UserEntity({
+        id: request.id,
+        display_name: request.display_name || null,
+        avatar_url: request.avatar_url || null,
+        slack_user_id: request.slack_user_id || null,
+        enable_webhook_notifications: request.enable_webhook_notifications ?? true,
+        created_at: new Date().toISOString()
+      })
+      userStore.set(newUser.id, newUser)
+      return { success: true, data: newUser }
+    })
+
+    mockUserRepository.update.mockImplementation(async (request) => {
+      const existingUser = userStore.get(request.id)
+      if (!existingUser) {
+        return { success: false, error: 'User not found' }
+      }
+      const updatedUser = existingUser.update({
+        display_name: request.display_name,
+        avatar_url: request.avatar_url,
+        slack_user_id: request.slack_user_id,
+        enable_webhook_notifications: request.enable_webhook_notifications
+      })
+      userStore.set(request.id, updatedUser)
+      return { success: true, data: updatedUser }
+    })
+
+    mockUserRepository.delete.mockImplementation(async (id: string) => {
+      if (!userStore.has(id)) {
+        return { success: false, error: 'User not found' }
+      }
+      userStore.delete(id)
+      return { success: true }
+    })
+
+    mockUserRepository.exists.mockImplementation(async (id: string) => {
+      return { success: true, data: userStore.has(id) }
+    })
+
+    mockUserRepository.findAll.mockImplementation(async () => {
+      return { success: true, data: Array.from(userStore.values()) }
+    })
+
+    mockUserRepository.findActiveUsers.mockImplementation(async () => {
+      return { success: true, data: Array.from(userStore.values()) }
+    })
+
+    mockUserRepository.findNewUsers.mockImplementation(async () => {
+      return { success: true, data: [] }
+    })
+
+    mockUserRepository.findSlackUsers.mockImplementation(async () => {
+      return { success: true, data: Array.from(userStore.values()).filter(u => u.hasSlackUserId()) }
+    })
+
     authUseCases = new AuthUseCases(mockAuthRepository, mockUserRepository)
   })
 
@@ -222,10 +193,8 @@ describe('AuthUseCases', () => {
     })
 
     it('should handle user profile creation failure', async () => {
-      const failingUserRepository = {
-        ...mockUserRepository,
-        create: jest.fn().mockResolvedValue({ success: false, error: 'Database error' })
-      } as any
+      const failingUserRepository = createAutoMock<UserRepositoryInterface>()
+      failingUserRepository.create.mockResolvedValue({ success: false, error: 'Database error' })
 
       const useCases = new AuthUseCases(mockAuthRepository, failingUserRepository)
 
@@ -248,7 +217,7 @@ describe('AuthUseCases', () => {
         email: 'testuser@example.com',
         password: 'password123'
       })
-      await mockAuthRepository.signOut() // Sign out to test sign in
+      await authUseCases.signOut() // Sign out to test sign in
     })
 
     it('should sign in existing user successfully', async () => {
@@ -294,12 +263,16 @@ describe('AuthUseCases', () => {
       const authUser: AuthUser = {
         id: 'orphaned-auth-user',
         email: 'orphaned@example.com',
-        email_confirmed_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        emailVerified: true,
+        lastSignInAt: new Date().toISOString()
       }
 
-      mockAuthRepository.addUser('orphaned@example.com', 'password123', authUser)
+      // Add user to test data
+      testUsers.set(authUser.id, {
+        email: 'orphaned@example.com',
+        password: 'password123',
+        authUser
+      })
 
       const params = {
         email: 'orphaned@example.com',
@@ -361,12 +334,13 @@ describe('AuthUseCases', () => {
       const authUser: AuthUser = {
         id: 'auth-without-profile',
         email: 'noProfile@example.com',
-        email_confirmed_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        emailVerified: true,
+        lastSignInAt: new Date().toISOString()
       }
 
-      mockAuthRepository.setCurrentUser(authUser)
+      // Set current user directly
+      currentUser = authUser
+      mockAuthRepository.getCurrentUser.mockResolvedValueOnce({ success: true, data: authUser })
 
       const result = await authUseCases.getCurrentUser()
 
@@ -453,9 +427,8 @@ describe('AuthUseCases', () => {
 
   describe('Error Handling', () => {
     it('should handle auth repository errors', async () => {
-      const errorRepository = {
-        signInWithEmail: jest.fn().mockRejectedValue(new Error('Network error'))
-      } as any
+      const errorRepository = createAutoMock<AuthRepositoryInterface>()
+      errorRepository.signInWithEmail.mockRejectedValue(new Error('Network error'))
 
       const useCases = new AuthUseCases(errorRepository, mockUserRepository)
 
@@ -475,10 +448,15 @@ describe('AuthUseCases', () => {
         email: 'test@example.com'
       }
 
-      mockAuthRepository.addUser('test@example.com', 'password123', authUser)
+      // Add user to test data
+      testUsers.set(authUser.id, {
+        email: 'test@example.com',
+        password: 'password123',
+        authUser
+      })
 
       // Simulate repository error
-      mockUserRepository.setShouldError(true)
+      mockUserRepository.findById.mockResolvedValueOnce({ success: false, error: 'Database error' })
 
       const result = await authUseCases.signInWithEmail({
         email: 'test@example.com',
@@ -487,15 +465,11 @@ describe('AuthUseCases', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toBe('Database error')
-
-      // Reset error state
-      mockUserRepository.setShouldError(false)
     })
 
     it('should handle unexpected errors', async () => {
-      const errorRepository = {
-        signInWithEmail: jest.fn().mockRejectedValue('Unexpected error')
-      } as any
+      const errorRepository = createAutoMock<AuthRepositoryInterface>()
+      errorRepository.signInWithEmail.mockRejectedValue('Unexpected error')
 
       const useCases = new AuthUseCases(errorRepository, mockUserRepository)
 

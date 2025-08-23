@@ -138,7 +138,7 @@ describe('SlackService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.findConnectionsByUserId.mockResolvedValue(
-        mockResult.error('Database error')
+        mockResult.errorList('Database error')
       )
 
       const result = await slackService.getConnections(userId)
@@ -200,7 +200,7 @@ describe('SlackService', () => {
       const userId = 'user-123'
 
       mockSlackRepo.findWebhooksByUserId.mockResolvedValue(
-        mockResult.error('Database error')
+        mockResult.errorList('Database error')
       )
 
       const result = await slackService.getWebhooks(userId)

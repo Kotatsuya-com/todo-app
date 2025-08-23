@@ -19,7 +19,7 @@ import { createAutoMock, mockResult, serviceResult } from './autoMock'
  *   .withError('updateWebhook', 'Database error')
  *   .build();
  */
-export class MockBuilder<T> {
+export class MockBuilder<T extends object> {
   private mock: jest.Mocked<T>
   private setupHistory: string[] = []
 
@@ -34,7 +34,7 @@ export class MockBuilder<T> {
     method: K,
     returnValue: any
   ): this {
-    (this.mock[method] as any) = jest.fn().mockResolvedValue(returnValue)
+    (this.mock[method] as any) = (jest.fn() as any).mockResolvedValue(returnValue)
     this.setupHistory.push(`${String(method)}: success`)
     return this
   }
@@ -46,9 +46,8 @@ export class MockBuilder<T> {
     method: K,
     error: string | Error
   ): this {
-    (this.mock[method] as any) = jest.fn().mockRejectedValue(
-      error instanceof Error ? error : new Error(error)
-    )
+    const errorValue = error instanceof Error ? error : new Error(error);
+    (this.mock[method] as any) = (jest.fn() as any).mockRejectedValue(errorValue)
     this.setupHistory.push(`${String(method)}: error`)
     return this
   }
@@ -72,11 +71,11 @@ export class MockBuilder<T> {
     method: K,
     ...values: any[]
   ): this {
-    const mock = jest.fn()
+    const mockFn = jest.fn() as any
     values.forEach(value => {
-      mock.mockResolvedValueOnce(value)
+      mockFn.mockResolvedValueOnce(value)
     });
-    (this.mock[method] as any) = mock
+    (this.mock[method] as any) = mockFn
     this.setupHistory.push(`${String(method)}: sequence(${values.length})`)
     return this
   }
@@ -122,7 +121,7 @@ export class MockBuilder<T> {
  *   .withDatabaseError('updateWebhook')
  *   .build();
  */
-export class RepositoryMockBuilder<T> extends MockBuilder<T> {
+export class RepositoryMockBuilder<T extends object> extends MockBuilder<T> {
   /**
    * 成功レスポンス（data付き）を設定
    */
@@ -183,7 +182,7 @@ export class RepositoryMockBuilder<T> extends MockBuilder<T> {
  *   .withServiceError('disconnectWorkspace', 'Unauthorized', 403)
  *   .build();
  */
-export class ServiceMockBuilder<T> extends MockBuilder<T> {
+export class ServiceMockBuilder<T extends object> extends MockBuilder<T> {
   /**
    * Service成功レスポンスを設定
    */
@@ -310,15 +309,15 @@ export class ScenarioBuilder {
 }
 
 // Export helper function for quick mock creation
-export function mockBuilder<T>() {
+export function mockBuilder<T extends object>() {
   return new MockBuilder<T>()
 }
 
-export function repositoryMock<T>() {
+export function repositoryMock<T extends object>() {
   return new RepositoryMockBuilder<T>()
 }
 
-export function serviceMock<T>() {
+export function serviceMock<T extends object>() {
   return new ServiceMockBuilder<T>()
 }
 

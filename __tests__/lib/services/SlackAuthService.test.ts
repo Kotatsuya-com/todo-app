@@ -4,7 +4,7 @@
 
 import { SlackAuthService } from '@/lib/services/SlackAuthService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
-import { RepositoryResult } from '@/lib/repositories/BaseRepository'
+import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
 import { SlackConnection } from '@/lib/entities/SlackConnection'
 import { UserWithSettings } from '@/lib/entities/User'
 import {
@@ -26,25 +26,7 @@ describe('SlackAuthService', () => {
   let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
 
   beforeEach(() => {
-    mockSlackRepo = {
-      findConnectionById: jest.fn(),
-      findConnectionsByUserId: jest.fn(),
-      createConnection: jest.fn(),
-      upsertConnection: jest.fn(),
-      deleteConnection: jest.fn(),
-      updateUserSlackId: jest.fn(),
-      findWebhookById: jest.fn(),
-      findWebhooksByUserId: jest.fn(),
-      findWebhookByConnectionId: jest.fn(),
-      createWebhook: jest.fn(),
-      updateWebhook: jest.fn(),
-      updateWebhookStats: jest.fn(),
-      findProcessedEvent: jest.fn(),
-      createProcessedEvent: jest.fn(),
-      findUserWithSettings: jest.fn(),
-      getDirectSlackUserId: jest.fn()
-    }
-
+    mockSlackRepo = createAutoMock<SlackRepositoryInterface>()
     // Use very short retry delay for testing (1ms instead of 1000ms)
     service = new SlackAuthService(mockSlackRepo, 1)
 
@@ -67,10 +49,7 @@ describe('SlackAuthService', () => {
       const mockTokenData = createMockSlackOAuthTokenData()
 
       // Mock successful user validation
-      mockSlackRepo.findUserWithSettings.mockResolvedValue({
-        data: { id: userId } as UserWithSettings,
-        error: null
-      })
+      mockSlackRepo.findUserWithSettings.mockResolvedValue(mockResult.success({ id: userId } as UserWithSettings))
 
       // Mock successful token exchange
       const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
@@ -80,28 +59,16 @@ describe('SlackAuthService', () => {
       } as Response)
 
       // Mock successful connection creation
-      mockSlackRepo.upsertConnection.mockResolvedValue({
-        data: mockConnection,
-        error: null
-      })
+      mockSlackRepo.upsertConnection.mockResolvedValue(mockResult.success(mockConnection))
 
       // Mock successful user update
-      mockSlackRepo.updateUserSlackId.mockResolvedValue({
-        data: undefined,
-        error: null
-      })
+      mockSlackRepo.updateUserSlackId.mockResolvedValue(mockResult.success(undefined))
 
       // Mock successful verification
-      mockSlackRepo.getDirectSlackUserId.mockResolvedValue({
-        data: { slack_user_id: 'U1234567890' },
-        error: null
-      })
+      mockSlackRepo.getDirectSlackUserId.mockResolvedValue(mockResult.success({ slack_user_id: 'U1234567890' }))
 
       // Mock successful webhook creation
-      mockSlackRepo.createWebhook.mockResolvedValue({
-        data: { webhook_id: 'webhook-123' } as any,
-        error: null
-      })
+      mockSlackRepo.createWebhook.mockResolvedValue(mockResult.success({ webhook_id: 'webhook-123' } as any))
 
       const result = await service.processOAuthCallback(
         'test-code',

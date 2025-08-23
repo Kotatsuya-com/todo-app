@@ -37,7 +37,7 @@ const mockTodos = [
     user_id: 'test-user-id',
     title: 'Urgent Important Todo',
     body: 'This is urgent and important',
-    deadline: new Date().toISOString().split('T')[0], // Today
+    deadline: '2025-08-03T18:00:00Z', // 6 hours from now (urgent)
     importance_score: 1500,
     status: 'open',
     created_at: '2025-08-01T10:00:00Z',
@@ -49,7 +49,7 @@ const mockTodos = [
     user_id: 'test-user-id',
     title: 'Not Urgent Important Todo',
     body: 'This is important but not urgent',
-    deadline: '2025-09-15', // 更に未来の日付にして確実に緊急でないようにする
+    deadline: '2025-08-10', // One week later (not urgent)
     importance_score: 1500,
     status: 'open',
     created_at: '2025-08-01T10:00:00Z',
@@ -88,6 +88,16 @@ const mockTodoUseCases = {
 } as any
 
 describe('useTodoDashboard', () => {
+  beforeAll(() => {
+    // Fix the date to 2025-08-03 for consistent test results
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2025-08-03T12:00:00Z'))
+  })
+
+  afterAll(() => {
+    jest.useRealTimers()
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
 
@@ -125,17 +135,20 @@ describe('useTodoDashboard', () => {
 
   describe('Initial State', () => {
     it('should initialize with correct default state', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
 
-      // Initial state should show loading
-      expect(result.current.state.loading).toBe(true)
-      expect(result.current.state.error).toBeNull()
-      expect(result.current.state.todos).toEqual([])
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+      })
 
       // Wait for data to load
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
       }, { timeout: LOADING_TIMEOUT_MS })
+
+      // Check initial state
+      expect(result.current.state.error).toBeNull()
 
       // Should have loaded todos
       expect(result.current.state.todos).toHaveLength(2) // Only active todos
@@ -144,8 +157,14 @@ describe('useTodoDashboard', () => {
       expect(result.current.state.stats.completed).toBe(1)
     })
 
-    it('should initialize UI state correctly', () => {
-      const { result } = renderHook(() => useTodoDashboard())
+    it('should initialize UI state correctly', async () => {
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       expect(result.current.ui.filters.showOverdueOnly).toBe(false)
       expect(result.current.ui.filters.viewMode).toBe('matrix')
@@ -155,7 +174,7 @@ describe('useTodoDashboard', () => {
   })
 
   describe('Authentication Handling', () => {
-    it('should not fetch todos when user is not authenticated', () => {
+    it('should not fetch todos when user is not authenticated', async () => {
       mockUseAuth.mockReturnValue({
         user: null,
         authUser: null,
@@ -170,12 +189,15 @@ describe('useTodoDashboard', () => {
         clearError: jest.fn()
       })
 
-      renderHook(() => useTodoDashboard())
+      await act(async () => {
+        renderHook(() => useTodoDashboard())
+
+      })
 
       expect(mockTodoUseCases.getTodoDashboard).not.toHaveBeenCalled()
     })
 
-    it('should not fetch todos during auth loading', () => {
+    it('should not fetch todos during auth loading', async () => {
       mockUseAuth.mockReturnValue({
         user: null,
         authUser: null,
@@ -190,7 +212,10 @@ describe('useTodoDashboard', () => {
         clearError: jest.fn()
       })
 
-      renderHook(() => useTodoDashboard())
+      await act(async () => {
+        renderHook(() => useTodoDashboard())
+
+      })
 
       expect(mockTodoUseCases.getTodoDashboard).not.toHaveBeenCalled()
     })
@@ -198,7 +223,9 @@ describe('useTodoDashboard', () => {
 
   describe('Data Fetching', () => {
     it('should fetch todos on mount when user is authenticated', async () => {
-      renderHook(() => useTodoDashboard())
+      await act(async () => {
+        renderHook(() => useTodoDashboard())
+      })
 
       await waitFor(() => {
         expect(mockTodoUseCases.getTodoDashboard).toHaveBeenCalledWith({
@@ -215,7 +242,12 @@ describe('useTodoDashboard', () => {
         error: 'Failed to fetch todos'
       })
 
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+      })
 
       await waitFor(() => {
         expect(result.current.state.error).toBe('Failed to fetch todos')
@@ -226,7 +258,12 @@ describe('useTodoDashboard', () => {
     it('should handle unexpected errors', async () => {
       mockTodoUseCases.getTodoDashboard.mockRejectedValue(new Error('Network error'))
 
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+      })
 
       await waitFor(() => {
         expect(result.current.state.error).toBe('Network error')
@@ -237,7 +274,12 @@ describe('useTodoDashboard', () => {
 
   describe('Filter Functionality', () => {
     it('should filter overdue todos when showOverdueOnly is true', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -248,12 +290,18 @@ describe('useTodoDashboard', () => {
       })
 
       // Should filter to only overdue todos
-      const overdueTodos = result.current.state.todos.filter(todo => todo.isOverdue())
+      const overdueTodos = result.current.state.todos.filter((todo: TodoEntity) => todo.isOverdue())
       expect(result.current.state.todos).toEqual(overdueTodos)
     })
 
-    it('should change view mode', () => {
-      const { result } = renderHook(() => useTodoDashboard())
+    it('should change view mode', async () => {
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       act(() => {
         result.current.ui.setViewMode('list')
@@ -263,7 +311,13 @@ describe('useTodoDashboard', () => {
     })
 
     it('should sort todos correctly in list view', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -290,7 +344,13 @@ describe('useTodoDashboard', () => {
     })
 
     it('should complete todo and refresh data', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -315,7 +375,13 @@ describe('useTodoDashboard', () => {
         error: 'Failed to complete todo'
       })
 
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -329,7 +395,13 @@ describe('useTodoDashboard', () => {
     })
 
     it('should reopen todo and refresh data', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -346,7 +418,13 @@ describe('useTodoDashboard', () => {
     })
 
     it('should delete todo and refresh data', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -363,7 +441,13 @@ describe('useTodoDashboard', () => {
     })
 
     it('should update todo and refresh data', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -400,7 +484,13 @@ describe('useTodoDashboard', () => {
         clearError: jest.fn()
       })
 
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await act(async () => {
         await result.current.actions.completeTodo('todo-1')
@@ -411,8 +501,14 @@ describe('useTodoDashboard', () => {
   })
 
   describe('UI State Management', () => {
-    it('should manage selected todo state', () => {
-      const { result } = renderHook(() => useTodoDashboard())
+    it('should manage selected todo state', async () => {
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       const testTodo = mockTodos[0]
 
@@ -429,8 +525,14 @@ describe('useTodoDashboard', () => {
       expect(result.current.ui.selectedTodo).toBeNull()
     })
 
-    it('should manage edit modal state', () => {
-      const { result } = renderHook(() => useTodoDashboard())
+    it('should manage edit modal state', async () => {
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       act(() => {
         result.current.ui.setIsEditModalOpen(true)
@@ -448,7 +550,13 @@ describe('useTodoDashboard', () => {
 
   describe('Quadrant Data', () => {
     it('should group todos by quadrant correctly', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)
@@ -476,22 +584,31 @@ describe('useTodoDashboard', () => {
     it('should handle Slack auth redirect when parameters are present', async () => {
       window.location.search = '?slack_auth_required=true&slack_code=test-code'
 
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(window.location.href).toBe('/settings?slack_auth_required=true&slack_code=test-code')
       })
     })
 
-    it('should not redirect when Slack parameters are missing', () => {
+    it('should not redirect when Slack parameters are missing', async () => {
       window.location.search = ''
 
-      renderHook(() => useTodoDashboard())
+      await act(async () => {
+        renderHook(() => useTodoDashboard())
+
+      })
 
       expect(window.location.href).toBe('')
     })
 
-    it('should not redirect when user is not authenticated', () => {
+    it('should not redirect when user is not authenticated', async () => {
       mockUseAuth.mockReturnValue({
         user: null,
         authUser: null,
@@ -508,7 +625,10 @@ describe('useTodoDashboard', () => {
 
       window.location.search = '?slack_auth_required=true&slack_code=test-code'
 
-      renderHook(() => useTodoDashboard())
+      await act(async () => {
+        renderHook(() => useTodoDashboard())
+
+      })
 
       expect(window.location.href).toBe('')
     })
@@ -516,7 +636,13 @@ describe('useTodoDashboard', () => {
 
   describe('Return Value Structure', () => {
     it('should return correct structure', async () => {
-      const { result } = renderHook(() => useTodoDashboard())
+      let result: any
+
+      await act(async () => {
+        const hookResult = renderHook(() => useTodoDashboard())
+        result = hookResult.result
+
+      })
 
       await waitFor(() => {
         expect(result.current.state.loading).toBe(false)

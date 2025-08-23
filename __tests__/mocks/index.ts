@@ -6,13 +6,13 @@
 // import type { NextRequest } from 'next/server'
 
 // Supabaseクライアントのモック
-export const createMockSupabaseClient = (overrides = {}) => {
+export const createMockSupabaseClient = (overrides: any = {}): any => {
   // チェーン可能なメソッドのモック
-  const createMockChain = () => {
+  const createMockChain = (): any => {
     // チェーンの状態を保持
-    let finalValue = { data: [], error: null }
+    let finalValue: any = { data: [], error: null }
 
-    const chain = {
+    const chain: any = {
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
       update: jest.fn().mockReturnThis(),
@@ -23,19 +23,19 @@ export const createMockSupabaseClient = (overrides = {}) => {
       order: jest.fn(),
 
       // Promise のような振る舞い
-      then: (resolve, reject) => {
+      then: (resolve: (value: any) => any, reject?: (reason: any) => any): Promise<any> => {
         return Promise.resolve(finalValue).then(resolve, reject)
       },
 
       // 値を設定するためのヘルパーメソッド
-      mockResolvedValue: jest.fn((value) => {
+      mockResolvedValue: jest.fn((value: any): any => {
         finalValue = value
         chain.single.mockResolvedValue(value)
         chain.order.mockResolvedValue(value)
         return chain
       }),
 
-      mockResolvedValueOnce: jest.fn((value) => {
+      mockResolvedValueOnce: jest.fn((value: any): any => {
         chain.single.mockResolvedValueOnce(value)
         chain.order.mockResolvedValueOnce(value)
         return chain
@@ -84,7 +84,12 @@ export const createMockSupabaseClient = (overrides = {}) => {
 }
 
 // Next.jsリクエストのモック
-export const createMockNextRequest = (options = {}) => {
+export const createMockNextRequest = (options: {
+  method?: string
+  url?: string
+  body?: any
+  headers?: Record<string, string>
+} = {}): any => {
   const {
     method = 'GET',
     url = 'http://localhost:3000/api/test',
@@ -103,7 +108,7 @@ export const createMockNextRequest = (options = {}) => {
 }
 
 // OpenAI APIのモック
-export const createMockOpenAIResponse = (title) => ({
+export const createMockOpenAIResponse = (title: string): any => ({
   ok: true,
   json: jest.fn().mockResolvedValue({
     choices: [
@@ -117,7 +122,7 @@ export const createMockOpenAIResponse = (title) => ({
 })
 
 // Slack APIのモック
-export const createMockSlackResponse = (data) => ({
+export const createMockSlackResponse = (data: any): any => ({
   ok: true,
   json: jest.fn().mockResolvedValue({
     ok: true,
@@ -125,7 +130,7 @@ export const createMockSlackResponse = (data) => ({
   })
 })
 
-export const createMockSlackErrorResponse = (error) => ({
+export const createMockSlackErrorResponse = (error: string): any => ({
   ok: true,
   json: jest.fn().mockResolvedValue({
     ok: false,
@@ -235,7 +240,7 @@ export const mockEmojiSettings = {
 }
 
 // ヘルパー関数
-export const setupSupabaseMocks = (supabaseClient) => {
+export const setupSupabaseMocks = (supabaseClient: any): void => {
   // 認証成功のデフォルト設定
   supabaseClient.auth.getUser.mockResolvedValue({
     data: { user: mockUser },
@@ -245,7 +250,7 @@ export const setupSupabaseMocks = (supabaseClient) => {
   return supabaseClient
 }
 
-export const setupSlackConnectionMocks = (supabaseClient: any) => {
+export const setupSlackConnectionMocks = (supabaseClient: any): any => {
   // from()チェーンを一度だけ取得してモック設定
   const mockChain = supabaseClient.from()
 
@@ -264,7 +269,10 @@ export const setupSlackConnectionMocks = (supabaseClient: any) => {
   return supabaseClient
 }
 
-export const setupWebhookMocks = (supabaseClient, options = {}) => {
+export const setupWebhookMocks = (supabaseClient: any, options: {
+  returnData?: any
+  returnError?: any
+} = {}): any => {
   const { returnData = mockSlackWebhook, returnError = null } = options
 
   // GET webhooks用のモック（.order()で終わる）
@@ -291,7 +299,7 @@ export const setupWebhookMocks = (supabaseClient, options = {}) => {
   return supabaseClient
 }
 
-export const setupUserNotificationMocks = (supabaseClient, userData = { enable_webhook_notifications: true }) => {
+export const setupUserNotificationMocks = (supabaseClient: any, userData: any = { enable_webhook_notifications: true }): any => {
   const mockChain = supabaseClient.from()
 
   // GET用のモック（single()で返す）
@@ -305,10 +313,10 @@ export const setupUserNotificationMocks = (supabaseClient, userData = { enable_w
 
 // 署名検証用のヘルパー
 export const createSlackSignature = (
-  body,
-  timestamp,
-  secret = 'test-signing-secret'
-) => {
+  body: string,
+  timestamp: string,
+  secret: string = 'test-signing-secret'
+): string => {
   const crypto = require('crypto')
   const sigBasestring = `v0:${timestamp}:${body}`
   return `v0=${crypto

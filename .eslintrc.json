@@ -1,14 +1,12 @@
 {
   "extends": [
-    "next/core-web-vitals",
-    "eslint:recommended"
+    "eslint:recommended",
+    "next/core-web-vitals"
   ],
   "rules": {
     // TypeScript関連（Next.jsに含まれている場合はスキップ）
     
-    // React関連
-    "react/jsx-uses-react": "off",
-    "react/react-in-jsx-scope": "off",
+    // React関連 (React 17+では jsx-uses-react と react-in-jsx-scope は不要)
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
     

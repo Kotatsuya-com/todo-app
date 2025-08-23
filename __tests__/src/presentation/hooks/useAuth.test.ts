@@ -12,21 +12,11 @@ import { SESSION_VALIDATION_INTERVAL_MS } from '../../../../src/constants/timeCo
 jest.mock('../../../../src/infrastructure/di/FrontendServiceFactory')
 
 import { createAuthUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
+import { createAutoMock } from '@/__tests__/utils/autoMock'
+import { AuthUseCases } from '@/src/domain/use-cases/AuthUseCases'
 
-// Mock AuthUseCases
-const mockAuthUseCases = {
-  signInWithEmail: jest.fn(),
-  signUpWithEmail: jest.fn(),
-  signOut: jest.fn(),
-  getCurrentUser: jest.fn(),
-  refreshSession: jest.fn(),
-  sendPasswordResetEmail: jest.fn(),
-  validateSession: jest.fn(),
-  onAuthStateChange: jest.fn(),
-  _authRepository: {} as any,
-  _userRepository: {} as any
-}
-
+// Create auto-mocked AuthUseCases
+const mockAuthUseCases = createAutoMock<AuthUseCases>()
 const mockCreateAuthUseCases = createAuthUseCases as jest.MockedFunction<typeof createAuthUseCases>
 
 // Mock user data
@@ -42,9 +32,8 @@ const mockUserEntity = new UserEntity({
 const mockAuthUser = {
   id: 'user-123',
   email: 'test@example.com',
-  email_confirmed_at: '2025-08-01T10:00:00Z',
-  created_at: '2025-08-01T10:00:00Z',
-  updated_at: '2025-08-03T10:00:00Z'
+  emailVerified: true,
+  lastSignInAt: '2025-08-01T10:00:00Z'
 }
 
 const mockCurrentUserData = {
@@ -521,7 +510,7 @@ describe('useAuth', () => {
         resolveSignIn = resolve
       })
 
-      mockAuthUseCases.signInWithEmail.mockReturnValue(signInPromise)
+      mockAuthUseCases.signInWithEmail.mockReturnValue(signInPromise as any)
 
       const { result } = renderHook(() => useAuth())
 

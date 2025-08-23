@@ -16,7 +16,7 @@ import { jest } from '@jest/globals'
  * const mockRepo = createAutoMock<SlackRepositoryInterface>();
  * mockRepo.findWebhookById.mockResolvedValue({ data: webhook, error: null });
  */
-export function createAutoMock<T>(): jest.Mocked<T> {
+export function createAutoMock<T extends object>(): jest.Mocked<T> {
   const cache: Record<string | symbol, jest.Mock> = {}
 
   return new Proxy({} as jest.Mocked<T>, {
@@ -67,7 +67,7 @@ export function createAutoMock<T>(): jest.Mocked<T> {
  *   // 他のメソッドは自動生成される
  * });
  */
-export function createPartialMock<T>(
+export function createPartialMock<T extends object>(
   methods: Partial<jest.Mocked<T>>
 ): jest.Mocked<T> {
   const autoMock = createAutoMock<T>()
@@ -88,7 +88,7 @@ export function createPartialMock<T>(
  * });
  * // mockRepo.unknownMethod() を呼ぶとエラーが投げられる
  */
-export function createStrictMock<T>(
+export function createStrictMock<T extends object>(
   methods: Partial<jest.Mocked<T>>
 ): jest.Mocked<T> {
   const implementedMethods = new Set(Object.keys(methods as any))
@@ -127,7 +127,7 @@ export function createStrictMock<T>(
  *   findWebhookById: jest.fn().mockResolvedValue({ data: mockWebhook, error: null }),
  * });
  */
-export function createSpyMock<T>(
+export function createSpyMock<T extends object>(
   realImplementation: T,
   overrides: Partial<jest.Mocked<T>> = {}
 ): jest.Mocked<T> {
@@ -171,6 +171,18 @@ export const mockResult = {
       data: null,
       error: error instanceof Error ? error : new Error(error)
     }
+  },
+
+  // List用結果型ヘルパー
+  successList<T>(data: T[]) {
+    return { data, error: null }
+  },
+
+  errorList<T>(error: string | Error) {
+    return {
+      data: [] as T[],
+      error: error instanceof Error ? error : new Error(error)
+    }
   }
 }
 
@@ -189,6 +201,6 @@ export const serviceResult = {
 }
 
 // Type helpers for better IDE support
-export type MockedRepository<T> = jest.Mocked<T>;
-export type PartialMock<T> = Partial<jest.Mocked<T>>;
-export type StrictMock<T> = jest.Mocked<T>;
+export type MockedRepository<T extends object> = jest.Mocked<T>;
+export type PartialMock<T extends object> = Partial<jest.Mocked<T>>;
+export type StrictMock<T extends object> = jest.Mocked<T>;

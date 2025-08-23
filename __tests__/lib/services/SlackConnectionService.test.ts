@@ -4,8 +4,7 @@
 
 import { SlackConnectionService } from '@/lib/services/SlackConnectionService'
 import { SlackRepositoryInterface } from '@/lib/repositories/SlackRepository'
-import { RepositoryResult } from '@/lib/repositories/BaseRepository'
-import { SlackConnection } from '@/lib/entities/SlackConnection'
+import { createAutoMock, mockResult } from '@/__tests__/utils/autoMock'
 import {
   createMockSlackConnection,
   createMockSlackConnectionRecent,
@@ -21,25 +20,7 @@ describe('SlackConnectionService', () => {
   let mockSlackRepo: jest.Mocked<SlackRepositoryInterface>
 
   beforeEach(() => {
-    mockSlackRepo = {
-      findConnectionById: jest.fn(),
-      findConnectionsByUserId: jest.fn(),
-      createConnection: jest.fn(),
-      upsertConnection: jest.fn(),
-      deleteConnection: jest.fn(),
-      updateUserSlackId: jest.fn(),
-      findWebhookById: jest.fn(),
-      findWebhooksByUserId: jest.fn(),
-      findWebhookByConnectionId: jest.fn(),
-      createWebhook: jest.fn(),
-      updateWebhook: jest.fn(),
-      updateWebhookStats: jest.fn(),
-      findProcessedEvent: jest.fn(),
-      createProcessedEvent: jest.fn(),
-      findUserWithSettings: jest.fn(),
-      getDirectSlackUserId: jest.fn()
-    }
-
+    mockSlackRepo = createAutoMock<SlackRepositoryInterface>()
     service = new SlackConnectionService(mockSlackRepo)
   })
 
@@ -50,10 +31,7 @@ describe('SlackConnectionService', () => {
   describe('getUserConnections', () => {
     it('should successfully return user connections with summary', async () => {
       const mockConnections = createMockMultipleSlackConnections()
-      mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        data: mockConnections,
-        error: null
-      })
+      mockSlackRepo.findConnectionsByUserId.mockResolvedValue(mockResult.success(mockConnections))
 
       const result = await service.getUserConnections('user-123')
 
@@ -67,10 +45,7 @@ describe('SlackConnectionService', () => {
     })
 
     it('should return summary with no connections', async () => {
-      mockSlackRepo.findConnectionsByUserId.mockResolvedValue({
-        data: [],
-        error: null
-      })
+      mockSlackRepo.findConnectionsByUserId.mockResolvedValue(mockResult.success([]))
 
       const result = await service.getUserConnections('user-123')
 

@@ -39,9 +39,9 @@ export const mockAuthSuccess = (user: any) => ({
 })
 
 // シンプルなSupabaseクライアントモック作成
-export const createSimpleSupabaseClient = () => {
+export const createSimpleSupabaseClient = (): any => {
   // チェーンメソッドのモック
-  const mockChain = {
+  const mockChain: any = {
     select: jest.fn(),
     eq: jest.fn(),
     in: jest.fn(),
@@ -54,7 +54,7 @@ export const createSimpleSupabaseClient = () => {
   }
 
   // メソッドチェーンを実現
-  Object.keys(mockChain).forEach(key => {
+  Object.keys(mockChain).forEach((key: string) => {
     mockChain[key].mockReturnValue(mockChain)
   })
 
@@ -88,10 +88,10 @@ export const setupQueryResult = (mockChain: any, result: any) => {
 }
 
 // Slack Events API専用のSupabaseクライアントモック
-export const createSlackEventsSupabaseClient = (queryResults: any[]) => {
-  let callIndex = 0
+export const createSlackEventsSupabaseClient = (queryResults: any[]): any => {
+  let callIndex: number = 0
 
-  const createChain = () => {
+  const createChain = (): any => {
     const result = queryResults[callIndex++] || mockSupabaseSuccess(null)
 
     return {
@@ -104,8 +104,8 @@ export const createSlackEventsSupabaseClient = (queryResults: any[]) => {
       upsert: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
-      then: (resolve) => resolve(result),
-      catch: (reject) => reject
+      then: (resolve: (value: any) => any): any => resolve(result),
+      catch: (reject: (reason: any) => any): any => reject
     }
   }
 

@@ -145,7 +145,16 @@ export class AuthUseCases {
 
       let userEntity: UserEntity
 
-      if (!userResult.success || !userResult.data) {
+      // Handle repository errors first
+      if (!userResult.success) {
+        return {
+          success: false,
+          error: userResult.error || 'Failed to fetch user profile'
+        }
+      }
+
+      // Then handle user not found case
+      if (!userResult.data) {
         // ユーザーエンティティが存在しない場合は作成
         const createResult = await this._userRepository.create({
           id: authUser.id

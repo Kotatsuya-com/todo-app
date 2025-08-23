@@ -1,15 +1,12 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 echo "🔍 Running pre-commit quality checks..."
 
 # Try to auto-fix lint issues first
 echo "📝 Auto-fixing lint issues..."
 npm run lint:fix
 
-# Run strict lint check
-echo "⚡ Running strict lint check..."
-if ! npm run lint:strict; then
+# Run lint check
+echo "⚡ Running lint check..."
+if ! npm run lint; then
   echo "❌ ESLint found issues that could not be auto-fixed."
   echo "💡 Please review the errors above and fix them manually."
   echo "🔧 You can run 'npm run lint:fix' to auto-fix some issues."

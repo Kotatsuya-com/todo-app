@@ -15,9 +15,11 @@ const mockCreateBrowserClient = createBrowserClient as jest.MockedFunction<typeo
 describe('supabase.ts', () => {
   let originalDocument: any
   let originalWindow: any
+  let capturedOptions: any
 
   beforeEach(() => {
     jest.clearAllMocks()
+    capturedOptions = null
 
     // Setup environment variables
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co'
@@ -48,7 +50,7 @@ describe('supabase.ts', () => {
     // Setup mock to capture cookie options
     mockCreateBrowserClient.mockImplementation((url, key, options) => {
       // Store the options for testing
-      mockCreateBrowserClient.mockOptions = options
+      capturedOptions = options
       return { mockClient: true }
     })
   })
@@ -81,7 +83,7 @@ describe('supabase.ts', () => {
       global.document.cookie = 'testCookie=testValue; otherCookie=otherValue'
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBe('testValue')
@@ -91,7 +93,7 @@ describe('supabase.ts', () => {
       global.document.cookie = 'otherCookie=otherValue'
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
@@ -102,7 +104,7 @@ describe('supabase.ts', () => {
       delete (global as any).document
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
@@ -112,7 +114,7 @@ describe('supabase.ts', () => {
       global.document.cookie = ''
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
@@ -122,7 +124,7 @@ describe('supabase.ts', () => {
       global.document.cookie = 'invalidCookieFormat'
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       const result = cookieOptions.cookies.get('testCookie')
       expect(result).toBeUndefined()
@@ -132,7 +134,7 @@ describe('supabase.ts', () => {
   describe('cookie set method', () => {
     it('should set cookie with basic options', () => {
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {})
 
@@ -141,7 +143,7 @@ describe('supabase.ts', () => {
 
     it('should set cookie with all options', () => {
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {
         path: '/',
@@ -161,7 +163,7 @@ describe('supabase.ts', () => {
       global.window.location.hostname = 'abc123.ngrok.io'
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {
         path: '/',
@@ -177,7 +179,7 @@ describe('supabase.ts', () => {
       global.window.location.hostname = 'test.ngrok.io'
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.set('testCookie', 'testValue', {})
 
@@ -190,7 +192,7 @@ describe('supabase.ts', () => {
       delete (global as any).document
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       // Should not throw error
       expect(() => {
@@ -202,7 +204,7 @@ describe('supabase.ts', () => {
   describe('cookie remove method', () => {
     it('should remove cookie with basic options', () => {
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.remove('testCookie', {})
 
@@ -213,7 +215,7 @@ describe('supabase.ts', () => {
 
     it('should remove cookie with path and domain options', () => {
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       cookieOptions.cookies.remove('testCookie', {
         path: '/',
@@ -229,7 +231,7 @@ describe('supabase.ts', () => {
       delete (global as any).document
 
       createClient()
-      const cookieOptions = mockCreateBrowserClient.mockOptions
+      const cookieOptions = capturedOptions
 
       // Should not throw error
       expect(() => {
