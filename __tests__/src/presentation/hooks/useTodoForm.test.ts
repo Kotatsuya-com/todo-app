@@ -486,6 +486,289 @@ describe('useTodoForm', () => {
     })
   })
 
+  describe('Memoization and Stability Prevention', () => {
+    it('should not re-initialize form when initialTodo object reference changes but data stays same', () => {
+      // Create initial todo
+      const initialTodo = new TodoEntity({
+        id: 'stable-todo',
+        user_id: 'test-user-id',
+        title: 'Stable Title',
+        body: 'Stable body',
+        deadline: '2025-08-15',
+        importance_score: 1000,
+        status: 'open',
+        created_at: '2025-08-01T10:00:00Z',
+        updated_at: '2025-08-01T10:00:00Z',
+        created_via: 'manual'
+      })
+
+      const { result, rerender } = renderHook(
+        ({ todo }) => useTodoForm({ initialTodo: todo }),
+        { initialProps: { todo: initialTodo } }
+      )
+
+      // Get initial form state
+      const initialFormData = result.current.state.formData
+      const initialIsDirty = result.current.state.isDirty
+
+      // Create new TodoEntity with same data but different object reference
+      const sameTodoNewReference = new TodoEntity({
+        id: 'stable-todo',
+        user_id: 'test-user-id',
+        title: 'Stable Title',
+        body: 'Stable body',
+        deadline: '2025-08-15',
+        importance_score: 1000,
+        status: 'open',
+        created_at: '2025-08-01T10:00:00Z',
+        updated_at: '2025-08-01T10:00:00Z',
+        created_via: 'manual'
+      })
+
+      // Re-render with new object reference but same data
+      rerender({ todo: sameTodoNewReference })
+
+      // Form should not re-initialize due to memoization
+      expect(result.current.state.formData).toEqual(initialFormData)
+      expect(result.current.state.isDirty).toBe(initialIsDirty)
+    })
+
+    it('should re-initialize form only when initialTodo data actually changes', () => {
+      const initialTodo = new TodoEntity({
+        id: 'changing-todo',
+        user_id: 'test-user-id',
+        title: 'Original Title',
+        body: 'Original body',
+        deadline: '2025-08-15',
+        importance_score: 1000,
+        status: 'open',
+        created_at: '2025-08-01T10:00:00Z',
+        updated_at: '2025-08-01T10:00:00Z',
+        created_via: 'manual'
+      })
+
+      const { result, rerender } = renderHook(
+        ({ todo }) => useTodoForm({ initialTodo: todo }),
+        { initialProps: { todo: initialTodo } }
+      )
+
+      expect(result.current.state.formData.title).toBe('Original Title')
+
+      // Create todo with actually changed data
+      const changedTodo = new TodoEntity({
+        id: 'changing-todo',
+        user_id: 'test-user-id',
+        title: 'Changed Title', // Actual data change
+        body: 'Original body',
+        deadline: '2025-08-15',
+        importance_score: 1000,
+        status: 'open',
+        created_at: '2025-08-01T10:00:00Z',
+        updated_at: '2025-08-01T10:00:00Z',
+        created_via: 'manual'
+      })
+
+      rerender({ todo: changedTodo })
+
+      // Form should re-initialize with new data
+      expect(result.current.state.formData.title).toBe('Changed Title')
+      expect(result.current.state.isDirty).toBe(false) // Should be clean after re-init
+    })
+
+    it('should handle rapid initialTodo changes without infinite loops', async () => {
+      const { result, rerender } = renderHook(
+        ({ todo }) => useTodoForm({ initialTodo: todo }),
+        { initialProps: { todo: mockTodo } }
+      )
+
+      const startTime = Date.now()
+
+      // Simulate rapid changes
+      for (let i = 0; i < 20; i++) {
+        const rapidTodo = new TodoEntity({
+          ...mockTodo.getData(),
+          title: `Rapid Title ${i}`,
+          id: `rapid-${i}`
+        })
+
+        rerender({ todo: rapidTodo })
+
+        // Should complete each update quickly
+        if (Date.now() - startTime > 5000) {
+          throw new Error('Infinite loop detected - took too long')
+        }
+      }
+
+      // Should complete all updates within reasonable time
+      expect(Date.now() - startTime).toBeLessThan(1000)
+    })
+
+    it('should maintain form state stability during field updates', () => {
+      const { result } = renderHook(() => useTodoForm({ initialTodo: mockTodo }))
+
+      // Make multiple rapid field updates
+      act(() => {
+        result.current.actions.updateField('title', 'Update 1')
+        result.current.actions.updateField('title', 'Update 2')
+        result.current.actions.updateField('body', 'Body Update 1')
+        result.current.actions.updateField('title', 'Update 3')
+      })
+
+      // Should maintain consistent state
+      expect(result.current.state.formData.title).toBe('Update 3')
+      expect(result.current.state.formData.body).toBe('Body Update 1')
+      expect(result.current.state.isDirty).toBe(true)
+    })
+
+    it('should prevent infinite loops when resetForm is called repeatedly', () => {
+      const { result } = renderHook(() => useTodoForm({ initialTodo: mockTodo }))
+
+      // Make the form dirty first
+      act(() => {
+        result.current.actions.updateField('title', 'Dirty Title')
+      })
+
+      expect(result.current.state.isDirty).toBe(true)
+
+      // Call resetForm multiple times rapidly
+      act(() => {
+        for (let i = 0; i < 10; i++) {
+          result.current.actions.resetForm()
+        }
+      })
+
+      // Should be clean and stable
+      expect(result.current.state.isDirty).toBe(false)
+      expect(result.current.state.formData.title).toBe(mockTodo.title)
+    })
+
+    it('should handle validation without triggering state loops', () => {
+      const { result } = renderHook(() => useTodoForm())
+
+      // Perform multiple validations
+      const validationResults: any[] = []
+
+      act(() => {
+        for (let i = 0; i < 5; i++) {
+          validationResults.push(result.current.actions.validateForm())
+        }
+      })
+
+      // All validations should return consistent results
+      validationResults.forEach(validation => {
+        expect(validation.valid).toBe(false) // Empty body is invalid
+        expect(validation.errors).toContain('内容を入力してください')
+      })
+    })
+  })
+
+  describe('Form Dependency Stability', () => {
+    it('should maintain stable callback references', () => {
+      const { result, rerender } = renderHook(() => useTodoForm({ initialTodo: mockTodo }))
+
+      const initialCallbacks = {
+        updateField: result.current.actions.updateField,
+        resetForm: result.current.actions.resetForm,
+        submitForm: result.current.actions.submitForm,
+        validateForm: result.current.actions.validateForm
+      }
+
+      // Re-render multiple times
+      rerender()
+      rerender()
+      rerender()
+
+      // Callbacks should remain stable (same reference)
+      expect(result.current.actions.updateField).toBe(initialCallbacks.updateField)
+      expect(result.current.actions.resetForm).toBe(initialCallbacks.resetForm)
+      expect(result.current.actions.submitForm).toBe(initialCallbacks.submitForm)
+      expect(result.current.actions.validateForm).toBe(initialCallbacks.validateForm)
+    })
+
+    it('should handle memoizedFormData updates correctly', () => {
+      let renderCount = 0
+
+      const { result, rerender } = renderHook(
+        ({ todo }) => {
+          renderCount++
+          return useTodoForm({ initialTodo: todo })
+        },
+        { initialProps: { todo: mockTodo } }
+      )
+
+      const initialRenderCount = renderCount
+
+      // Re-render with same todo (should not cause form data recalculation)
+      rerender({ todo: mockTodo })
+
+      // Should not have caused additional renders beyond the React re-render
+      expect(renderCount - initialRenderCount).toBeLessThanOrEqual(2)
+    })
+
+    it('should prevent submission loops on success callback', async () => {
+      let onSuccessCallCount = 0
+
+      const onSuccess = jest.fn(() => {
+        onSuccessCallCount++
+        if (onSuccessCallCount > 5) {
+          throw new Error('Infinite onSuccess loop detected')
+        }
+      })
+
+      const { result } = renderHook(() => useTodoForm({
+        initialTodo: mockTodo,
+        onSuccess
+      }))
+
+      act(() => {
+        result.current.actions.updateField('body', 'Valid body for submission')
+      })
+
+      await act(async () => {
+        await result.current.actions.submitForm()
+      })
+
+      // Should only call onSuccess once per successful submission
+      expect(onSuccessCallCount).toBe(1)
+      expect(mockTodoUseCases.updateTodo).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('Memory Leak Prevention', () => {
+    it('should cleanup properly when component unmounts', () => {
+      const { result, unmount } = renderHook(() => useTodoForm({ initialTodo: mockTodo }))
+
+      // Verify hook is working
+      expect(result.current.state.formData.title).toBe(mockTodo.title)
+
+      // Unmount should not cause errors
+      expect(() => unmount()).not.toThrow()
+    })
+
+    it('should not retain stale references after prop changes', () => {
+      const firstTodo = mockTodo
+      const secondTodo = new TodoEntity({
+        ...mockTodo.getData(),
+        id: 'second-todo',
+        title: 'Second Todo Title'
+      })
+
+      const { result, rerender } = renderHook(
+        ({ todo }) => useTodoForm({ initialTodo: todo }),
+        { initialProps: { todo: firstTodo } }
+      )
+
+      expect(result.current.state.formData.title).toBe(firstTodo.title)
+
+      // Change to second todo
+      rerender({ todo: secondTodo })
+
+      // Should reflect new todo data, not retain old references
+      expect(result.current.state.formData.title).toBe(secondTodo.title)
+      expect(result.current.state.formData.title).not.toBe(firstTodo.title)
+    })
+  })
+
   describe('Urgency Level Setting', () => {
     it('should set deadline for "now" urgency', () => {
       const { result } = renderHook(() => useTodoForm())

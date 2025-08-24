@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Sparkles, Calendar, Link } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Urgency } from '@/src/domain/types'
@@ -49,7 +49,7 @@ export function TodoForm({
   const [slackError, setSlackError] = useState<string | null>(null)
   const [hasSlackConnection, setHasSlackConnection] = useState<boolean | null>(null)
 
-  // Slack連携状態をチェック
+  // Slack連携状態をチェック - uiContainerが同じインスタンスの場合は再作成を避ける
   const checkSlackConnection = useCallback(async () => {
     try {
       const result = await uiContainer.services.uiService.checkSlackConnections()
@@ -63,23 +63,31 @@ export function TodoForm({
       apiLogger.error({ error }, 'Failed to check Slack connection')
       setHasSlackConnection(false)
     }
-  }, [uiContainer])
+  }, [uiContainer.services.uiService]) // More specific dependency
 
   // コンポーネントマウント時にSlack連携状態をチェック
   useEffect(() => {
     checkSlackConnection()
   }, [checkSlackConnection])
 
-  // 初期値が変更されたときに状態を更新
+  // メモ化された初期値オブジェクト - 実際の値が変更された場合のみ更新
+  const memoizedInitialValues = useMemo(() => ({
+    title: initialTitle,
+    body: initialBody,
+    urgency: initialUrgency,
+    deadline: initialDeadline
+  }), [initialTitle, initialBody, initialUrgency, initialDeadline])
+
+  // 初期値が変更されたときに状態を一括更新（再レンダリングを最小化）
   useEffect(() => {
-    setTitle(initialTitle)
-    setBody(initialBody)
-    setUrgency(initialUrgency)
-    setDeadline(initialDeadline)
+    setTitle(memoizedInitialValues.title)
+    setBody(memoizedInitialValues.body)
+    setUrgency(memoizedInitialValues.urgency)
+    setDeadline(memoizedInitialValues.deadline)
     setSlackData(null)
     setIsSlackUrl(false)
     setSlackError(null)
-  }, [initialTitle, initialBody, initialUrgency, initialDeadline])
+  }, [memoizedInitialValues])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -165,7 +173,7 @@ export function TodoForm({
     } finally {
       setIsLoadingSlack(false)
     }
-  }, [isSlackUrl, body, title, checkSlackConnection, uiContainer])
+  }, [isSlackUrl, body, title, checkSlackConnection, uiContainer.services.uiService]) // More specific dependency
 
   const handleBodyChange = (value: string) => {
     setBody(value)

@@ -3,7 +3,7 @@
  * Todo作成・編集フォーム用のカスタムフック
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { TodoEntity } from '../../domain/entities/Todo'
 import { createTodoUseCases } from '@/src/infrastructure/di/FrontendServiceFactory'
 import { useAuth } from './useAuth'
@@ -211,26 +211,29 @@ export const useTodoForm = (options: UseTodoFormOptions = {}): UseTodoFormReturn
   }, [user, formData, initialTodo, validateForm, todoUseCases, onSuccess, onError])
 
   /**
-   * 初期データの設定
+   * メモ化された初期フォームデータ - 実際の値が変更された場合のみ更新
    */
-  useEffect(() => {
+  const memoizedFormData = useMemo(() => {
     if (initialTodo) {
-      const newFormData: TodoFormData = {
+      return {
         title: initialTodo.title || '',
         body: initialTodo.body,
         deadline: initialTodo.deadline || '',
         urgency: initialTodo.getUrgencyFromDeadline(),
         slackData: null
       }
-      setFormData(newFormData)
-      setInitialData(newFormData)
-      setIsDirty(false)
-    } else {
-      setFormData(INITIAL_FORM_DATA)
-      setInitialData(INITIAL_FORM_DATA)
-      setIsDirty(false)
     }
+    return INITIAL_FORM_DATA
   }, [initialTodo])
+
+  /**
+   * 初期データの設定 - メモ化されたデータが変更された場合のみ実行
+   */
+  useEffect(() => {
+    setFormData(memoizedFormData)
+    setInitialData(memoizedFormData)
+    setIsDirty(false)
+  }, [memoizedFormData])
 
   /**
    * 緊急度レベルから期限を設定するヘルパー

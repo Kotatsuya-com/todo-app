@@ -32,7 +32,7 @@ describe('TodoRepository', () => {
 
   describe('findById', () => {
     it('should return todo successfully', async () => {
-      const mockTodo = createMockTodo()
+      const mockTodo = createMockTodo({})
       const mockFromResult = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),

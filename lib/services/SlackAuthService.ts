@@ -89,7 +89,7 @@ export class SlackAuthService {
 
       // 5. Webhook自動作成
       let webhookCreated = false
-      let webhookId = null
+      let webhookId: string | null = null
       if (slackUserId && userUpdateSuccess) {
         const webhookResult = await this.autoCreateWebhook(userId, connection.id)
         webhookCreated = webhookResult.success

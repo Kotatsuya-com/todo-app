@@ -1,11 +1,12 @@
-echo "🔍 Running pre-commit quality checks..."
+echo "🔍 Running enhanced pre-commit quality checks..."
+echo "🚨 Following mandatory implementation rules from CLAUDE.md"
 
-# Try to auto-fix lint issues first
-echo "📝 Auto-fixing lint issues..."
+# Phase 1: Auto-fix what we can
+echo "📝 Phase 1: Auto-fixing lint issues..."
 npm run lint:fix
 
-# Run lint check
-echo "⚡ Running lint check..."
+# Phase 2: Lint validation
+echo "⚡ Phase 2: Running lint check..."
 if ! npm run lint; then
   echo "❌ ESLint found issues that could not be auto-fixed."
   echo "💡 Please review the errors above and fix them manually."
@@ -13,13 +14,36 @@ if ! npm run lint; then
   exit 1
 fi
 
-# Run production-focused type check (excludes test files)
-echo "🔎 Running TypeScript type check (production code)..."
-if ! npm run type-check:prod; then
-  echo "❌ TypeScript found type errors in production code."
-  echo "💡 Please fix the type errors above before committing."
-  echo "📝 Note: Test files are checked separately with 'npm run type-check:test'"
+# Phase 3: TypeScript type safety (comprehensive)
+echo "🔎 Phase 3: Running comprehensive TypeScript checks..."
+if ! npm run type-check:ci; then
+  echo "❌ TypeScript found type errors."
+  echo "💡 Common fixes based on CLAUDE.md:"
+  echo "   - Use 'new EntityName(data)' instead of plain objects"
+  echo "   - Add explicit type annotations: 'let variable: Type | null = null'"
+  echo "   - Ensure function signatures have all required parameters"
   exit 1
 fi
 
-echo "✅ All quality checks passed!"
+# Phase 4: Quick test validation (fail-fast)
+echo "🧪 Phase 4: Running quick test validation..."
+if ! npm run test:quick; then
+  echo "❌ Tests failed during pre-commit validation."
+  echo "💡 Common test fixes based on CLAUDE.md:"
+  echo "   - Use 'waitFor' for optimistic updates"
+  echo "   - Use range expectations for concurrent operations"
+  echo "   - Verify mock data consistency with actual state"
+  echo "   - Manual calculation verification for loops"
+  exit 1
+fi
+
+# Phase 5: Build validation
+echo "🏗️  Phase 5: Validating production build..."
+if ! npm run build; then
+  echo "❌ Production build failed."
+  echo "💡 Fix build errors before committing."
+  exit 1
+fi
+
+echo "✅ All enhanced quality checks passed!"
+echo "🎉 Code follows mandatory implementation rules and quality standards."

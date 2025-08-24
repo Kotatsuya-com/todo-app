@@ -5,13 +5,14 @@
 
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useTodoDashboard } from '../hooks/useTodoDashboard'
 import { Button } from '@/components/ui/Button'
 import { TodoCard } from '@/components/todo/TodoCard'
 import { EditTodoModal } from '@/components/todo/EditTodoModal'
 import { AuthForm } from '@/components/auth/AuthForm'
 import { Grid3x3, List, Filter } from 'lucide-react'
+import { Urgency, Status, CreatedVia } from '@/src/domain/types'
 
 const QUADRANT_INFO = {
   urgent_important: { title: '🔥 今すぐやる', color: 'bg-red-50 border-red-200' },
@@ -22,12 +23,6 @@ const QUADRANT_INFO = {
 
 export default function DashboardPage() {
   const { state, actions, ui, user } = useTodoDashboard()
-
-  // 未認証の場合はログインフォームを表示
-  if (!user) {
-    return <AuthForm />
-  }
-
   const { todos, quadrants, loading, error } = state
   const { completeTodo, deleteTodo, updateTodo } = actions
   const {
@@ -39,6 +34,57 @@ export default function DashboardPage() {
     isEditModalOpen,
     setIsEditModalOpen
   } = ui
+
+  /**
+   * メモ化されたEditTodoModal用のtodoオブジェクト - 実際のデータが変更された場合のみ再作成
+   */
+  const memoizedEditTodo = useMemo(() => {
+    if (!selectedTodo) {return null}
+
+    return {
+      id: selectedTodo.id,
+      title: selectedTodo.title || undefined,
+      body: selectedTodo.body,
+      urgency: (selectedTodo.deadline ? 'today' : 'later') as Urgency,
+      deadline: selectedTodo.deadline || undefined,
+      importance_score: selectedTodo.importanceScore,
+      status: (selectedTodo.status === 'completed' ? 'completed' : 'open') as Status,
+      created_at: selectedTodo.createdAt,
+      user_id: selectedTodo.userId,
+      created_via: (selectedTodo.createdVia === 'slack_url' ? 'slack_webhook' : selectedTodo.createdVia) as CreatedVia
+    }
+  }, [selectedTodo])
+
+  /**
+   * TodoCard用のメモ化されたtodoオブジェクト生成ヘルパー
+   */
+  const createMemoizedTodoCardProps = useMemo(() => {
+    const memoMap = new Map<string, any>()
+
+    return (todo: any) => {
+      const key = `${todo.id}-${todo.title}-${todo.body}-${todo.deadline}-${todo.importanceScore}-${todo.status}-${todo.createdAt}`
+
+      if (memoMap.has(key)) {
+        return memoMap.get(key)
+      }
+
+      const todoProps = {
+        id: todo.id,
+        title: todo.title || undefined,
+        body: todo.body,
+        urgency: (todo.deadline ? 'today' : 'later') as Urgency,
+        deadline: todo.deadline || undefined,
+        importance_score: todo.importanceScore,
+        status: (todo.status === 'completed' ? 'completed' : 'open') as Status,
+        created_at: todo.createdAt,
+        user_id: todo.userId,
+        created_via: (todo.createdVia === 'slack_url' ? 'slack_webhook' : todo.createdVia) as CreatedVia
+      }
+
+      memoMap.set(key, todoProps)
+      return todoProps
+    }
+  }, [])
 
   /**
    * 編集モーダルを開く
@@ -54,6 +100,11 @@ export default function DashboardPage() {
   const handleCloseEditModal = () => {
     setIsEditModalOpen(false)
     setSelectedTodo(null)
+  }
+
+  // 未認証の場合はログインフォームを表示
+  if (!user) {
+    return <AuthForm />
   }
 
   /**
@@ -137,18 +188,7 @@ export default function DashboardPage() {
                 {quadrantTodos.map((todo: any) => (
                   <TodoCard
                     key={todo.id}
-                    todo={{
-                      id: todo.id,
-                      title: todo.title || undefined,
-                      body: todo.body,
-                      urgency: todo.deadline ? 'today' : 'later',
-                      deadline: todo.deadline || undefined,
-                      importance_score: todo.importanceScore,
-                      status: todo.status === 'completed' ? 'completed' : 'open',
-                      created_at: todo.createdAt,
-                      user_id: todo.userId,
-                      created_via: todo.createdVia === 'slack_url' ? 'slack_webhook' : todo.createdVia as any
-                    }}
+                    todo={createMemoizedTodoCardProps(todo)}
                     onEdit={() => handleEditTodo(todo)}
                     onComplete={completeTodo}
                     onDelete={deleteTodo}
@@ -165,18 +205,7 @@ export default function DashboardPage() {
           {todos.map(todo => (
             <TodoCard
               key={todo.id}
-              todo={{
-                id: todo.id,
-                title: todo.title || undefined,
-                body: todo.body,
-                urgency: todo.deadline ? 'today' : 'later',
-                deadline: todo.deadline || undefined,
-                importance_score: todo.importanceScore,
-                status: todo.status === 'completed' ? 'completed' : 'open',
-                created_at: todo.createdAt,
-                user_id: todo.userId,
-                created_via: todo.createdVia === 'slack_url' ? 'slack_webhook' : todo.createdVia as any
-              }}
+              todo={createMemoizedTodoCardProps(todo)}
               onEdit={() => handleEditTodo(todo)}
               onComplete={completeTodo}
               onDelete={deleteTodo}
@@ -190,19 +219,7 @@ export default function DashboardPage() {
       <EditTodoModal
         isOpen={isEditModalOpen}
         onClose={handleCloseEditModal}
-        onUpdate={updateTodo}
-        todo={selectedTodo ? {
-          id: selectedTodo.id,
-          title: selectedTodo.title || undefined,
-          body: selectedTodo.body,
-          urgency: selectedTodo.deadline ? 'today' : 'later',
-          deadline: selectedTodo.deadline || undefined,
-          importance_score: selectedTodo.importanceScore,
-          status: selectedTodo.status === 'completed' ? 'completed' : 'open',
-          created_at: selectedTodo.createdAt,
-          user_id: selectedTodo.userId,
-          created_via: selectedTodo.createdVia === 'slack_url' ? 'slack_webhook' : selectedTodo.createdVia as any
-        } : null}
+        todo={memoizedEditTodo}
       />
     </div>
   )

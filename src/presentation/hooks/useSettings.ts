@@ -380,6 +380,9 @@ export const useSettings = (): UseSettingsReturn => {
 
       return () => clearTimeout(timer)
     }
+
+    // Explicit return for TypeScript noImplicitReturns
+    return undefined
   }, [user, fetchAllSettings])
 
   // ブラウザ通知許可状態をチェック

@@ -39,7 +39,7 @@ describe('TodoEntity', () => {
 
   describe('constructor and getters', () => {
     it('should create TodoEntity with correct properties', () => {
-      const mockTodo = createMockTodo()
+      const mockTodo = createMockTodo({})
       const todoEntity = new TodoEntity(mockTodo)
 
       expect(todoEntity.id).toBe(mockTodo.id)
@@ -77,7 +77,7 @@ describe('TodoEntity', () => {
     })
 
     it('should correctly identify open todos', () => {
-      const openTodo = createMockTodo()
+      const openTodo = createMockTodo({})
       const todoEntity = new TodoEntity(openTodo)
 
       expect(todoEntity.isCompleted).toBe(false)
@@ -340,7 +340,7 @@ describe('TodoEntity', () => {
   describe('state changes', () => {
     describe('complete', () => {
       it('should create new completed entity with updated timestamps', () => {
-        const openTodo = createMockTodo()
+        const openTodo = createMockTodo({})
         const todoEntity = new TodoEntity(openTodo)
         const completedEntity = todoEntity.complete()
 
@@ -352,7 +352,7 @@ describe('TodoEntity', () => {
       })
 
       it('should preserve original entity immutability', () => {
-        const openTodo = createMockTodo()
+        const openTodo = createMockTodo({})
         const todoEntity = new TodoEntity(openTodo)
 
         todoEntity.complete()
@@ -399,7 +399,7 @@ describe('TodoEntity', () => {
       })
 
       it('should clamp score to valid range (0-1)', () => {
-        const todo = createMockTodo()
+        const todo = createMockTodo({})
         const todoEntity = new TodoEntity(todo)
 
         const tooLowEntity = todoEntity.updateImportanceScore(-0.5)
@@ -508,7 +508,7 @@ describe('TodoEntity', () => {
 
     describe('fromPlainObject and toPlainObject', () => {
       it('should round-trip correctly', () => {
-        const originalTodo = createMockTodo()
+        const originalTodo = createMockTodo({})
         const todoEntity = TodoEntity.fromPlainObject(originalTodo)
         const roundTripTodo = todoEntity.toPlainObject()
 

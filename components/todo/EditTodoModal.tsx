@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useMemo } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { useTodoForm } from '@/src/presentation/hooks/useTodoForm'
@@ -12,13 +12,15 @@ interface EditTodoModalProps {
   isOpen: boolean
   onClose: () => void
   todo: Todo | null
-  onUpdate?: (_todoId: string, _updates: any) => Promise<void>
+  _onUpdate?: (_todoId: string, _updates: any) => Promise<void>
 }
 
-export function EditTodoModal({ isOpen, onClose, todo, onUpdate }: EditTodoModalProps) {
-  // Clean Architecture: Use custom hook for form management
-  const { state, actions } = useTodoForm({
-    initialTodo: todo ? new TodoEntity({
+export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
+  // メモ化されたTodoEntity - 実際のデータが変更された場合のみ再作成
+  const memoizedTodoEntity = useMemo(() => {
+    if (!todo) {return null}
+
+    return new TodoEntity({
       id: todo.id,
       user_id: todo.user_id,
       title: todo.title || null,
@@ -29,19 +31,18 @@ export function EditTodoModal({ isOpen, onClose, todo, onUpdate }: EditTodoModal
       created_at: todo.created_at,
       updated_at: new Date().toISOString(),
       created_via: todo.created_via || 'manual'
-    }) : null,
+    })
+  }, [todo])
+
+  // Clean Architecture: Use custom hook for form management
+  const { state, actions } = useTodoForm({
+    initialTodo: memoizedTodoEntity,
     onSuccess: () => {
       onClose()
     }
   })
 
-  // Initialize form when todo changes
-  useEffect(() => {
-    if (todo && isOpen) {
-      // Clean Architecture用のエンティティ作成は不要（useTodoFormで処理）
-      // resetFormも不要（initialTodoで初期化される）
-    }
-  }, [todo, isOpen])
+  // Form initialization is handled automatically by useTodoForm via initialTodo prop
 
   const handleSubmit = async (data: {
     title: string
@@ -52,21 +53,16 @@ export function EditTodoModal({ isOpen, onClose, todo, onUpdate }: EditTodoModal
   }) => {
     if (!todo) {return}
 
-    // フォームデータを更新
+    // Update form data first (batched updates to prevent multiple re-renders)
     actions.updateField('title', data.title)
     actions.updateField('body', data.body)
     actions.updateField('deadline', data.deadline)
 
-    // Clean Architecture経由で更新
-    await actions.submitForm()
+    // Submit via Clean Architecture only (no legacy onUpdate call)
+    const success = await actions.submitForm()
 
-    // レガシー互換性のため、onUpdateも呼び出す
-    if (onUpdate) {
-      await onUpdate(todo.id, {
-        title: data.title,
-        body: data.body,
-        deadline: data.deadline
-      })
+    if (success) {
+      onClose()
     }
   }
 

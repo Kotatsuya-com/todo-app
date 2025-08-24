@@ -4,7 +4,18 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    
+    // Balanced TypeScript Settings - Quality without Breaking Changes
     "strict": true,
+    // Note: Removed overly strict settings that break existing code:
+    // - noUncheckedIndexedAccess: Too many array access errors
+    // - exactOptionalPropertyTypes: Breaks existing optional property patterns
+    "noImplicitReturns": true,             // Explicit return statements (safe)
+    "noFallthroughCasesInSwitch": true,    // Safer switch statements (safe)
+    "noImplicitOverride": true,            // Explicit override declarations (safe)
+    
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -20,7 +31,16 @@
     ],
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    
+    // Comprehensive type definitions for development
+    "types": [
+      "@testing-library/jest-dom", 
+      "jest", 
+      "node",
+      "@types/react",
+      "@types/react-dom"
+    ]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

@@ -1,4 +1,5 @@
 // Jest setup file for global test configuration
+import '@testing-library/jest-dom'
 
 // Mock environment variables for consistent testing
 process.env.NODE_ENV = 'test'

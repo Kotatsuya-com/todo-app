@@ -120,10 +120,14 @@ export const useTodoDashboard = (): UseTodoDashboardReturn => {
   }, [user, todoUseCases])
 
   /**
-   * Todoを完了状態に変更
+   * Todoを完了状態に変更 - 楽観的更新でパフォーマンス向上
    */
   const completeTodo = useCallback(async (todoId: string) => {
     if (!user) {return}
+
+    // 楽観的更新：UIを即座に更新（完了済みTodoは表示から削除）
+    const optimisticTodos = todos.filter(todo => todo.id !== todoId)
+    setTodos(optimisticTodos)
 
     try {
       const result = await todoUseCases.completeTodo({
@@ -131,15 +135,17 @@ export const useTodoDashboard = (): UseTodoDashboardReturn => {
         userId: user.id
       })
 
-      if (result.success) {
-        await fetchTodos() // データを再取得
-      } else {
+      if (!result.success) {
+        // 失敗した場合は元のデータを復元
+        await fetchTodos()
         setError(result.error || 'Failed to complete todo')
       }
     } catch (err) {
+      // エラーが発生した場合も元のデータを復元
+      await fetchTodos()
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
     }
-  }, [user, todoUseCases, fetchTodos])
+  }, [user, todos, todoUseCases, fetchTodos])
 
   /**
    * Todoを再開状態に変更
@@ -164,10 +170,14 @@ export const useTodoDashboard = (): UseTodoDashboardReturn => {
   }, [user, todoUseCases, fetchTodos])
 
   /**
-   * Todoを削除
+   * Todoを削除 - 楽観的更新でパフォーマンス向上
    */
   const deleteTodo = useCallback(async (todoId: string) => {
     if (!user) {return}
+
+    // 楽観的更新：UIを即座に更新（削除されたTodoを表示から削除）
+    const optimisticTodos = todos.filter(todo => todo.id !== todoId)
+    setTodos(optimisticTodos)
 
     try {
       const result = await todoUseCases.deleteTodo({
@@ -175,18 +185,20 @@ export const useTodoDashboard = (): UseTodoDashboardReturn => {
         userId: user.id
       })
 
-      if (result.success) {
-        await fetchTodos() // データを再取得
-      } else {
+      if (!result.success) {
+        // 失敗した場合は元のデータを復元
+        await fetchTodos()
         setError(result.error || 'Failed to delete todo')
       }
     } catch (err) {
+      // エラーが発生した場合も元のデータを復元
+      await fetchTodos()
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
     }
-  }, [user, todoUseCases, fetchTodos])
+  }, [user, todos, todoUseCases, fetchTodos])
 
   /**
-   * Todoを更新
+   * Todoを更新 - 楽観的更新を使用してパフォーマンスを向上
    */
   const updateTodo = useCallback(async (
     todoId: string,
@@ -199,6 +211,21 @@ export const useTodoDashboard = (): UseTodoDashboardReturn => {
   ) => {
     if (!user) {return}
 
+    // 楽観的更新：UIを即座に更新
+    const optimisticTodos = todos.map(todo =>
+      todo.id === todoId
+        ? new TodoEntity({
+          ...todo.getData(),
+          title: updates.title !== undefined ? updates.title : todo.title,
+          body: updates.body !== undefined ? updates.body : todo.body,
+          deadline: updates.deadline !== undefined ? updates.deadline : todo.deadline,
+          importance_score: updates.importanceScore !== undefined ? updates.importanceScore : todo.importanceScore,
+          updated_at: new Date().toISOString()
+        })
+        : todo
+    )
+    setTodos(optimisticTodos)
+
     try {
       const result = await todoUseCases.updateTodo({
         id: todoId,
@@ -206,15 +233,18 @@ export const useTodoDashboard = (): UseTodoDashboardReturn => {
         updates
       })
 
-      if (result.success) {
-        await fetchTodos() // データを再取得
-      } else {
+      if (!result.success) {
+        // 失敗した場合は元のデータを復元
+        await fetchTodos()
         setError(result.error || 'Failed to update todo')
       }
+      // 成功した場合は楽観的更新がそのまま残る
     } catch (err) {
+      // エラーが発生した場合も元のデータを復元
+      await fetchTodos()
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
     }
-  }, [user, todoUseCases, fetchTodos])
+  }, [user, todos, todoUseCases, fetchTodos])
 
   /**
    * フィルタリングされたTodo（期限切れフィルター適用）
