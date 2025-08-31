@@ -86,6 +86,9 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
               <X className="w-5 h-5" />
             </Dialog.Close>
           </div>
+          <Dialog.Description className="sr-only">
+            タスクの本文、見出し、緊急度、期限日を更新できます。
+          </Dialog.Description>
 
           <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
             <TodoForm

@@ -1,7 +1,7 @@
 # Communication Guidelines
 
 ## Language
-Always use *Japanese*
+Agent must be always in *Japanese*.
 
 # Repository Guidelines
 

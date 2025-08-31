@@ -209,11 +209,12 @@ export function TodoForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="todo-body" className="block text-sm font-medium text-gray-700 mb-1">
           本文 <span className="text-red-500">*</span>
         </label>
         <div className="space-y-2">
           <textarea
+            id="todo-body"
             value={body}
             onChange={(e) => handleBodyChange(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -290,7 +291,7 @@ export function TodoForm({
 
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <label className="block text-sm font-medium text-gray-700">
+          <label htmlFor="todo-title" className="block text-sm font-medium text-gray-700">
             見出し
           </label>
           <Button
@@ -305,6 +306,7 @@ export function TodoForm({
         </div>
         <input
           type="text"
+          id="todo-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -354,11 +356,12 @@ export function TodoForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-1">
           <Calendar className="w-4 h-4 inline mr-1" />
           期限日（任意）
         </label>
         <input
+          id="deadline"
           type="date"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}

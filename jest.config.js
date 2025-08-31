@@ -40,11 +40,11 @@ const customJestConfig = {
     '\\.helper\\.(ts|js)$'
   ],
 
-  // Coverage configuration - Browser environment (app/, src/, components/)
+  // Coverage configuration - focus on src/components. Exclude Next app router pages
   collectCoverageFrom: [
-    'app/**/*.{js,ts,tsx}',
     'src/**/*.{js,ts,tsx}',
     'components/**/*.{js,ts,tsx}',
+    '!app/**',
     '!**/*.d.ts',
     '!**/index.ts'
   ],
