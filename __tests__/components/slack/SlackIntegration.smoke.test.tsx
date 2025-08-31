@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { SlackIntegration } from '../../../components/slack/SlackIntegration'
 
 jest.mock('@/lib/supabase', () => ({
@@ -17,7 +17,13 @@ describe('SlackIntegration (smoke)', () => {
   const originalClipboard = navigator.clipboard
 
   beforeEach(() => {
-    global.fetch = jest.fn((url: any) => {
+    // window.openをモック（jsdom未実装エラー回避）
+    (window as any).open = jest.fn()
+    ;(window as any).confirm = jest.fn().mockReturnValue(true)
+    global.fetch = jest.fn((url: any, init?: any) => {
+      if (init?.method === 'DELETE' && String(url).includes('/api/slack/integration/disconnect')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) }) as any
+      }
       if (String(url).includes('/api/slack/connections')) {
         return Promise.resolve({ ok: true, json: async () => ({ connections: [{ id: 'c1', workspace_name: 'WS', created_at: '2025-08-01T00:00:00Z' }] }) }) as any
       }
@@ -45,5 +51,25 @@ describe('SlackIntegration (smoke)', () => {
     expect(await screen.findByText('Slack連携')).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('WS')).toBeInTheDocument())
   })
-})
 
+  it('Webhook URLのコピーが実行される', async () => {
+    render(<SlackIntegration />)
+    const btns = await screen.findAllByRole('button')
+    for (const b of btns) {
+      fireEvent.click(b)
+    }
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled())
+  })
+
+  it('連携解除ボタンでDELETE呼び出し', async () => {
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<SlackIntegration />)
+    const disconnect = await screen.findByRole('button', { name: '連携解除' })
+    fireEvent.click(disconnect)
+    await waitFor(() => {
+      const delCalled = (global.fetch as any).mock.calls.some((c: any[]) => c[1]?.method === 'DELETE')
+      expect(delCalled).toBe(true)
+    })
+    confirmSpy.mockRestore()
+  })
+})
