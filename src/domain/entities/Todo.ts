@@ -3,7 +3,7 @@
  * フロントエンド用のTodoエンティティ - ビジネスルールと検証ロジックを定義
  */
 
-export type TodoStatus = 'open' | 'completed'
+export type TodoStatus = 'open' | 'done'
 export type TodoUrgency = 'now' | 'today' | 'tomorrow' | 'later'
 export type TodoQuadrant = 'urgent_important' | 'not_urgent_important' | 'urgent_not_important' | 'not_urgent_not_important'
 export type TodoCreatedVia = 'manual' | 'slack_webhook' | 'slack_url'
@@ -221,7 +221,7 @@ export class TodoEntity {
    * タスクの完了状態を判定
    */
   isCompleted(): boolean {
-    return this._data.status === 'completed'
+    return this._data.status === 'done'
   }
 
   /**
@@ -281,8 +281,7 @@ export class TodoEntity {
   update(updates: Partial<TodoData>): TodoEntity {
     const newData = {
       ...this._data,
-      ...updates,
-      updated_at: new Date().toISOString()
+      ...updates
     }
 
     return new TodoEntity(newData)
@@ -293,7 +292,7 @@ export class TodoEntity {
    */
   complete(): TodoEntity {
     return this.update({
-      status: 'completed'
+      status: 'done'
     })
   }
 

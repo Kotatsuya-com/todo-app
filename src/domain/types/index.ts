@@ -9,7 +9,7 @@ export type { UserData } from '../entities/User'
 
 // 既存のレガシー型との互換性のための型エイリアス
 export type Urgency = 'today' | 'tomorrow' | 'later'
-export type Status = 'open' | 'completed'
+export type Status = 'open' | 'done'
 export type CreatedVia = 'manual' | 'slack_webhook' | 'slack_url'
 export type Quadrant = 'urgent_important' | 'urgent_not_important' | 'not_urgent_important' | 'not_urgent_not_important'
 

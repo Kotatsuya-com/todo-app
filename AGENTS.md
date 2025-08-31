@@ -1,3 +1,8 @@
+# Communication Guidelines
+
+## Language
+Always use *Japanese*
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

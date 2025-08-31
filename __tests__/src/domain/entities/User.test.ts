@@ -124,8 +124,8 @@ describe('UserEntity', () => {
       const todos = [
         { status: 'open', deadline: '2025-08-10' }, // Future date (not overdue)
         { status: 'open', deadline: '2025-08-02' }, // overdue (before 2025-08-06)
-        { status: 'completed', deadline: '2025-08-10' },
-        { status: 'completed', deadline: null },
+        { status: 'done', deadline: '2025-08-10' },
+        { status: 'done', deadline: null },
         { status: 'open', deadline: null }
       ]
 

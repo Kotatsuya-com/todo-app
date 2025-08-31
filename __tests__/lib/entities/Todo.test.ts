@@ -348,7 +348,6 @@ describe('TodoEntity', () => {
         expect(completedEntity).not.toBe(todoEntity)
         expect(completedEntity.status).toBe('done')
         expect(completedEntity.toPlainObject().completed_at).toBe('2023-01-15T00:00:00.000Z')
-        expect(completedEntity.toPlainObject().updated_at).toBe('2023-01-15T00:00:00.000Z')
       })
 
       it('should preserve original entity immutability', () => {

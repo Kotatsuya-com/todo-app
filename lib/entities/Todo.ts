@@ -13,7 +13,7 @@ export interface Todo {
   importance_score: number
   created_via: 'manual' | 'slack_webhook'
   created_at: string
-  updated_at: string
+  updated_at?: string
   completed_at?: string | null
 }
 
@@ -36,6 +36,8 @@ export type Urgency = 'today' | 'tomorrow' | 'later'
 export type TodoQuadrant = 'urgent_important' | 'not_urgent_important' | 'urgent_not_important' | 'not_urgent_not_important'
 
 export class TodoEntity {
+  public static readonly DEFAULT_IMPORTANCE_SCORE = 0.5
+
   constructor(private _todo: Todo) {}
 
   get id(): string {
@@ -205,8 +207,7 @@ export class TodoEntity {
       deadline,
       importance_score: 0.5, // Will be calculated
       created_via: data.created_via || 'manual',
-      created_at: '', // Will be set by database
-      updated_at: '' // Will be set by database
+      created_at: '' // Will be set by database
     })
 
     return {

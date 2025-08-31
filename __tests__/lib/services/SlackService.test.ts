@@ -412,7 +412,7 @@ describe('SlackService', () => {
       const result = await slackService.processWebhookEvent(webhookId, mockPayload)
 
       expect(result.success).toBe(false)
-      expect(result.error).toBe('Internal server error')
+      expect(result.error).toBe('Processing failed: Database connection failed')
       expect(result.statusCode).toBe(500)
     })
 

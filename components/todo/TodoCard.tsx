@@ -27,7 +27,7 @@ export function TodoCard({ todo, onEdit, onComplete, onDelete, onUpdate }: TodoC
     body: todo.body,
     deadline: todo.deadline || null,
     importance_score: todo.importance_score,
-    status: todo.status === 'open' ? 'open' : 'completed',
+    status: todo.status === 'open' ? 'open' : 'done',
     created_at: todo.created_at,
     updated_at: new Date().toISOString(),
     created_via: todo.created_via || 'manual'
@@ -94,7 +94,7 @@ export function TodoCard({ todo, onEdit, onComplete, onDelete, onUpdate }: TodoC
     <div
       className={`
         bg-white rounded-lg shadow-soft p-4 transition-all duration-200 cursor-pointer
-        ${todo.status === 'completed' ? 'opacity-60' : ''}
+        ${todo.status === 'done' ? 'opacity-60' : ''}
         ${overdue ? 'border-2 border-red-300' : 'border border-gray-200'}
         ${isDeleting ? 'scale-95 opacity-50' : 'hover:shadow-md'}
         ${isHovered || isExpanded ? 'transform scale-105 shadow-lg z-10' : ''}

@@ -148,7 +148,7 @@ export function createTestTodoSet(): {
     }),
     completed: createTestTodoEntity({
       id: 'completed-todo',
-      status: 'completed',
+      status: 'done',
       importance_score: 1000
     }),
     overdue: createTestTodoEntity({

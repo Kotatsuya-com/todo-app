@@ -63,7 +63,7 @@ const mockTodos = [
     body: 'This is completed',
     deadline: null,
     importance_score: 1000,
-    status: 'completed',
+    status: 'done',
     created_at: '2025-08-01T10:00:00Z',
     updated_at: '2025-08-02T10:00:00Z',
     created_via: 'manual'
@@ -126,7 +126,7 @@ describe('useTodoDashboard', () => {
         stats: {
           total: mockTodos.length,
           active: mockTodos.filter(t => t.status === 'open').length,
-          completed: mockTodos.filter(t => t.status === 'completed').length,
+          completed: mockTodos.filter(t => t.status === 'done').length,
           overdue: mockTodos.filter(t => t.isOverdue()).length
         }
       }

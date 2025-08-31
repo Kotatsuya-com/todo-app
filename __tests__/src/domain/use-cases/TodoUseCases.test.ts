@@ -57,7 +57,7 @@ class MockTodoRepository implements TodoRepositoryInterface {
   }
 
   async findCompletedTodos(userId: string): Promise<{ success: boolean; data?: TodoEntity[]; error?: string }> {
-    const completedTodos = this.todos.filter(t => t.userId === userId && t.status === 'completed')
+    const completedTodos = this.todos.filter(t => t.userId === userId && t.status === 'done')
     return { success: true, data: completedTodos }
   }
 
@@ -121,7 +121,7 @@ class MockTodoRepository implements TodoRepositoryInterface {
     const existingTodo = this.todos[index]
     const completedTodo = new TodoEntity({
       ...existingTodo.getData(),
-      status: 'completed',
+      status: 'done',
       updated_at: new Date().toISOString()
     })
     this.todos[index] = completedTodo
@@ -162,7 +162,7 @@ class MockTodoRepository implements TodoRepositoryInterface {
 
   async getTodoStats(userId: string): Promise<{ success: boolean; data?: { total: number; completed: number; active: number; overdue: number }; error?: string }> {
     const userTodos = this.todos.filter(t => t.userId === userId)
-    const completed = userTodos.filter(t => t.status === 'completed').length
+    const completed = userTodos.filter(t => t.status === 'done').length
     const active = userTodos.filter(t => t.status === 'open').length
     const overdue = userTodos.filter(t => t.isOverdue()).length
 
@@ -200,9 +200,36 @@ class MockTodoRepository implements TodoRepositoryInterface {
   }
 
   async createComparison(winnerId: string, loserId: string, userId: string): Promise<{ success: boolean; error?: string }> {
-    // Simple mock implementation
+    // Eloレーティング計算のシミュレーション
+    const winner = this.todos.find(t => t.id === winnerId)
+    const loser = this.todos.find(t => t.id === loserId)
+
+    if (!winner || !loser) {
+      return { success: false, error: 'Todo not found' }
+    }
+
+    // 実際のElo計算ロジック
+    const K = 32
+    const expectedWinner = 1 / (1 + Math.pow(10, (loser.importanceScore - winner.importanceScore) / 400))
+    const expectedLoser = 1 / (1 + Math.pow(10, (winner.importanceScore - loser.importanceScore) / 400))
+
+    const newWinnerScore = winner.importanceScore + K * (1 - expectedWinner)
+    const newLoserScore = loser.importanceScore + K * (0 - expectedLoser)
+
+    // スコア更新（内部状態を更新）
+    const winnerIndex = this.todos.findIndex(t => t.id === winnerId)
+    const loserIndex = this.todos.findIndex(t => t.id === loserId)
+
+    if (winnerIndex !== -1) {
+      this.todos[winnerIndex] = this.todos[winnerIndex].update({ importance_score: newWinnerScore })
+    }
+    if (loserIndex !== -1) {
+      this.todos[loserIndex] = this.todos[loserIndex].update({ importance_score: newLoserScore })
+    }
+
     return { success: true }
   }
+
 
   // Helper method for tests
   setTodos(todos: TodoEntity[]) {
@@ -371,7 +398,7 @@ describe('TodoUseCases', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(result.data!.status).toBe('completed')
+      expect(result.data!.status).toBe('done')
     })
 
     it('should handle non-existent todo', async () => {
@@ -502,6 +529,9 @@ describe('TodoUseCases', () => {
       })
 
       // Update importance scores to create proper quadrants
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValue({ success: true, data: true })
+
       await todoUseCases.updateImportanceScores([
         { id: urgentImportant.data!.id, importanceScore: 1500 }, // Important (>=1200)
         { id: notUrgentImportant.data!.id, importanceScore: 1500 }, // Important (>=1200)
@@ -629,6 +659,303 @@ describe('TodoUseCases', () => {
 
       expect(result.success).toBe(true)
       expect(result.data).toHaveLength(0)
+    })
+  })
+
+  describe('createComparison', () => {
+    beforeEach(async () => {
+      // 準備: 2つのTODOを作成
+      await todoUseCases.createTodo({
+        userId,
+        title: 'Todo for comparison 1',
+        body: 'First todo',
+        createdVia: 'manual'
+      })
+
+      await todoUseCases.createTodo({
+        userId,
+        title: 'Todo for comparison 2',
+        body: 'Second todo',
+        createdVia: 'manual'
+      })
+    })
+
+    it('should create comparison with ownership check', async () => {
+      const todos = mockRepository.getTodos()
+      const winner = todos[0]
+      const loser = todos[1]
+
+      // モックの動作を設定
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValueOnce({ success: true, data: true }) // winner owned
+        .mockResolvedValueOnce({ success: true, data: true }) // loser owned
+
+      // 実行
+      const result = await todoUseCases.createComparison(userId, winner.id, loser.id)
+
+      // 検証
+      expect(result.success).toBe(true)
+      expect(mockRepository.isOwnedByUser).toHaveBeenCalledTimes(2)
+      expect(mockRepository.isOwnedByUser).toHaveBeenCalledWith(winner.id, userId)
+      expect(mockRepository.isOwnedByUser).toHaveBeenCalledWith(loser.id, userId)
+    })
+
+    it('should reject comparison when winner not owned', async () => {
+      const todos = mockRepository.getTodos()
+      const winnerId = todos[0].id
+      const loserId = todos[1].id
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValueOnce({ success: false, data: false }) // winner not owned
+
+      const result = await todoUseCases.createComparison(userId, winnerId, loserId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('access denied')
+    })
+
+    it('should reject comparison when loser not owned', async () => {
+      const todos = mockRepository.getTodos()
+      const winnerId = todos[0].id
+      const loserId = todos[1].id
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValueOnce({ success: true, data: true }) // winner owned
+        .mockResolvedValueOnce({ success: false, data: false }) // loser not owned
+
+      const result = await todoUseCases.createComparison(userId, winnerId, loserId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('access denied')
+    })
+
+    it('should handle repository errors', async () => {
+      const todos = mockRepository.getTodos()
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValue({ success: true, data: true })
+
+      // createComparisonを失敗させる
+      mockRepository.createComparison = jest.fn()
+        .mockResolvedValue({ success: false, error: 'Database error' })
+
+      const result = await todoUseCases.createComparison(userId, todos[0].id, todos[1].id)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Database error')
+    })
+
+    it('should update Elo ratings correctly', async () => {
+      // 初期スコアが異なるTODOを設定
+      const todos = mockRepository.getTodos()
+      todos[0] = todos[0].update({ importance_score: 1200 })
+      todos[1] = todos[1].update({ importance_score: 1000 })
+      mockRepository.setTodos(todos)
+
+      const winner = todos[0]
+      const loser = todos[1]
+      const initialWinnerScore = winner.importanceScore
+      const initialLoserScore = loser.importanceScore
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValue({ success: true, data: true })
+
+      // 実行
+      const result = await todoUseCases.createComparison(userId, winner.id, loser.id)
+      expect(result.success).toBe(true)
+
+      // 更新後のTODOを取得
+      const updatedTodos = mockRepository.getTodos()
+      const updatedWinner = updatedTodos.find(t => t.id === winner.id)
+      const updatedLoser = updatedTodos.find(t => t.id === loser.id)
+
+      // Eloレーティングが更新されていることを確認
+      expect(updatedWinner!.importanceScore).toBeGreaterThan(initialWinnerScore)
+      expect(updatedLoser!.importanceScore).toBeLessThan(initialLoserScore)
+    })
+  })
+
+  describe('updateImportanceScores', () => {
+    beforeEach(async () => {
+      // 準備: 3つのTODOを作成
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Todo 1',
+        createdVia: 'manual'
+      })
+
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Todo 2',
+        createdVia: 'manual'
+      })
+
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Todo 3',
+        createdVia: 'manual'
+      })
+    })
+
+    it('should update multiple scores with ownership check', async () => {
+      const todos = mockRepository.getTodos()
+      const updates = [
+        { id: todos[0].id, importanceScore: 1500 },
+        { id: todos[1].id, importanceScore: 1200 }
+      ]
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValue({ success: true, data: true })
+
+      // updateImportanceScoresメソッドのモックを上書きしない（MockRepositoryの実装を使う）
+
+      const result = await todoUseCases.updateImportanceScores(updates, userId)
+
+      expect(result.success).toBe(true)
+      expect(mockRepository.isOwnedByUser).toHaveBeenCalledTimes(2)
+
+      // スコアが更新されていることを確認
+      const updatedTodos = mockRepository.getTodos()
+      expect(updatedTodos.find(t => t.id === todos[0].id)!.importanceScore).toBe(1500)
+      expect(updatedTodos.find(t => t.id === todos[1].id)!.importanceScore).toBe(1200)
+    })
+
+    it('should reject negative importance scores', async () => {
+      const todos = mockRepository.getTodos()
+      const updates = [
+        { id: todos[0].id, importanceScore: -100 }
+      ]
+
+      const result = await todoUseCases.updateImportanceScores(updates, userId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('non-negative')
+
+      // スコアが変更されていないことを確認
+      const unchangedTodos = mockRepository.getTodos()
+      expect(unchangedTodos.find(t => t.id === todos[0].id)!.importanceScore).toBe(1000)
+    })
+
+    it('should reject when todo not owned', async () => {
+      const todos = mockRepository.getTodos()
+      const updates = [
+        { id: todos[0].id, importanceScore: 1500 }
+      ]
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValue({ success: false, data: false })
+
+      const result = await todoUseCases.updateImportanceScores(updates, userId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Access denied')
+    })
+
+    it('should handle repository errors', async () => {
+      const todos = mockRepository.getTodos()
+      const updates = [
+        { id: todos[0].id, importanceScore: 1500 }
+      ]
+
+      mockRepository.isOwnedByUser = jest.fn()
+        .mockResolvedValue({ success: true, data: true })
+
+      mockRepository.updateImportanceScores = jest.fn()
+        .mockResolvedValue({ success: false, error: 'Database error' })
+
+      const result = await todoUseCases.updateImportanceScores(updates, userId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Database error')
+    })
+  })
+
+  describe('getActiveTodos', () => {
+    beforeEach(async () => {
+      // アクティブなTODOを作成
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Active todo 1',
+        createdVia: 'manual'
+      })
+
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Active todo 2',
+        createdVia: 'manual'
+      })
+
+      // 完了したTODOを作成
+      const completedResult = await todoUseCases.createTodo({
+        userId,
+        body: 'Completed todo',
+        createdVia: 'manual'
+      })
+
+      if (completedResult.success && completedResult.data) {
+        await todoUseCases.completeTodo({
+          id: completedResult.data.id,
+          userId
+        })
+      }
+    })
+
+    it('should return only active todos', async () => {
+      const result = await todoUseCases.getActiveTodos(userId)
+
+      expect(result.success).toBe(true)
+      expect(result.data).toHaveLength(2)
+      result.data!.forEach(todo => {
+        expect(todo.status).toBe('open')
+      })
+    })
+
+    it('should handle repository errors', async () => {
+      mockRepository.findActiveTodos = jest.fn()
+        .mockResolvedValue({ success: false, error: 'Database error' })
+
+      const result = await todoUseCases.getActiveTodos(userId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Database error')
+    })
+  })
+
+  describe('getOverdueTodos', () => {
+    beforeEach(async () => {
+      // 期限切れのTODOを作成
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Overdue todo',
+        deadline: '2020-01-01', // 過去の日付
+        createdVia: 'manual'
+      })
+
+      // 期限内のTODOを作成
+      await todoUseCases.createTodo({
+        userId,
+        body: 'Future todo',
+        deadline: '2030-01-01', // 未来の日付
+        createdVia: 'manual'
+      })
+    })
+
+    it('should return only overdue todos', async () => {
+      const result = await todoUseCases.getOverdueTodos(userId)
+
+      expect(result.success).toBe(true)
+      expect(result.data).toHaveLength(1)
+      expect(result.data![0].body).toBe('Overdue todo')
+    })
+
+    it('should handle repository errors', async () => {
+      mockRepository.findOverdueTodos = jest.fn()
+        .mockResolvedValue({ success: false, error: 'Database error' })
+
+      const result = await todoUseCases.getOverdueTodos(userId)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Database error')
     })
   })
 

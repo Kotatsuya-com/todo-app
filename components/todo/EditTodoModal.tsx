@@ -27,7 +27,7 @@ export function EditTodoModal({ isOpen, onClose, todo }: EditTodoModalProps) {
       body: todo.body,
       deadline: todo.deadline || null,
       importance_score: todo.importance_score,
-      status: todo.status === 'open' ? 'open' : 'completed',
+      status: todo.status === 'open' ? 'open' : 'done',
       created_at: todo.created_at,
       updated_at: new Date().toISOString(),
       created_via: todo.created_via || 'manual'

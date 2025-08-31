@@ -81,10 +81,18 @@ export class TitleGenerationService {
       logger.info({
         contentLength: entity.contentLength,
         generatedTitle: processedTitle,
-        model: entity.options.model
+        model: entity.options.model,
+        hasMetadata: !!response.metadata
       }, 'Title generated successfully')
 
-      return createServiceSuccess(response)
+      const successResult = createServiceSuccess(response)
+      logger.debug({
+        isSuccess: !successResult.error,
+        hasData: !!successResult.data,
+        title: successResult.data?.title
+      }, 'Returning success result from TitleGenerationService')
+
+      return successResult
 
     } catch (error: any) {
       logger.error({

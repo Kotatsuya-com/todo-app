@@ -40,10 +40,10 @@ describe('/api/generate-title API Routes', () => {
     it('should generate title successfully', async () => {
       const requestBody = { content: 'This is a sample content for generating a title' }
       const mockResponse = {
-        success: true,
         data: {
           title: 'Generated Task Title'
-        }
+        },
+        error: null
       }
 
       mockRequest.json = jest.fn().mockResolvedValue(requestBody)
@@ -57,6 +57,8 @@ describe('/api/generate-title API Routes', () => {
       expect(mockRequest.json).toHaveBeenCalled()
       expect(container.services.titleGenerationService.generateTitle).toHaveBeenCalledWith(requestBody.content)
       expect(response.status).toBe(200)
+      expect(response.status).toBeDefined()
+      expect(response.status).not.toBeUndefined()
       expect(responseBody).toEqual({ title: mockResponse.data.title })
     })
 
@@ -96,9 +98,12 @@ describe('/api/generate-title API Routes', () => {
     it('should handle service errors', async () => {
       const requestBody = { content: 'Sample content' }
       const mockErrorResponse = {
-        success: false,
-        error: 'OpenAI API error',
-        statusCode: 500
+        data: null,
+        error: {
+          code: 'GENERATION_FAILED',
+          message: 'OpenAI API error',
+          statusCode: 500
+        }
       }
 
       mockRequest.json = jest.fn().mockResolvedValue(requestBody)
@@ -116,8 +121,12 @@ describe('/api/generate-title API Routes', () => {
     it('should handle service errors without status code', async () => {
       const requestBody = { content: 'Sample content' }
       const mockErrorResponse = {
-        success: false,
-        error: 'Unknown service error'
+        data: null,
+        error: {
+          code: 'UNKNOWN_ERROR',
+          message: 'Unknown service error',
+          statusCode: undefined
+        }
       }
 
       mockRequest.json = jest.fn().mockResolvedValue(requestBody)
@@ -171,8 +180,8 @@ describe('/api/generate-title API Routes', () => {
     it('should allow mock updates for testing different scenarios', async () => {
       const requestBody = { content: 'Sample content' }
       const customResponse = {
-        success: true,
-        data: { title: 'Custom Generated Title' }
+        data: { title: 'Custom Generated Title' },
+        error: null
       }
 
       mockRequest.json = jest.fn().mockResolvedValue(requestBody)
@@ -183,6 +192,7 @@ describe('/api/generate-title API Routes', () => {
       const response = await handlers.POST(mockRequest)
       const responseBody = await response.json()
 
+      expect(response.status).toBe(200)
       expect(responseBody).toEqual({ title: customResponse.data.title })
     })
   })

@@ -18,9 +18,9 @@ export type Database = {
       graphql: {
         Args: {
           variables?: Json
-          operationName?: string
-          query?: string
           extensions?: Json
+          query?: string
+          operationName?: string
         }
         Returns: Json
       }
@@ -201,6 +201,7 @@ export type Database = {
           body: string | null
           completed_at: string | null
           created_at: string | null
+          created_via: string | null
           deadline: string | null
           id: string
           importance_score: number | null
@@ -212,6 +213,7 @@ export type Database = {
           body?: string | null
           completed_at?: string | null
           created_at?: string | null
+          created_via?: string | null
           deadline?: string | null
           id?: string
           importance_score?: number | null
@@ -223,6 +225,7 @@ export type Database = {
           body?: string | null
           completed_at?: string | null
           created_at?: string | null
+          created_via?: string | null
           deadline?: string | null
           id?: string
           importance_score?: number | null
@@ -354,15 +357,15 @@ export type Database = {
         Returns: undefined
       }
       create_user_slack_webhook: {
-        Args: { p_slack_connection_id: string; p_user_id: string }
+        Args: { p_user_id: string; p_slack_connection_id: string }
         Returns: {
-          slack_connection_id: string
-          user_id: string
-          id: string
           created_at: string
           event_count: number
           is_active: boolean
           webhook_id: string
+          slack_connection_id: string
+          user_id: string
+          id: string
         }[]
       }
       generate_webhook_id: {
@@ -372,6 +375,29 @@ export type Database = {
       generate_webhook_secret: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      insert_todo_for_user: {
+        Args: {
+          p_body?: string
+          p_deadline?: string
+          p_importance_score?: number
+          p_status?: string
+          p_created_via?: string
+          p_user_id: string
+          p_title: string
+        }
+        Returns: {
+          title: string
+          deadline: string
+          body: string
+          id: string
+          user_id: string
+          created_via: string
+          completed_at: string
+          created_at: string
+          status: string
+          importance_score: number
+        }[]
       }
     }
     Enums: {

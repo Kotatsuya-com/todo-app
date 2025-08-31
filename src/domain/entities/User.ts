@@ -115,7 +115,7 @@ export class UserEntity {
    */
   calculateStats(todos: Array<{ status: string; deadline?: string | null }>): UserStats {
     const totalTodos = todos.length
-    const completedTodos = todos.filter(todo => todo.status === 'completed').length
+    const completedTodos = todos.filter(todo => todo.status === 'done').length
     const activeTodos = todos.filter(todo => todo.status === 'open').length
 
     const overdueTodos = todos.filter(todo => {

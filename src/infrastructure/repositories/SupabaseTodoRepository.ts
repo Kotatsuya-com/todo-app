@@ -123,7 +123,7 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
    * 完了したTodoのみを取得
    */
   async findCompletedTodos(userId: string): Promise<RepositoryResult<TodoEntity[]>> {
-    return this.findTodos({ userId, status: 'completed' })
+    return this.findTodos({ userId, status: 'done' })
   }
 
   /**
@@ -138,8 +138,6 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
    */
   async create(request: CreateTodoRequest): Promise<RepositoryResult<TodoEntity>> {
     try {
-      const now = new Date().toISOString()
-
       const todoData = {
         user_id: request.userId,
         title: request.title || null,
@@ -147,8 +145,6 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
         deadline: request.deadline || null,
         importance_score: TodoEntity.DEFAULT_IMPORTANCE_SCORE,
         status: 'open' as const,
-        created_at: now,
-        updated_at: now,
         created_via: request.createdVia || 'manual'
       }
 
@@ -182,9 +178,7 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
    */
   async update(request: UpdateTodoRequest): Promise<RepositoryResult<TodoEntity>> {
     try {
-      const updateData: any = {
-        updated_at: new Date().toISOString()
-      }
+      const updateData: any = {}
 
       if (request.title !== undefined) { updateData.title = request.title }
       if (request.body !== undefined) { updateData.body = request.body }
@@ -270,8 +264,7 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
       const { data: todoData, error: todoError } = await this.supabase
         .from('todos')
         .update({
-          status: 'completed',
-          updated_at: now
+          status: 'done'
         })
         .eq('id', id)
         .select()
@@ -309,14 +302,11 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
    */
   async reopen(id: string): Promise<RepositoryResult<TodoEntity>> {
     try {
-      const now = new Date().toISOString()
-
       // Todoのステータスを更新
       const { data: todoData, error: todoError } = await this.supabase
         .from('todos')
         .update({
-          status: 'open',
-          updated_at: now
+          status: 'open'
         })
         .eq('id', id)
         .select()
@@ -352,15 +342,12 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
    */
   async updateImportanceScores(updates: Array<{ id: string; importanceScore: number }>): Promise<RepositoryResult<void>> {
     try {
-      const now = new Date().toISOString()
-
       // Supabaseでは一括更新のため、個別に実行
       for (const update of updates) {
         const { error } = await this.supabase
           .from('todos')
           .update({
-            importance_score: update.importanceScore,
-            updated_at: now
+            importance_score: update.importanceScore
           })
           .eq('id', update.id)
 
@@ -407,7 +394,7 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
 
       const todos = data || []
       const total = todos.length
-      const completed = todos.filter(todo => todo.status === 'completed').length
+      const completed = todos.filter(todo => todo.status === 'done').length
       const active = todos.filter(todo => todo.status === 'open').length
 
       const overdue = todos.filter(todo => {
@@ -530,7 +517,6 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
             body
           )
         `)
-        .eq('user_id', userId)
         .gte('completed_at', startDate)
         .lte('completed_at', endDate)
         .order('completed_at', { ascending: false })
@@ -653,16 +639,23 @@ export class SupabaseTodoRepository implements TodoRepositoryInterface {
       const newWinnerScore = winner.importance_score + K * (1 - expectedWinner)
       const newLoserScore = loser.importance_score + K * (0 - expectedLoser)
 
-      // Update importance scores
-      const { error: updateError } = await this.supabase
+      // Update importance scores - use update instead of upsert to avoid RLS INSERT policy issues
+      const { error: updateWinnerError } = await this.supabase
         .from('todos')
-        .upsert([
-          { id: winnerId, importance_score: newWinnerScore },
-          { id: loserId, importance_score: newLoserScore }
-        ])
+        .update({ importance_score: newWinnerScore })
+        .eq('id', winnerId)
 
-      if (updateError) {
-        return { success: false, error: updateError.message }
+      if (updateWinnerError) {
+        return { success: false, error: updateWinnerError.message }
+      }
+
+      const { error: updateLoserError } = await this.supabase
+        .from('todos')
+        .update({ importance_score: newLoserScore })
+        .eq('id', loserId)
+
+      if (updateLoserError) {
+        return { success: false, error: updateLoserError.message }
       }
 
       return { success: true, data: undefined }

@@ -48,7 +48,7 @@ export default function DashboardPage() {
       urgency: (selectedTodo.deadline ? 'today' : 'later') as Urgency,
       deadline: selectedTodo.deadline || undefined,
       importance_score: selectedTodo.importanceScore,
-      status: (selectedTodo.status === 'completed' ? 'completed' : 'open') as Status,
+      status: (selectedTodo.status === 'done' ? 'done' : 'open') as Status,
       created_at: selectedTodo.createdAt,
       user_id: selectedTodo.userId,
       created_via: (selectedTodo.createdVia === 'slack_url' ? 'slack_webhook' : selectedTodo.createdVia) as CreatedVia
@@ -75,7 +75,7 @@ export default function DashboardPage() {
         urgency: (todo.deadline ? 'today' : 'later') as Urgency,
         deadline: todo.deadline || undefined,
         importance_score: todo.importanceScore,
-        status: (todo.status === 'completed' ? 'completed' : 'open') as Status,
+        status: (todo.status === 'done' ? 'done' : 'open') as Status,
         created_at: todo.createdAt,
         user_id: todo.userId,
         created_via: (todo.createdVia === 'slack_url' ? 'slack_webhook' : todo.createdVia) as CreatedVia

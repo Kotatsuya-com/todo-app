@@ -192,10 +192,10 @@ export class SlackService {
   async deactivateWebhook(webhookId: string, userId: string): Promise<SlackServiceResult<void>> {
     // 1. Webhookの所有者確認
     const webhookResult = await this._slackRepo.findWebhookById(webhookId)
-    if (webhookResult.error || !webhookResult.data) {
+    if (!webhookResult || webhookResult.error || !webhookResult.data) {
       return {
         success: false,
-        error: webhookResult.error?.message || 'Webhook not found',
+        error: webhookResult?.error?.message || 'Webhook not found',
         statusCode: 404
       }
     }
@@ -238,7 +238,7 @@ export class SlackService {
       // webhook設定を取得
       const webhookResult = await this._slackRepo.findWebhookById(webhookId)
 
-      if (webhookResult.error || !webhookResult.data) {
+      if (!webhookResult || webhookResult.error || !webhookResult.data) {
         return {
           success: false,
           error: 'Webhook not found',
@@ -251,7 +251,13 @@ export class SlackService {
       // ユーザー情報と絵文字設定を取得
       const userResult = await this._slackRepo.findUserWithSettings(webhook.user_id)
 
-      if (userResult.error) {
+      if (!userResult || userResult.error) {
+        slackLogger.error({
+          error: userResult?.error,
+          webhookId,
+          userId: webhook.user_id
+        }, 'Failed to fetch user data for webhook processing')
+
         return {
           success: false,
           error: 'Failed to fetch user data',
@@ -263,12 +269,19 @@ export class SlackService {
 
       // 追加でユーザーのSlack User IDを取得
       const slackUserIdResult = await this._slackRepo.getDirectSlackUserId(webhook.user_id)
-      const userSlackId = userWithSettings?.slack_user_id || slackUserIdResult.data?.slack_user_id || null
+      const userSlackId = userWithSettings?.slack_user_id || slackUserIdResult?.data?.slack_user_id || null
 
       // Slack接続情報を取得
       const connectionResult = await this._slackRepo.findConnectionById(webhook.slack_connection_id)
 
-      if (connectionResult.error || !connectionResult.data) {
+      if (!connectionResult || connectionResult.error || !connectionResult.data) {
+        slackLogger.error({
+          error: connectionResult?.error,
+          webhookId,
+          slackConnectionId: webhook.slack_connection_id,
+          userId: webhook.user_id
+        }, 'Failed to fetch Slack connection for webhook processing')
+
         return {
           success: false,
           error: 'Slack connection not found',
@@ -297,9 +310,18 @@ export class SlackService {
       }
 
     } catch (error) {
+      slackLogger.error({
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        webhookId,
+        payload: {
+          type: payload.type,
+          eventType: payload.event?.type
+        }
+      }, 'Unhandled error in webhook event processing')
+
       return {
         success: false,
-        error: 'Internal server error',
+        error: error instanceof Error ? `Processing failed: ${error.message}` : 'Internal server error',
         statusCode: 500
       }
     }
@@ -334,7 +356,7 @@ export class SlackService {
     const eventKey = `${event.item.channel}:${event.item.ts}:${event.reaction}:${event.user}`
     const existingEventResult = await this._slackRepo.findProcessedEvent(eventKey)
 
-    if (existingEventResult.data) {
+    if (existingEventResult && existingEventResult.data) {
       return {
         success: true,
         data: {
@@ -378,8 +400,15 @@ export class SlackService {
       eventKey,
       userWithSettings?.enable_webhook_notifications ?? true
     ).catch((error) => {
-      // Log error for debugging
-      slackLogger.error({ error }, 'Background task processing failed')
+      slackLogger.error({
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        eventKey,
+        webhookId: webhook.id,
+        userId: webhook.user_id,
+        reaction: event.reaction,
+        channel: event.item.channel,
+        messageTs: event.item.ts
+      }, 'Background task processing failed - this should not prevent webhook response')
     })
 
     return {
@@ -399,19 +428,35 @@ export class SlackService {
     _notificationsEnabled: boolean
   ): Promise<string | null> {
     try {
+      slackLogger.info({
+        eventKey,
+        userId: webhook.user_id,
+        webhookId: webhook.id,
+        reaction: event.reaction,
+        channel: event.item.channel,
+        messageTs: event.item.ts
+      }, 'Starting background task processing')
+
       // メッセージ内容を取得
+      slackLogger.info({ channel: event.item.channel, ts: event.item.ts }, 'Fetching Slack message content')
       const messageData = await getSlackMessage(event.item.channel, event.item.ts, slackConnection.access_token)
 
       if (!messageData?.text) {
+        slackLogger.warn({ messageData }, 'No message text found - skipping task creation')
         return null
       }
+
+      slackLogger.info({ messageLength: messageData.text.length, messagePreview: messageData.text.substring(0, 100) }, 'Successfully fetched message content')
 
       // タイトルを自動生成
       let title: string
       try {
+        slackLogger.info({ messageText: messageData.text.substring(0, 100) }, 'Generating task title with OpenAI')
         title = await generateTaskTitle(messageData.text)
+        slackLogger.info({ generatedTitle: title }, 'Successfully generated task title')
       } catch (error) {
         title = `Slack reaction: ${event.reaction}`
+        slackLogger.warn({ error, fallbackTitle: title }, 'Failed to generate title, using fallback')
       }
 
       // 緊急度を絵文字から決定
@@ -424,6 +469,16 @@ export class SlackService {
         urgency = 'later'
       }
 
+      slackLogger.info({
+        reaction: event.reaction,
+        mappedUrgency: urgency,
+        emojiSettings: {
+          today: emojiSettings.today_emoji,
+          tomorrow: emojiSettings.tomorrow_emoji,
+          later: emojiSettings.later_emoji
+        }
+      }, 'Mapped reaction to urgency level')
+
       // Todoエンティティを作成
       const todoData = TodoEntity.createNew({
         user_id: webhook.user_id,
@@ -433,47 +488,134 @@ export class SlackService {
         created_via: 'slack_webhook'
       })
 
+      slackLogger.info({
+        todoData: {
+          user_id: todoData.user_id,
+          title: todoData.title,
+          importance_score: todoData.importance_score,
+          deadline: todoData.deadline,
+          created_via: todoData.created_via,
+          status: todoData.status
+        },
+        originalUrgency: urgency
+      }, 'Created TodoEntity')
+
       // タスクを作成 - データベース関数を使用してリアルタイム通知に対応
-      const todoResult = await this._todoRepo.createViaRPC({
-        p_user_id: webhook.user_id,
-        p_title: title,
-        p_body: messageData.text,
-        p_deadline: todoData.deadline,
-        p_importance_score: todoData.importance_score,
-        p_status: 'open',
-        p_created_via: 'slack_webhook'
-      })
+      slackLogger.info({
+        rpcParams: {
+          p_user_id: webhook.user_id,
+          p_title: title,
+          p_body: messageData.text.substring(0, 100),
+          p_deadline: todoData.deadline,
+          p_importance_score: todoData.importance_score,
+          p_status: 'open',
+          p_created_via: 'slack_webhook'
+        }
+      }, 'Attempting to create todo via RPC function')
 
       let newTodo
-      if (todoResult.error) {
+      try {
+        const todoResult = await this._todoRepo.createViaRPC({
+          p_user_id: webhook.user_id,
+          p_title: title,
+          p_body: messageData.text,
+          p_deadline: todoData.deadline,
+          p_importance_score: todoData.importance_score,
+          p_status: 'open',
+          p_created_via: 'slack_webhook'
+        })
+
+        if (!todoResult || todoResult.error || !todoResult.data) {
+          slackLogger.warn({
+            error: todoResult?.error instanceof Error
+              ? { message: todoResult.error.message, stack: todoResult.error.stack }
+              : todoResult?.error || 'Unknown RPC error'
+          }, 'RPC creation failed, attempting fallback method')
+
+          // フォールバック: 従来の方法を使用
+          const fallbackResult = await this._todoRepo.create(todoData)
+          if (!fallbackResult || fallbackResult.error || !fallbackResult.data) {
+            slackLogger.error({
+              fallbackError: fallbackResult?.error instanceof Error
+                ? { message: fallbackResult.error.message, stack: fallbackResult.error.stack }
+                : fallbackResult?.error || 'Unknown fallback error'
+            }, 'Both RPC and fallback creation failed')
+            throw new Error(`Failed to create todo: RPC error - ${todoResult?.error instanceof Error ? todoResult.error.message : 'Unknown RPC error'}, Fallback error - ${fallbackResult?.error instanceof Error ? fallbackResult.error.message : 'Unknown fallback error'}`)
+          }
+          newTodo = fallbackResult.data!
+          slackLogger.info({ todoId: newTodo.id }, 'Successfully created todo via fallback method')
+        } else {
+          newTodo = todoResult.data!
+          slackLogger.info({ todoId: newTodo.id }, 'Successfully created todo via RPC method')
+        }
+      } catch (error) {
+        slackLogger.warn({
+          error: error instanceof Error
+            ? { message: error.message, stack: error.stack }
+            : error
+        }, 'RPC creation threw exception, attempting fallback method')
+
         // フォールバック: 従来の方法を使用
         const fallbackResult = await this._todoRepo.create(todoData)
-        if (fallbackResult.error) {
-          throw new Error('Failed to create todo')
+        if (!fallbackResult || fallbackResult.error || !fallbackResult.data) {
+          slackLogger.error({
+            fallbackError: fallbackResult?.error instanceof Error
+              ? { message: fallbackResult.error.message, stack: fallbackResult.error.stack }
+              : fallbackResult?.error || 'Unknown fallback error'
+          }, 'Both RPC and fallback creation failed')
+          throw new Error(`Failed to create todo: RPC threw exception - ${error instanceof Error ? error.message : 'Unknown exception'}, Fallback error - ${fallbackResult?.error instanceof Error ? fallbackResult.error.message : 'Unknown fallback error'}`)
         }
         newTodo = fallbackResult.data!
-      } else {
-        newTodo = todoResult.data!
+        slackLogger.info({ todoId: newTodo.id }, 'Successfully created todo via fallback method after RPC exception')
       }
 
       // イベント処理完了を記録（重複防止用）
-      await this._slackRepo.createProcessedEvent({
-        event_key: eventKey,
-        user_id: webhook.user_id,
-        channel_id: event.item.channel,
-        message_ts: event.item.ts,
-        reaction: event.reaction,
-        todo_id: newTodo.id
-      })
+      slackLogger.info({ eventKey, todoId: newTodo.id }, 'Recording processed event')
+      try {
+        await this._slackRepo.createProcessedEvent({
+          event_key: eventKey,
+          user_id: webhook.user_id,
+          channel_id: event.item.channel,
+          message_ts: event.item.ts,
+          reaction: event.reaction,
+          todo_id: newTodo.id
+        })
+        slackLogger.info({ eventKey }, 'Successfully recorded processed event')
+      } catch (error) {
+        slackLogger.error({
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+          eventKey,
+          todoId: newTodo.id
+        }, 'Failed to record processed event - this may allow duplicate processing')
+      }
 
       // Webhook統計を更新
-      await this._slackRepo.updateWebhookStats(webhook.id, webhook.event_count + 1)
+      slackLogger.info({ webhookId: webhook.id, newEventCount: webhook.event_count + 1 }, 'Updating webhook statistics')
+      try {
+        await this._slackRepo.updateWebhookStats(webhook.id, webhook.event_count + 1)
+        slackLogger.info({ webhookId: webhook.id }, 'Successfully updated webhook statistics')
+      } catch (error) {
+        slackLogger.error({
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+          webhookId: webhook.id
+        }, 'Failed to update webhook statistics - this is non-critical')
+      }
+
+      slackLogger.info({
+        todoId: newTodo.id,
+        eventKey,
+        processingTime: Date.now()
+      }, 'Background task processing completed successfully')
 
       return newTodo.id
 
     } catch (error) {
-      // Log error for debugging
-      slackLogger.error({ error }, 'Error processing reaction event')
+      slackLogger.error({
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        eventKey,
+        webhookId: webhook.id,
+        userId: webhook.user_id
+      }, 'Error processing reaction event in background task')
       throw error
     }
   }

@@ -27,7 +27,7 @@ export function createWebhookHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの場合は401を返す
@@ -120,7 +120,7 @@ export function createWebhookHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json({ message: 'Webhook deactivated successfully' })
+      return NextResponse.json({ message: 'Webhook deactivated successfully' }, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの場合は401を返す
@@ -163,7 +163,7 @@ export function createSlackEventsHandlers(container: DependencyContainer) {
       // URL verification (初回設定時のチャレンジレスポンス)
       if (payload.type === 'url_verification') {
         logger.info({ challenge: payload.challenge }, 'URL verification challenge received')
-        return NextResponse.json({ challenge: payload.challenge })
+        return NextResponse.json({ challenge: payload.challenge }, { status: 200 })
       }
 
       // 署名検証（セキュリティ）
@@ -188,7 +188,7 @@ export function createSlackEventsHandlers(container: DependencyContainer) {
       }
 
       logger.info({ result: result.data }, 'Webhook processing completed')
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error) {
       const logger = container?.utils?.webhookLogger || console
@@ -300,7 +300,7 @@ export function createDisconnectHandlers(container: DependencyContainer) {
         )
       }
 
-      return NextResponse.json(disconnectionResult.data)
+      return NextResponse.json(disconnectionResult.data, { status: 200 })
 
     } catch (error) {
       const logger = container?.utils?.webhookLogger || console
@@ -331,7 +331,7 @@ export function createEmojiSettingsHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       if (error.message && (
@@ -362,7 +362,7 @@ export function createEmojiSettingsHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       if (error.message && (
@@ -390,7 +390,7 @@ export function createEmojiSettingsHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       if (error.message && (
@@ -425,7 +425,7 @@ export function createNotificationSettingsHandlers(container: DependencyContaine
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの場合は401を返す
@@ -457,7 +457,7 @@ export function createNotificationSettingsHandlers(container: DependencyContaine
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの場合は401を返す
@@ -493,7 +493,7 @@ export function createSlackConnectionsHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json({ connections: result.data?.connections })
+      return NextResponse.json({ connections: result.data?.connections }, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの場合は401を返す
@@ -529,7 +529,7 @@ export function createSlackConnectionsHandlers(container: DependencyContainer) {
         return NextResponse.json({ error: result.error }, { status: result.statusCode || 500 })
       }
 
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true }, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの場合は401を返す
@@ -667,7 +667,7 @@ export function createSlackMessageHandlers(container: DependencyContainer) {
         )
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       // 認証エラーの処理
@@ -698,12 +698,15 @@ export function createSlackMessageHandlers(container: DependencyContainer) {
  */
 export function createTitleGenerationHandlers(container: DependencyContainer) {
   const POST: APIHandler = async (request: NextRequest) => {
+    const logger = container?.utils?.webhookLogger
+
     try {
       // リクエストボディを解析
       const { content } = await request.json()
 
       // 基本的な入力バリデーション
       if (!content || typeof content !== 'string') {
+        logger?.debug({ content }, 'Invalid content provided for title generation')
         return NextResponse.json(
           { error: 'Content is required' },
           { status: 400 }
@@ -711,19 +714,42 @@ export function createTitleGenerationHandlers(container: DependencyContainer) {
       }
 
       // サービス層でタイトル生成処理
+      logger?.debug({ contentLength: content.length }, 'Calling title generation service')
       const result = await container.services.titleGenerationService.generateTitle(content)
 
-      if (!result.success) {
+      if (result.error) {
+        logger?.warn({ error: result.error, statusCode: result.error.statusCode }, 'Title generation service returned error')
         return NextResponse.json(
-          { error: result.error },
-          { status: result.statusCode || 500 }
+          { error: result.error.message },
+          { status: result.error.statusCode || 500 }
         )
       }
 
-      return NextResponse.json({ title: result.data!.title })
+      // Validate response data exists
+      if (!result.data || !result.data.title) {
+        logger?.error({ result }, 'Title generation succeeded but response data is missing')
+        return NextResponse.json(
+          { error: 'Title generation response is invalid' },
+          { status: 500 }
+        )
+      }
+
+      // Success response with explicit status code
+      logger?.debug({ title: result.data.title }, 'Returning successful title generation response')
+      return NextResponse.json(
+        { title: result.data.title },
+        { status: 200 }
+      )
 
     } catch (error: any) {
-      container?.utils?.webhookLogger.error({ error }, 'Failed to generate title')
+      logger?.error({
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error
+      }, 'Unexpected error in title generation handler')
+
       return NextResponse.json(
         { error: 'Failed to generate title' },
         { status: 500 }
@@ -757,7 +783,7 @@ export function createAppUrlDetectionHandlers(container: DependencyContainer) {
         )
       }
 
-      return NextResponse.json(result.data)
+      return NextResponse.json(result.data, { status: 200 })
 
     } catch (error: any) {
       const logger = container?.utils?.webhookLogger || console

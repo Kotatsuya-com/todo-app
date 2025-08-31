@@ -15,7 +15,7 @@ export interface UseCaseResult<T> {
 export interface GetTodosUseCaseRequest {
   userId: string
   filters?: {
-    status?: 'open' | 'completed'
+    status?: 'open' | 'done'
     isOverdue?: boolean
     quadrant?: 'urgent_important' | 'not_urgent_important' | 'urgent_not_important' | 'not_urgent_not_important'
   }
